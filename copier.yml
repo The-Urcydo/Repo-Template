@@ -1,0 +1,100 @@
+# Copier template: agent-ready repo skeleton.
+#   Create:  copier copy --trust gh:<you>/<this-repo> path/to/new-project
+#   Update:  cd path/to/new-project && copier update --trust     (project must be a clean git repo)
+# --trust is needed because the template runs two of its own stdlib-only tools after generating
+# (tools/sync_indexes.py and tools/sync_agents.py) to build the generated indexes and adapters.
+
+_min_copier_version: "9.4.0"
+_subdirectory: template
+_templates_suffix: .jinja
+_answers_file: .copier-answers.yml
+_envops:
+  keep_trailing_newline: true
+
+# Everything not listed here is copied. Module folders and the unused layout are excluded.
+_exclude:
+  - .git
+  - __pycache__
+  - "*.pyc"
+  - .DS_Store
+  - "{% if 'product' not in enabled_modules %}docs/product{% endif %}"
+  - "{% if 'operations' not in enabled_modules %}docs/operations{% endif %}"
+  - "{% if 'security' not in enabled_modules %}docs/security{% endif %}"
+  - "{% if 'security' not in enabled_modules %}SECURITY.md{% endif %}"
+  - "{% if 'security' not in enabled_modules %}agents/roles/security.md{% endif %}"
+  - "{% if 'release' not in enabled_modules %}docs/release{% endif %}"
+  - "{% if 'infra' not in enabled_modules %}infra{% endif %}"
+  - "{% if 'evals' not in enabled_modules %}agents/evals{% endif %}"
+  - "{% if 'github' not in enabled_modules %}.github{% endif %}"
+  - "{% if layout != 'workspace' %}apps{% endif %}"
+  - "{% if layout != 'workspace' %}packages{% endif %}"
+  - "{% if layout == 'workspace' %}src{% endif %}"
+
+_tasks:
+  - command: "{{ _copier_python }} tools/sync_indexes.py"
+  - command: "{{ _copier_python }} tools/sync_agents.py"
+
+_message_after_copy: |
+  Created {{ project_name }} (profile: {{ profile }}, layout: {{ layout }}).
+
+  Next:
+    cd {{ _copier_conf.dst_path }}
+    git init && git add -A && git commit -m "Initial commit from agent-repo-skeleton"
+    python3 tools/check.py            # should print "ok"
+    python3 tools/check.py --stubs    # placeholders to fill or delete
+  Then read docs/how-to/bootstrap-from-template.md.
+
+project_name:
+  type: str
+  help: Project name (shown in README.md and AGENTS.md)
+  validator: "{% if not project_name.strip() %}Project name is required{% endif %}"
+
+description:
+  type: str
+  help: One sentence on what this project is for
+  default: "TODO describe this project in one sentence"
+
+profile:
+  type: str
+  help: How much of the skeleton to create
+  choices:
+    "full: every module (product, operations, security, release, infra, evals, github)": full
+    "standard: product, operations, github": standard
+    "lean: core only (docs, work, agents, tools, code folders)": lean
+    "custom: choose modules yourself": custom
+  default: full
+
+custom_modules:
+  type: str
+  multiselect: true
+  help: Which optional modules to include
+  choices:
+    product: product
+    operations: operations
+    security: security
+    release: release
+    infra: infra
+    evals: evals
+    github: github
+  default: []
+  when: "{{ profile == 'custom' }}"
+
+layout:
+  type: str
+  help: Code layout
+  choices:
+    "single: one codebase in src/": single
+    "workspace: apps/ and packages/ (monorepo style)": workspace
+  default: single
+
+enable_claude_adapter:
+  type: bool
+  help: Generate Claude Code adapters (.claude/agents, .claude/skills, CLAUDE.md shims) from agents/?
+  default: true
+
+# Computed, never asked: the list of modules to materialize for the chosen profile.
+enabled_modules:
+  type: yaml
+  when: false
+  default: |
+    {% if profile == 'full' %}[product, operations, security, release, infra, evals, github]{% elif profile == 'standard' %}[product, operations, github]{% elif profile == 'custom' %}{{ custom_modules | tojson }}{% else %}[]{% endif %}

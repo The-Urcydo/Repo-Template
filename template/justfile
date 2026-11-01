@@ -1,0 +1,55 @@
+# Optional shortcuts. Every recipe is a thin wrapper over a plain `python3 tools/...` command,
+# so nothing here is required: agents without `just` run the commands shown in AGENTS.md.
+# Install just: https://github.com/casey/just
+
+default:
+    @just --list
+
+# Health check (run before every handoff)
+check:
+    python3 tools/check.py
+
+# Health check, warnings fail too (CI)
+check-strict:
+    python3 tools/check.py --strict
+
+# List unfilled placeholders
+stubs:
+    python3 tools/check.py --stubs
+
+# Regenerate indexes and agent adapters
+sync:
+    python3 tools/sync_indexes.py
+    python3 tools/sync_agents.py
+
+# Unit tests for the tooling
+test:
+    python3 -m unittest discover -s tools/tests
+
+# New work item: just item my-slug   (add --light for a one-file item)
+item *args:
+    python3 tools/new_item.py {{args}}
+
+# Move an item: just move <id> in-review --next "..." --evidence "..."
+move *args:
+    python3 tools/transition.py {{args}}
+
+# Archive done items and flag stale ones
+sweep:
+    python3 tools/archive_item.py --sweep
+
+# New ADR: just adr "Use X for Y"
+adr title:
+    python3 tools/new_adr.py "{{title}}"
+
+# New doc: just doc how-to "Deploy to staging"
+doc type title:
+    python3 tools/new_doc.py {{type}} "{{title}}"
+
+# Human decision queue
+questions:
+    python3 tools/question.py list
+
+# List optional modules, or preview cutting one: just cut evals
+cut name="":
+    python3 tools/remove_module.py {{name}}

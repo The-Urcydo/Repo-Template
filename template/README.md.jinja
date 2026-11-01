@@ -1,0 +1,36 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Start here
+
+| You are | Read |
+|---|---|
+| A human | this file, then `docs/INDEX.md` and `work/HUMAN.md` (decisions waiting for you) |
+| An AI agent | `AGENTS.md`, then your role in `agents/README.md` and your item on `work/ACTIVE.md` |
+
+## How this repo is organized
+
+The repo is split by how fast things change, so each folder has one lifecycle and one owner:
+
+- `docs/` holds what is true now: tutorials, how-to guides, reference, explanation, and decisions (ADRs).
+- `work/` holds what is happening now: work items, the human decision queue, research notes. Expected to be pruned.
+- `agents/` holds how the work gets done: roles, protocols, and skills. Tool-neutral, so any agent can follow them.
+- `tools/` holds small standard-library scripts that keep all of the above consistent.
+- The code lives in {% if layout == 'workspace' %}`apps/` and `packages/`{% else %}`src/`{% endif %}, tested in `tests/`.
+
+Full folder map: [docs/reference/repo-map.md](docs/reference/repo-map.md). Why it is built this way: [docs/explanation/design-rationale.md](docs/explanation/design-rationale.md).
+
+## Everyday commands
+
+```
+python3 tools/check.py                    # is the repo healthy? (run before every handoff)
+python3 tools/new_item.py <slug>          # start tracking a piece of work
+python3 tools/check.py --stubs            # list unfilled placeholders
+python3 tools/remove_module.py            # list optional modules you can cut
+```
+
+## Built from a template
+
+This repo was generated from `agent-repo-skeleton` with Copier. Pull template improvements with
+`copier update --trust` (clean git tree required). See [docs/how-to/update-from-template.md](docs/how-to/update-from-template.md).

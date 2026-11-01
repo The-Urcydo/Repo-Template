@@ -1,0 +1,34 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Python (tools/ and tests)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Secrets and local config: never commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Personal agent instructions (local only)
+CLAUDE.local.md
+AGENTS.local.md
+AGENTS.override.md
+
+# Coordination locks and per-item scratch space
+work/.locks/
+work/items/*/scratch/
+
+# Dependencies and build output (adjust for your stack)
+node_modules/
+dist/
+build/
+coverage/

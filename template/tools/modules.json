@@ -1,0 +1,35 @@
+{
+  "modules": {
+    "product": {
+      "summary": "Product vision, requirements and roadmap docs.",
+      "paths": ["docs/product"]
+    },
+    "operations": {
+      "summary": "Runbooks and postmortems (with their doc templates).",
+      "paths": ["docs/operations"]
+    },
+    "security": {
+      "summary": "Threat model, security policy and the security reviewer role.",
+      "paths": ["docs/security", "SECURITY.md", "agents/roles/security.md"],
+      "removal_notes": "Delete any reviewer checklist items that mention security review."
+    },
+    "release": {
+      "summary": "Release process and checklist docs.",
+      "paths": ["docs/release"]
+    },
+    "infra": {
+      "summary": "Infrastructure-as-code and environment definitions.",
+      "paths": ["infra"],
+      "removal_notes": "Remove any CI steps or scripts that reference infra/."
+    },
+    "evals": {
+      "summary": "Golden tasks that test the agent harness itself (roles, skills, AGENTS.md).",
+      "paths": ["agents/evals"]
+    },
+    "github": {
+      "summary": "CI workflow, pull-request template and CODEOWNERS.",
+      "paths": [".github"],
+      "removal_notes": "Without CI, run `python3 tools/check.py` and the unit tests yourself before merging."
+    }
+  }
+}

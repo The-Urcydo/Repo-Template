@@ -1,0 +1,27 @@
+---
+title: Update from the template
+type: how-to
+status: active
+summary: Pull template improvements into a repo created from it with copier update, and resolve conflicts.
+---
+# Update from the template
+
+Goal: get new roles, protocols, tools and docs that the template gained since you generated the repo.
+
+Before you start: Copier is installed (`pipx install copier` or `pip install copier`), the repo is a git repo with a clean working tree, and `.copier-answers.yml` exists.
+
+## Steps
+
+1. Commit or stash all local changes: `git status` must be clean.
+2. Update: `copier update --trust`. Copier compares the template version you used with the latest tagged version and merges the difference. `--trust` lets it run the two sync tools afterwards, which rebuild the generated files.
+3. Resolve conflicts. Copier leaves normal merge-conflict markers in files you also changed. Search for `<<<<<<<`, fix, and remove the markers.
+4. Verify: `python3 tools/sync_indexes.py && python3 tools/sync_agents.py && python3 tools/check.py`.
+5. Review the diff and commit.
+
+## If something goes wrong
+
+- Generated files conflict: do not merge them. Delete the conflicted generated file and re-run the sync tools; they rebuild it from sources.
+- A module you cut came back: `.copier-answers.yml` should say `profile: custom` and list the modules you kept. `remove_module.py --apply` writes this; fix it by hand if you cut a module manually, then cut it again.
+- You want a specific template version: `copier update --trust --vcs-ref <tag>`.
+
+Why Copier and what `--trust` is for: `docs/decisions/0004-deliver-with-copier-and-cuttable-modules.md`.

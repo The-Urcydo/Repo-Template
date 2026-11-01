@@ -1,0 +1,7 @@
+# Replace with real GitHub usernames or teams, then uncomment.
+# Changes to the agent harness change every agent's behavior: require the human's review.
+#
+# *                    @your-github-username
+# /AGENTS.md           @your-github-username
+# /agents/             @your-github-username
+# /docs/decisions/     @your-github-username
