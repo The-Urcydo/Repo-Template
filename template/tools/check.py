@@ -370,7 +370,7 @@ def check_generated(root: Path, rep: Report) -> None:
     for p in orphans:
         rep.error("generated-drift", rel(root, p), "orphan generated index: run `python3 tools/sync_indexes.py`")
     for problem in sync_agents.drift(root):
-        rep.error("adapter-drift", ".claude/", f"{problem}: run `python3 tools/sync_agents.py`")
+        rep.error("adapter-drift", "agents/adapters/", f"{problem}: run `python3 tools/sync_agents.py`")
 
 
 def check_modules(root: Path, rep: Report) -> None:

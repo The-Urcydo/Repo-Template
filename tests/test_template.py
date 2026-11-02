@@ -143,7 +143,7 @@ def test_every_documented_command_and_flag_exists(full):
     cmd = re.compile(r"python3 tools/([a-z_]+)\.py([^`\n]*)")
     for p in full.rglob("*.md"):
         rel = p.relative_to(full).as_posix()
-        if rel.startswith((".claude/", "work/archive/")) or ".git/" in rel:
+        if rel.startswith((".claude/", ".cursor/", "work/archive/")) or rel == ".github/copilot-instructions.md" or ".git/" in rel:
             continue
         for m in cmd.finditer(p.read_text(encoding="utf-8")):
             tool, rest = m.group(1), m.group(2)
