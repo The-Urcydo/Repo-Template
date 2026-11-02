@@ -5,7 +5,6 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
-.ToBeDeleted/
 
 # Python (tools/ and tests)
 __pycache__/
@@ -23,12 +22,10 @@ venv/
 *.pem
 *.key
 
-# Personal agent instructions and local state (local only)
+# Personal agent instructions (local only)
 CLAUDE.local.md
 AGENTS.local.md
 AGENTS.override.md
-.gemini/
-.windsurf/
 
 # Coordination locks and per-item scratch space
 work/.locks/

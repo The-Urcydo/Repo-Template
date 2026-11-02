@@ -23,10 +23,6 @@ Works out of the box: `tools/sync_agents.py` generates `.claude/agents/<role>.md
 
 Prefer to manage `.claude/` yourself? Set `"enabled": false` for `claude` in `agents/adapters/targets.json`, run `python3 tools/sync_agents.py` (it removes what it generated), then copy `agents/roles/*.md` and `agents/skills/*` as you like.
 
-## Cursor and GitHub Copilot
-
-Built-in adapters are shipped disabled by default in `agents/adapters/targets.json`. Set `"enabled": true` under `"cursor"` (generates `.cursor/rules/*.mdc`) or `"copilot"` (generates `.github/copilot-instructions.md`) and run `python3 tools/sync_agents.py`.
-
 ## Another tool with its own folder format
 
 1. Add a target in `agents/adapters/targets.json`.

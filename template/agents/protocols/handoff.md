@@ -17,7 +17,7 @@ A session ends and a fresh one starts with no memory. The handoff file is the me
 | `planned` | `in-progress`, `blocked`, `draft`, `canceled` |
 | `in-progress` | `in-review`, `blocked`, `planned`, `canceled` |
 | `in-review` | `verified`, `in-progress`, `blocked`, `draft`, `canceled` |
-| `verified` | `done`, `in-progress` |
+| `verified` | `done`, `in-progress`, `canceled` |
 | `blocked` | `draft`, `planned`, `in-progress`, `canceled` |
 | `stale` | `draft`, `planned`, `in-progress`, `in-review`, `canceled` |
 | `done` | (final; archive it) |

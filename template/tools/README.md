@@ -13,7 +13,7 @@ Plain `python3 tools/<name>.py`, no installs. Run any tool with `--help`. Comman
 |---|---|
 | `check.py` | Health check: front matter, links, ownership, state machine, generated-file drift. Run before every handoff |
 | `sync_indexes.py` | Regenerates `docs/INDEX.md`, `work/ACTIVE.md`, `agents/ROSTER.md`, repo map, module registry |
-| `sync_agents.py` | Regenerates `.claude/` adapters, `CLAUDE.md` shims, and optional Cursor/Copilot files from `agents/` |
+| `sync_agents.py` | Regenerates `.claude/` adapters and `CLAUDE.md` shims from `agents/` |
 | `new_item.py` | Creates a work item (full or `--light`) |
 | `item_file.py` | Adds a role-owned file (plan, tasks, review, research, design, security-review) to an item from its template |
 | `transition.py` | Moves an item through the lifecycle, enforcing the rules |

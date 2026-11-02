@@ -29,10 +29,7 @@ _exclude:
   - "{% if 'github' not in enabled_modules %}.github{% endif %}"
   - "{% if layout != 'workspace' %}apps{% endif %}"
   - "{% if layout != 'workspace' %}packages{% endif %}"
-  - "{% if layout not in ['single', 'data-ml'] %}src{% endif %}"
-  - "{% if layout != 'data-ml' %}data{% endif %}"
-  - "{% if layout != 'data-ml' %}notebooks{% endif %}"
-  - "{% if layout == 'minimal' %}tests{% endif %}"
+  - "{% if layout == 'workspace' %}src{% endif %}"
 
 _tasks:
   - command: "{{ _copier_python }} tools/sync_indexes.py"
@@ -89,8 +86,6 @@ layout:
   choices:
     "single: one codebase in src/": single
     "workspace: apps/ and packages/ (monorepo style)": workspace
-    "data-ml: src/, data/, notebooks/, tests/ (AI/ML & data science)": data-ml
-    "minimal: harness + docs + work only (bring your own engine/code folders)": minimal
   default: single
 
 enable_claude_adapter:

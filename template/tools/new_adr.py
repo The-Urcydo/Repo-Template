@@ -25,10 +25,14 @@ from _lib import (  # noqa: E402
 NUM_RE = re.compile(r"^(\d{4})-.+\.md$")
 
 
+ADR_REF_RE = re.compile(r"(?:adr-?)?(\d{1,4})", re.I)
+
+
 def _parse_adr_num(raw: str) -> str:
-    m = re.search(r"(\d+)", str(raw).strip())
+    """Accept 3, 0003, ADR-0003 or adr3; reject anything else instead of guessing."""
+    m = ADR_REF_RE.fullmatch(str(raw).strip())
     if not m:
-        raise ValueError(f"invalid ADR number '{raw}'")
+        raise ValueError(f"invalid ADR number '{raw}'; use 3, 0003 or ADR-0003")
     return f"{int(m.group(1)):04d}"
 
 

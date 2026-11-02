@@ -10,7 +10,7 @@ A [Copier](https://copier.readthedocs.io) template for new repositories that one
 | Volatile work | `work/` | Inbox, one folder per work item with a `handoff.md`, a generated board, and a queue of questions for the human |
 | Agent harness | `agents/` | Role charters, protocols, skills. **The source of truth** for any agent tool |
 | Tooling | `tools/` | Standard-library Python (3.9+): health check, index generators, work/ADR/doc helpers |
-| Code | `src/`, `apps/` + `packages/`, `data/` + `notebooks/`, or `minimal` | Placeholders for your stack or engine |
+| Code | `src/` or `apps/` + `packages/`, `tests/` | Placeholders for you to replace |
 
 Rules that make it work for agents: a short root `AGENTS.md` (≤100 lines, enforced), a `CLAUDE.md` shim beside each `AGENTS.md`, front matter on every doc, one declared owner per folder, evidence required before work counts as done, and `python3 tools/check.py` as the single "is the repo healthy?" command.
 
@@ -42,14 +42,12 @@ You answer five questions: project name, one-line description, **profile**, **la
 |---|---|
 | `single` (default) | `src/`, `tests/` |
 | `workspace` | `apps/`, `packages/`, `tests/` |
-| `data-ml` | `src/`, `data/`, `notebooks/`, `tests/` |
-| `minimal` | none (for game engines, hardware/firmware, or custom root layouts) |
 
 Modules are folders that nothing in the core links to, so they can be removed at any time: `python3 tools/remove_module.py <name> --apply` (omit `--apply` for a dry run). It also records the cut in `.copier-answers.yml`, so a later update does not bring the module back.
 
 ## Use it with agents other than Claude
 
-`agents/` is tool-neutral. Claude Code reads `.claude/` and `CLAUDE.md`, which are *generated* from `agents/` by `python3 tools/sync_agents.py` (the sync refuses to overwrite files it did not generate). Optional adapters for Cursor (`.cursor/rules/`) and GitHub Copilot (`.github/copilot-instructions.md`) can be enabled in `agents/adapters/targets.json`. Any other agent can read `AGENTS.md` and `agents/` directly. See `docs/how-to/use-with-other-agents.md` in a generated project.
+`agents/` is tool-neutral. Claude Code reads `.claude/` and `CLAUDE.md`, which are *generated* from `agents/` by `python3 tools/sync_agents.py` (the sync refuses to overwrite files it did not generate). Any other agent can read `AGENTS.md` and `agents/` directly. See `docs/how-to/use-with-other-agents.md` in a generated project.
 
 ## Pull in template improvements
 
@@ -66,12 +64,6 @@ Local edits are merged, and modules you cut stay cut. See `docs/how-to/update-fr
 python3 -m venv .venv && . .venv/bin/activate
 pip install -r requirements-dev.txt
 python -m pytest tests -q
-```
-
-Or run the zero-dependency stdlib unit tests directly without Copier:
-
-```
-python3 -m unittest discover -s template/tools/tests
 ```
 
 The tests generate real projects and exercise them: every profile × layout, custom module sets, deterministic output, idempotent sync, every documented command and flag, the tutorial end to end, the shipped unit tests, parity between the stdlib front-matter parser and PyYAML, and a full `copier update` that keeps local edits and cut modules.

@@ -14,7 +14,7 @@ All tools are `python3 tools/<name>.py`, standard library only. Every tool suppo
 |---|---|---|
 | `check.py` | nothing | Health check. `--strict` makes warnings fail; `--json` machine output; `--stubs` lists placeholders (exit 0) |
 | `sync_indexes.py` | generated indexes | Rebuilds `docs/INDEX.md`, `work/ACTIVE.md`, `agents/ROSTER.md`, `docs/reference/repo-map.md`, `docs/reference/modules.md`. `--check` only reports drift |
-| `sync_agents.py` | `.claude/`, `CLAUDE.md` shims, optional `.cursor/` / Copilot adapters, `agents/adapters/manifest.json` | Generates adapters from `agents/`. `--check` only reports drift. Refuses to overwrite files it did not generate |
+| `sync_agents.py` | `.claude/`, `CLAUDE.md` shims, `agents/adapters/manifest.json` | Generates adapters from `agents/`. `--check` only reports drift. Refuses to overwrite files it did not generate |
 | `new_item.py <slug> [--title T] [--light] [--owner ROLE] [--status S]` | `work/items/` | Id is `<date>-<slug>`; duplicates get `-2`, `-3`. Full item creates `handoff.md` and `brief.md` |
 | `item_file.py <id> <kind>` | `work/items/<id>/` | Kinds: `brief plan tasks review research design security-review`. Refuses to overwrite |
 | `transition.py <id> [<status>] --next "..." [--owner ROLE] [--evidence "..."]` | the item's `handoff.md`, board | `--evidence` may repeat. Leave the status out (or repeat current status) to change only next step, owner or evidence. Rules: see `agents/protocols/handoff.md` |
@@ -43,6 +43,8 @@ Tools that create or move things also regenerate the indexes, so `docs/INDEX.md`
 | `human-queue` | error / warn | Malformed question, or one waiting more than 7 days (warn) |
 | `generated-drift` `adapter-drift` | error | A generated file differs from its source: run the sync tools |
 | `module-partial` | warn | A module is partly present |
+| `module-requires` | error | A module requires another module that is not installed |
+| `adapters` | error | `agents/adapters/targets.json` is not valid JSON |
 | `related-code` | error | A doc's `related_code` path does not exist |
 | `doc-stale` `doc-size` `skill-size` `item-stale` `item-archive` `agents-md-tree` | warn | Needs attention but does not break anything |
 | `placeholder` | info | Unfilled placeholder or `TODO`; fill or delete |

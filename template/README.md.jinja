@@ -17,7 +17,7 @@ The repo is split by how fast things change, so each folder has one lifecycle an
 - `work/` holds what is happening now: work items, the human decision queue, research notes. Expected to be pruned.
 - `agents/` holds how the work gets done: roles, protocols, and skills. Tool-neutral, so any agent can follow them.
 - `tools/` holds small standard-library scripts that keep all of the above consistent.
-- {% if layout == 'workspace' %}The code lives in `apps/` and `packages/`, tested in `tests/`.{% elif layout == 'data-ml' %}The code, datasets and notebooks live in `src/`, `data/` and `notebooks/`, tested in `tests/`.{% elif layout == 'minimal' %}Add your project or engine folders at the root with a `README.md` (`summary` and `owner_role`) in each.{% else %}The code lives in `src/`, tested in `tests/`.{% endif %}
+- The code lives in {% if layout == 'workspace' %}`apps/` and `packages/`{% else %}`src/`{% endif %}, tested in `tests/`.
 
 Full folder map: [docs/reference/repo-map.md](docs/reference/repo-map.md). Why it is built this way: [docs/explanation/design-rationale.md](docs/explanation/design-rationale.md).
 
