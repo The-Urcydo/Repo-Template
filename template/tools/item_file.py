@@ -4,7 +4,7 @@
 Usage:
   python3 tools/item_file.py <item-id-or-unique-fragment> <kind>
 
-Kinds: brief | plan | tasks | review | research | design
+Kinds: brief | plan | tasks | review | research | design | security-review
 Creates work/items/<id>/<kind>.md from work/_templates/ with the id and title filled in.
 Refuses to overwrite an existing file. Light (single-file) items have no extra files.
 """
@@ -25,6 +25,7 @@ KINDS = {
     "review": ("review.md", "review.md"),
     "research": ("research-note.md", "research.md"),
     "design": ("design.md", "design.md"),
+    "security-review": ("security-review.md", "security-review.md"),
 }
 
 
@@ -37,7 +38,8 @@ def add_file(root: Path, query: str, kind: str) -> Path:
     tpl_name, out_name = KINDS[kind]
     tpl = root / "work" / "_templates" / tpl_name
     if not tpl.exists():
-        raise FileNotFoundError(f"missing template work/_templates/{tpl_name}")
+        hint = " (is the security module installed?)" if kind == "security-review" else ""
+        raise FileNotFoundError(f"missing template work/_templates/{tpl_name}{hint}")
     target = item.path / out_name
     if target.exists():
         raise FileExistsError(f"{target.relative_to(root).as_posix()} already exists")

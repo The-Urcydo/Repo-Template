@@ -47,7 +47,7 @@ def transition(root: Path, query: str, target: str | None, next_action: str | No
         current = str(fm.get("status", ""))
         if current not in TRANSITIONS:
             raise ValueError(f"current status '{current}' is not a valid status")
-        if target is None:
+        if target is None or target == current:
             return _update_in_place(root, item, text, current, next_action, owner, evidence)
         if target not in TRANSITIONS[current]:
             allowed = ", ".join(sorted(TRANSITIONS[current])) or "(none: this status is final)"
@@ -84,8 +84,8 @@ def _update_in_place(root: Path, item, text: str, current: str, next_action: str
     evidence = [e for e in evidence if e.strip()]
     if not ((next_action or "").strip() or owner or evidence):
         raise ValueError("nothing to change: pass a status, or at least one of --next, --owner, --evidence")
-    if current == "done":
-        raise ValueError("done is final; there is nothing left to hand over")
+    if current in ("done", "canceled"):
+        raise ValueError(f"{current} is final; there is nothing left to hand over")
     if owner:
         roles = load_roles(root)
         if roles and owner not in roles:

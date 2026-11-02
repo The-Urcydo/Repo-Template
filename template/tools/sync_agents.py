@@ -8,11 +8,14 @@ Generated for Claude Code (when enabled in agents/adapters/targets.json):
   <dir>/CLAUDE.md                 one-line shim importing the sibling AGENTS.md
                                   (Claude Code reads CLAUDE.md instead of AGENTS.md
                                   when both exist, so each AGENTS.md needs a shim)
+Generated for Cursor (optional, disabled by default in targets.json):
+  .cursor/rules/00-repo.mdc       root AGENTS.md wrapped as a Cursor always-on rule
+  .cursor/rules/role-<role>.mdc   role charters as manual/agent-requested Cursor rules
+Generated for GitHub Copilot (optional, disabled by default in targets.json):
+  .github/copilot-instructions.md pointer to AGENTS.md, docs/INDEX.md, and agents/
+
 Everything generated is recorded in agents/adapters/manifest.json. Never edit
 generated files by hand; edit the source and re-run this tool.
-
-Other agent tools (DeepSeek-based agents, Cursor, Codex, ...) read AGENTS.md and the
-plain files in agents/ directly. To add a target, extend targets.json and this file.
 
 Usage: python3 tools/sync_agents.py [--check]
 """
@@ -77,31 +80,72 @@ def render_subagent(role: str, fm: dict, body: str, owned: list[str]) -> str:
     return "\n".join(lines)
 
 
+def render_cursor_rule(role: str, fm: dict, body: str, owned: list[str]) -> str:
+    mission = " ".join(str(fm.get("mission", "")).split())
+    desc = f"Role charter for '{role}': {mission}"
+    lines = [
+        "---",
+        f"description: {yaml_scalar(desc)}",
+        "alwaysApply: false",
+        "---",
+        render_subagent(role, fm, body, owned).split("---\n", 2)[-1].strip(),
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def expected_outputs(root: Path) -> dict[str, bytes]:
     """Map of repo-relative POSIX path -> bytes that the adapters should contain."""
     targets = load_targets(root)
-    claude = targets.get("claude", {})
     out: dict[str, bytes] = {}
-    if not claude.get("enabled"):
-        return out
-    agents_dir = claude.get("agents_dir", ".claude/agents")
-    skills_dir = claude.get("skills_dir", ".claude/skills")
     owners = folder_owners(root)
-    for role, r in load_roles(root).items():
-        if r["fm"]:
-            owned = [f"`{f}/`" for f, who in sorted(owners.items()) if who == role and f]
-            out[f"{agents_dir}/{role}.md"] = render_subagent(role, r["fm"], r["body"], owned).encode("utf-8")
-    skills_root = root / "agents" / "skills"
-    if skills_root.is_dir():
-        for sk in sorted(skills_root.iterdir()):
-            if sk.is_dir() and (sk / "SKILL.md").exists():
-                for f in sorted(sk.rglob("*")):
-                    if f.is_file() and "__pycache__" not in f.parts:
-                        out[f"{skills_dir}/{sk.name}/{f.relative_to(sk).as_posix()}"] = f.read_bytes()
-    if claude.get("claude_md_shims", True):
-        for d in _agents_md_dirs(root):
-            rel = (d / "CLAUDE.md").relative_to(root).as_posix()
-            out[rel] = SHIM.encode("utf-8")
+    roles = load_roles(root)
+
+    claude = targets.get("claude", {})
+    if claude.get("enabled"):
+        agents_dir = claude.get("agents_dir", ".claude/agents")
+        skills_dir = claude.get("skills_dir", ".claude/skills")
+        for role, r in roles.items():
+            if r["fm"]:
+                owned = [f"`{f}/`" for f, who in sorted(owners.items()) if who == role and f]
+                out[f"{agents_dir}/{role}.md"] = render_subagent(role, r["fm"], r["body"], owned).encode("utf-8")
+        skills_root = root / "agents" / "skills"
+        if skills_root.is_dir():
+            for sk in sorted(skills_root.iterdir()):
+                if sk.is_dir() and (sk / "SKILL.md").exists():
+                    for f in sorted(sk.rglob("*")):
+                        if f.is_file() and "__pycache__" not in f.parts:
+                            out[f"{skills_dir}/{sk.name}/{f.relative_to(sk).as_posix()}"] = f.read_bytes()
+        if claude.get("claude_md_shims", True):
+            for d in _agents_md_dirs(root):
+                rel = (d / "CLAUDE.md").relative_to(root).as_posix()
+                out[rel] = SHIM.encode("utf-8")
+
+    cursor = targets.get("cursor", {})
+    if cursor.get("enabled"):
+        rules_dir = cursor.get("rules_dir", ".cursor/rules")
+        if (root / "AGENTS.md").exists():
+            repo_rule = (
+                "---\ndescription: Repository-wide rules from AGENTS.md\nalwaysApply: true\n---\n"
+                + read_text(root / "AGENTS.md").strip()
+                + "\n\n> Generated from `AGENTS.md` by `tools/sync_agents.py`. Do not edit.\n"
+            )
+            out[f"{rules_dir}/00-repo.mdc"] = repo_rule.encode("utf-8")
+        for role, r in roles.items():
+            if r["fm"]:
+                owned = [f"`{f}/`" for f, who in sorted(owners.items()) if who == role and f]
+                out[f"{rules_dir}/role-{role}.mdc"] = render_cursor_rule(role, r["fm"], r["body"], owned).encode("utf-8")
+
+    copilot = targets.get("copilot", {})
+    if copilot.get("enabled") and (root / "AGENTS.md").exists():
+        inst_file = copilot.get("instructions_file", ".github/copilot-instructions.md")
+        content = (
+            "<!-- Generated from AGENTS.md by tools/sync_agents.py. Do not edit by hand. -->\n\n"
+            + read_text(root / "AGENTS.md").strip()
+            + "\n"
+        )
+        out[inst_file] = content.encode("utf-8")
+
     return out
 
 

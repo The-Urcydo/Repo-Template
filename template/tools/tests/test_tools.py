@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -21,7 +22,7 @@ import _lib  # noqa: E402
 
 
 _SKIP_ANYWHERE = shutil.ignore_patterns(".git", "__pycache__", ".locks", "*.pyc", "node_modules", ".venv")
-_CODE_FOLDERS = {"src", "apps", "packages", "tests"}  # product code is irrelevant here and may be huge
+_CODE_FOLDERS = {"src", "apps", "packages", "data", "notebooks", "tests"}  # product code is irrelevant here and may be huge
 _VOLATILE = ("items", "archive", "inbox", "research")  # work/ subfolders that hold real project data
 
 
@@ -37,6 +38,22 @@ def clone(dest: Path) -> Path:
     rebuilt, so a real project's work items, open questions and code cannot change what these tests see."""
     repo = dest / "repo"
     shutil.copytree(ROOT, repo, ignore=_ignore)
+    # If running directly inside the raw Copier template/ directory before rendering, materialize .jinja files
+    for j in list(repo.rglob("*.jinja")):
+        if "{{ _copier_conf.answers_file }}" in j.name:
+            j.unlink()
+            continue
+        target = j.with_suffix("")
+        text = j.read_text(encoding="utf-8")
+        text = (
+            text.replace("{{ project_name }}", "Test Project")
+            .replace("{{ description }}", "TODO describe this project in one sentence")
+            .replace("{{ enable_claude_adapter | tojson }}", "true")
+        )
+        text = re.sub(r"\{%\s*if layout == 'workspace'\s*%\}.*?\{%\s*else\s*%\}(.*?)\{%\s*endif\s*%\}", r"\1", text, flags=re.S)
+        if not target.exists():
+            target.write_text(text, encoding="utf-8")
+        j.unlink()
     for sub in _VOLATILE:
         folder = repo / "work" / sub
         for child in list(folder.iterdir()) if folder.is_dir() else []:
@@ -252,7 +269,29 @@ class WorkLifecycleTests(RepoTestCase):
 
     def test_archive_refuses_unfinished_items(self) -> None:
         item = self.new_item("half-done")
-        self.assertIn("only done items", self.fails("archive_item", item))
+        self.assertIn("only done or canceled items", self.fails("archive_item", item))
+
+    def test_canceled_item_and_reviewer_reject_to_draft(self) -> None:
+        item = self.new_item("bad-idea")
+        self.ok("transition", item, "planned", "--next", "build")
+        self.ok("transition", item, "in-progress", "--next", "building")
+        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "ran check")
+        # Reviewer rejects back to draft for re-planning
+        self.ok("transition", item, "draft", "--next", "re-plan approach")
+        # Orchestrator cancels and archives
+        self.ok("transition", item, "canceled", "--next", "dropped after review rejection")
+        self.ok("check", "--strict")
+        self.ok("archive_item", item)
+        self.assertFalse((self.repo / "work" / "items" / item).exists())
+        self.ok("check", "--strict")
+
+    def test_security_review_item_file(self) -> None:
+        if "security" not in _lib.load_modules(self.repo):
+            self.skipTest("security module not installed")
+        item = self.new_item("auth-change")
+        path = self.ok("item_file", item, "security-review")
+        self.assertTrue((self.repo / path).is_file())
+        self.ok("check", "--strict")
 
     def test_blocked_needs_a_reason_and_can_resume(self) -> None:
         item = self.new_item("waits")
@@ -298,10 +337,20 @@ class WorkLifecycleTests(RepoTestCase):
         item = self.new_item("forgotten")
         h = self.repo / "work" / "items" / item / "handoff.md"
         h.write_text(_lib.set_fm_value(h.read_text(), "updated", "2020-01-01"))
+        self.assertIn("item-stale", self.fails("check", "--strict"))
         self.assertIn("stale", self.ok("archive_item", "--sweep"))
         fm = _lib.read_fm(h)
         self.assertEqual((fm["status"], fm["owner_role"]), ("stale", "orchestrator"))
+        self.ok("check", "--strict")  # already marked stale: check --strict must not warn again
         self.ok("transition", item, "planned", "--next", "re-triaged")
+
+    def test_same_status_transition_updates_in_place(self) -> None:
+        item = self.new_item("research-handoff")
+        self.ok("transition", item, "draft", "--owner", "researcher", "--next", "Investigate API limits")
+        self.ok("transition", item, "draft", "--owner", "planner", "--next", "Update brief with API limits")
+        fm = _lib.read_fm(_lib.find_item(self.repo, item).handoff)
+        self.assertEqual((fm["status"], fm["owner_role"]), ("draft", "planner"))
+        self.ok("check", "--strict")
 
     def test_sweep_archives_old_done_items(self) -> None:
         item = self.new_item("ancient", "--light")
@@ -391,13 +440,18 @@ class QueueTests(RepoTestCase):
 class AdrTests(RepoTestCase):
     def test_numbers_increase_and_supersede_links_both_ways(self) -> None:
         first = self.ok("new_adr", "Use PostgreSQL")
-        second = self.ok("new_adr", "Switch to SQLite", "--supersedes", Path(first).name[:4], "--status", "accepted")
-        n1, n2 = Path(first).name[:4], Path(second).name[:4]
+        n1 = Path(first).name[:4]
+        second = self.ok("new_adr", "Switch to SQLite", "--supersedes", n1, "--status", "accepted")
+        n2 = Path(second).name[:4]
+        third = self.ok("new_adr", "Switch to DuckDB", "--supersedes", f"ADR-{int(n2)}", "--status", "accepted")
+        n3 = Path(third).name[:4]
         self.assertEqual(int(n2), int(n1) + 1)
+        self.assertEqual(int(n3), int(n2) + 1)
         self.assertEqual(_lib.read_fm(self.repo / first)["status"], "superseded")
         self.assertEqual(str(_lib.read_fm(self.repo / first)["superseded_by"]).zfill(4), n2)
-        self.assertEqual([str(x).zfill(4) for x in _lib.read_fm(self.repo / second)["supersedes"]], [n1])
-        self.ok("check")
+        self.assertEqual(_lib.read_fm(self.repo / second)["supersedes"], [n1])
+        self.assertEqual(_lib.read_fm(self.repo / third)["supersedes"], [n2])
+        self.ok("check", "--strict")
 
     def test_parallel_agents_never_get_the_same_number(self) -> None:
         procs = [subprocess.Popen(
@@ -507,6 +561,26 @@ class AdapterTests(RepoTestCase):
         self.assertFalse((self.repo / ".claude").exists())
         self.assertFalse((self.repo / "CLAUDE.md").exists())
         self.ok("check")
+
+    def test_optional_cursor_and_copilot_adapters(self) -> None:
+        t = self.repo / "agents" / "adapters" / "targets.json"
+        data = json.loads(t.read_text())
+        data.setdefault("cursor", {"enabled": False, "rules_dir": ".cursor/rules"})["enabled"] = True
+        data.setdefault("copilot", {"enabled": False, "instructions_file": ".github/copilot-instructions.md"})["enabled"] = True
+        t.write_text(json.dumps(data))
+        self.ok("sync_agents")
+        self.assertTrue((self.repo / ".cursor" / "rules" / "00-repo.mdc").is_file())
+        self.assertTrue((self.repo / ".cursor" / "rules" / "role-builder.mdc").is_file())
+        self.assertTrue((self.repo / ".github" / "copilot-instructions.md").is_file())
+        self.ok("check", "--strict")
+        # Turn them back off and verify clean removal
+        data["cursor"]["enabled"] = False
+        data["copilot"]["enabled"] = False
+        t.write_text(json.dumps(data))
+        self.ok("sync_agents")
+        self.assertFalse((self.repo / ".cursor").exists())
+        self.assertFalse((self.repo / ".github" / "copilot-instructions.md").exists())
+        self.ok("check", "--strict")
 
 
 if __name__ == "__main__":

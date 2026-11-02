@@ -58,7 +58,7 @@ def full(tmp_path_factory) -> Path:
     return generate(tmp_path_factory.mktemp("full") / "p", profile="full")
 
 
-@pytest.mark.parametrize("layout", ["single", "workspace"])
+@pytest.mark.parametrize("layout", ["single", "workspace", "data-ml", "minimal"])
 @pytest.mark.parametrize("profile", ["lean", "standard", "full"])
 def test_profile_generates_a_healthy_repo(tmp_path, profile, layout):
     p = generate(tmp_path / "p", profile=profile, layout=layout)
@@ -66,9 +66,12 @@ def test_profile_generates_a_healthy_repo(tmp_path, profile, layout):
     assert r.returncode == 0, r.stdout
     for module, path in MODULE_PATHS.items():
         assert (p / path).exists() == (module in PROFILES[profile]), f"{module} wrong for profile {profile}"
-    assert (p / "src").exists() == (layout == "single")
+    assert (p / "src").exists() == (layout in ("single", "data-ml"))
     assert (p / "apps").exists() == (layout == "workspace")
     assert (p / "packages").exists() == (layout == "workspace")
+    assert (p / "data").exists() == (layout == "data-ml")
+    assert (p / "notebooks").exists() == (layout == "data-ml")
+    assert (p / "tests").exists() == (layout != "minimal")
     # core is always present
     for core in ["AGENTS.md", "README.md", "docs/INDEX.md", "work/ACTIVE.md", "work/HUMAN.md", "agents/ROSTER.md",
                  "tools/check.py", "docs/decisions/0000-use-madr-for-decision-records.md", "agents/roles/builder.md"]:

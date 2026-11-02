@@ -25,7 +25,7 @@ from _lib import (  # noqa: E402
 
 SPLIT_THRESHOLD = 40
 BOARD_LIMIT = 60
-STATUS_ORDER = ["blocked", "in-review", "in-progress", "planned", "draft", "stale", "verified", "done"]
+STATUS_ORDER = ["blocked", "in-review", "in-progress", "planned", "draft", "stale", "verified", "done", "canceled"]
 GROUP_ORDER = ["tutorials", "how-to", "reference", "explanation", "decisions"]
 GROUP_TITLES = {
     "tutorials": "Tutorials (learn)",
