@@ -1,15 +1,20 @@
 # OS / editor
 .DS_Store
+**/.DS_Store
 Thumbs.db
 .idea/
 .vscode/
 *.swp
+.ToBeDeleted/
 
 # Python (tools/ and tests)
 __pycache__/
 *.py[cod]
 .venv/
 venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 
 # Secrets and local config: never commit
 .env
@@ -18,10 +23,12 @@ venv/
 *.pem
 *.key
 
-# Personal agent instructions (local only)
+# Personal agent instructions and local state (local only)
 CLAUDE.local.md
 AGENTS.local.md
 AGENTS.override.md
+.gemini/
+.windsurf/
 
 # Coordination locks and per-item scratch space
 work/.locks/
@@ -31,4 +38,5 @@ work/items/*/scratch/
 node_modules/
 dist/
 build/
+target/
 coverage/

@@ -4,6 +4,7 @@ type: reference
 status: active
 summary: Every tool in tools/ with its arguments, what it changes, and its exit behavior.
 related_code: [tools/check.py, tools/new_item.py, tools/transition.py, tools/item_file.py, tools/archive_item.py, tools/new_adr.py, tools/new_doc.py, tools/question.py, tools/remove_module.py, tools/sync_indexes.py, tools/sync_agents.py]
+last_verified: 2026-11-02
 ---
 # Command reference
 
@@ -13,12 +14,12 @@ All tools are `python3 tools/<name>.py`, standard library only. Every tool suppo
 |---|---|---|
 | `check.py` | nothing | Health check. `--strict` makes warnings fail; `--json` machine output; `--stubs` lists placeholders (exit 0) |
 | `sync_indexes.py` | generated indexes | Rebuilds `docs/INDEX.md`, `work/ACTIVE.md`, `agents/ROSTER.md`, `docs/reference/repo-map.md`, `docs/reference/modules.md`. `--check` only reports drift |
-| `sync_agents.py` | `.claude/`, `CLAUDE.md` shims, `agents/adapters/manifest.json` | Generates adapters from `agents/`. `--check` only reports drift. Refuses to overwrite files it did not generate |
+| `sync_agents.py` | `.claude/`, `CLAUDE.md` shims, optional `.cursor/` / Copilot adapters, `agents/adapters/manifest.json` | Generates adapters from `agents/`. `--check` only reports drift. Refuses to overwrite files it did not generate |
 | `new_item.py <slug> [--title T] [--light] [--owner ROLE] [--status S]` | `work/items/` | Id is `<date>-<slug>`; duplicates get `-2`, `-3`. Full item creates `handoff.md` and `brief.md` |
-| `item_file.py <id> <kind>` | `work/items/<id>/` | Kinds: `brief plan tasks review research design`. Refuses to overwrite |
-| `transition.py <id> [<status>] --next "..." [--owner ROLE] [--evidence "..."]` | the item's `handoff.md`, board | `--evidence` may repeat. Leave the status out to change only next step, owner or evidence. Rules: see `agents/protocols/handoff.md` |
-| `archive_item.py <id>` / `--sweep [--dry-run]` | `work/items/`, `work/archive/` | Only `done` items archive. Sweep also marks items idle for 14 days as `stale` |
-| `new_adr.py "Title" [--status proposed\|accepted] [--supersedes NNNN] [--decider NAME]` | `docs/decisions/` | Number allocated under a lock |
+| `item_file.py <id> <kind>` | `work/items/<id>/` | Kinds: `brief plan tasks review research design security-review`. Refuses to overwrite |
+| `transition.py <id> [<status>] --next "..." [--owner ROLE] [--evidence "..."]` | the item's `handoff.md`, board | `--evidence` may repeat. Leave the status out (or repeat current status) to change only next step, owner or evidence. Rules: see `agents/protocols/handoff.md` |
+| `archive_item.py <id>` / `--sweep [--dry-run]` | `work/items/`, `work/archive/` | Only `done` or `canceled` items archive. Sweep also marks active items idle for 14 days as `stale` |
+| `new_adr.py "Title" [--status proposed\|accepted] [--supersedes NNNN] [--decider NAME]` | `docs/decisions/` | Number allocated under a lock; `--supersedes` accepts `3`, `0003`, or `ADR-0003` |
 | `new_doc.py <type> "Title" [--summary S]` | `docs/` | Types: `tutorial how-to reference explanation runbook postmortem` (last two need the `operations` module) |
 | `question.py ask ...` / `answer Q-0001 "text"` / `list` | `work/HUMAN.md` | `ask` needs `--asked-by` (a known role) `--recommended --if-no-answer --cost`; optional `--options --item` |
 | `remove_module.py [name] [--apply]` | module paths, `.copier-answers.yml` | Without a name lists modules; without `--apply` is a dry run |
