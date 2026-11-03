@@ -15,6 +15,7 @@ owner_role: orchestrator
   research.md           researcher
   design.md             architect
   review.md             reviewer (required before verified or done)
+  security-review.md    security (when the security module is installed)
   scratch/              git-ignored working notes
 <date>-<slug>.md        light item: one file, same front matter
 ```

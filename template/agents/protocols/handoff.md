@@ -13,20 +13,21 @@ A session ends and a fresh one starts with no memory. The handoff file is the me
 
 | From | Can move to |
 |---|---|
-| `draft` | `planned`, `blocked` |
-| `planned` | `in-progress`, `blocked`, `draft` |
-| `in-progress` | `in-review`, `blocked`, `planned` |
-| `in-review` | `verified`, `in-progress`, `blocked` |
-| `verified` | `done`, `in-progress` |
-| `blocked` | `draft`, `planned`, `in-progress` |
-| `stale` | `draft`, `planned`, `in-progress`, `in-review` |
+| `draft` | `planned`, `blocked`, `canceled` |
+| `planned` | `in-progress`, `blocked`, `draft`, `canceled` |
+| `in-progress` | `in-review`, `blocked`, `planned`, `canceled` |
+| `in-review` | `verified`, `in-progress`, `blocked`, `draft`, `canceled` |
+| `verified` | `done`, `in-progress`, `canceled` |
+| `blocked` | `draft`, `planned`, `in-progress`, `canceled` |
+| `stale` | `draft`, `planned`, `in-progress`, `in-review`, `canceled` |
 | `done` | (final; archive it) |
+| `canceled` | (final; archive it) |
 
-`stale` is set only by `python3 tools/archive_item.py --sweep` (no update for 14 days). A stale handoff is untrusted: re-verify its claims before acting on it.
+`stale` is set only by `python3 tools/archive_item.py --sweep` (no update for 14 days). A stale handoff is untrusted: re-verify its claims before acting on it. `canceled` is for work that is dropped or rejected without shipping; pass `--next "<reason it was canceled>"` and archive it with `archive_item.py`.
 
 ## Rules enforced on every move
 
-1. Every status except `done` needs `--next`: one sentence saying what the next role does. For `blocked`, say what unblocks it. If several roles must act, name the first here and list the rest under Current state.
+1. Every status except `done` needs `--next`: one sentence saying what the next role does (or why the item was `blocked` or `canceled`). If several roles must act, name the first here and list the rest under Current state.
 2. `in-review`, `verified` and `done` need evidence in the handoff (commands run, links), not assertions.
 3. `verified` and `done` need `review.md` in the item folder (full items), written by a different role than the builder.
 4. The next owner defaults to the role in the dispatch table in `agents/README.md`. Override with `--owner`.
@@ -53,7 +54,7 @@ Body sections: **Current state** (one paragraph), **Decisions made** (so nobody 
 
 `handoff.md` is the one item file every role edits: whoever holds the item keeps its body current by hand and changes its front matter through `transition.py`. Every other item file belongs to the roles that list it in `item_files`.
 
-To change only the next step, owner or evidence without moving the status: `python3 tools/transition.py <id> --next "..." [--owner ROLE] [--evidence "..."]`.
+To change only the next step, owner or evidence without moving the status: `python3 tools/transition.py <id> --next "..." [--owner ROLE] [--evidence "..."]` (or pass the current status name).
 
 ## Asking another role for a change
 

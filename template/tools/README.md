@@ -15,9 +15,9 @@ Plain `python3 tools/<name>.py`, no installs. Run any tool with `--help`. Comman
 | `sync_indexes.py` | Regenerates `docs/INDEX.md`, `work/ACTIVE.md`, `agents/ROSTER.md`, repo map, module registry |
 | `sync_agents.py` | Regenerates `.claude/` adapters and `CLAUDE.md` shims from `agents/` |
 | `new_item.py` | Creates a work item (full or `--light`) |
-| `item_file.py` | Adds a role-owned file (plan, tasks, review, research, design) to an item from its template |
+| `item_file.py` | Adds a role-owned file (plan, tasks, review, research, design, security-review) to an item from its template |
 | `transition.py` | Moves an item through the lifecycle, enforcing the rules |
-| `archive_item.py` | Archives done items; `--sweep` also flags idle ones as stale |
+| `archive_item.py` | Archives `done` or `canceled` items; `--sweep` also flags idle ones as `stale` |
 | `new_adr.py` | Creates the next numbered ADR (lock-protected) |
 | `new_doc.py` | Creates a doc from its template |
 | `question.py` | Adds to or answers the human decision queue |

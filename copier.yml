@@ -22,6 +22,7 @@ _exclude:
   - "{% if 'security' not in enabled_modules %}docs/security{% endif %}"
   - "{% if 'security' not in enabled_modules %}SECURITY.md{% endif %}"
   - "{% if 'security' not in enabled_modules %}agents/roles/security.md{% endif %}"
+  - "{% if 'security' not in enabled_modules %}work/_templates/security-review.md{% endif %}"
   - "{% if 'release' not in enabled_modules %}docs/release{% endif %}"
   - "{% if 'infra' not in enabled_modules %}infra{% endif %}"
   - "{% if 'evals' not in enabled_modules %}agents/evals{% endif %}"

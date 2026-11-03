@@ -107,6 +107,17 @@ def test_no_unrendered_template_syntax_leaks(full):
     assert not bad, bad
 
 
+def test_template_ships_no_hardcoded_last_verified_date():
+    """A date baked into a template doc is older than any project's first commit, so `check --strict` would
+    warn `doc-stale` in every generated project (and fail its CI) as soon as the related code is committed."""
+    bad = [
+        p.relative_to(TEMPLATE).as_posix()
+        for p in (TEMPLATE / "template").rglob("*")
+        if p.is_file() and re.search(r"^last_verified:", p.read_text(encoding="utf-8", errors="ignore"), re.M)
+    ]
+    assert not bad, bad
+
+
 def test_generation_is_deterministic(tmp_path):
     a = tree(generate(tmp_path / "a", profile="full"))
     b = tree(generate(tmp_path / "b", profile="full"))

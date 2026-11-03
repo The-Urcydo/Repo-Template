@@ -10,6 +10,7 @@ summary: Definitions of the terms this repo uses - work item, handoff, role, ski
 |---|---|
 | **ADR** | Architecture decision record: one numbered file in `docs/decisions/` capturing a decision, its options and consequences |
 | **Adapter** | A tool-specific file (such as `.claude/agents/builder.md`) generated from the tool-neutral `agents/` folder |
+| **Canceled** | Terminal status for a work item that was dropped or rejected without shipping; archived by `tools/archive_item.py` |
 | **Core** | Everything that is not an optional module; never depends on a module |
 | **Diátaxis** | The documentation framework that splits docs into tutorials, how-to guides, reference and explanation |
 | **Evidence** | What proves a claim: a command that was run, a file, a link. "Tests pass" without a command is not evidence |

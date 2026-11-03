@@ -32,9 +32,9 @@ Docs keys plus: `date` (required once `accepted`), `decision_makers`, `supersede
 |---|---|---|
 | `id` | yes | Equals the folder or file name: `YYYY-MM-DD-kebab-slug` |
 | `title` | yes | Human title |
-| `status` | yes | `draft` `planned` `in-progress` `in-review` `verified` `done` `blocked` `stale` |
+| `status` | yes | `draft` `planned` `in-progress` `in-review` `verified` `done` `blocked` `stale` `canceled` |
 | `owner_role` | yes | The role that must act next; must exist in `agents/roles/` |
-| `next_action` | yes unless `done` | One sentence for the next role |
+| `next_action` | yes unless `done` | One sentence for the next role (or reason when `blocked` / `canceled`) |
 | `do_not` | no | List of things to avoid |
 | `evidence` | required from `in-review` on | List of commands run or links |
 | `created` `updated` | yes | ISO dates |

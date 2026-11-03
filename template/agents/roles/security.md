@@ -16,7 +16,7 @@ An optional role (module `security`). Use it for changes that touch authenticati
 
 1. Read the brief and the diff. Identify new inputs, trust boundaries, secrets, dependencies and permissions.
 2. Compare against the threat model in `docs/security/`. Update it when the change adds surface.
-3. Write `security-review.md` in the item folder: findings ranked blocker / major / minor, each with impact, evidence and a recommended fix.
+3. Create `security-review.md` with `python3 tools/item_file.py <id> security-review`, then fill it: findings ranked blocker / major / minor, each with impact, evidence and a recommended fix.
 4. If a finding needs the human (risk acceptance, disclosure, spend), ask with `python3 tools/question.py ask`, giving a recommendation and the cost of guessing wrong.
 5. Hand back to the reviewer or builder through `transition.py`. You report; you do not fix.
 
