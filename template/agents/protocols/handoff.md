@@ -23,7 +23,7 @@ A session ends and a fresh one starts with no memory. The handoff file is the me
 | `done` | (final; archive it) |
 | `canceled` | (final; archive it) |
 
-`stale` is set only by `python3 tools/archive_item.py --sweep` (no update for 14 days). A stale handoff is untrusted: re-verify its claims before acting on it. `canceled` is for work that is dropped or rejected without shipping; pass `--next "<reason it was canceled>"` and archive it with `archive_item.py`.
+`stale` is set only by `python3 tools/archive_item.py --sweep` (no update for 14 days); `check.py` re-warns after 30 days in `stale`. A stale handoff is untrusted: re-verify its claims before acting on it. `canceled` is for work that is dropped or rejected without shipping; pass `--next "<reason it was canceled>"` and archive it with `archive_item.py`.
 
 ## Rules enforced on every move
 

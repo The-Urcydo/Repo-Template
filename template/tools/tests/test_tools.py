@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -353,8 +354,17 @@ class WorkLifecycleTests(RepoTestCase):
         self.assertIn("stale", self.ok("archive_item", "--sweep"))
         fm = _lib.read_fm(h)
         self.assertEqual((fm["status"], fm["owner_role"]), ("stale", "orchestrator"))
+        self.assertNotEqual(fm["updated"], "2020-01-01")  # marking stale resets the re-warn clock
         self.ok("check", "--strict")  # already marked stale: check --strict must not warn again
         self.ok("transition", item, "planned", "--next", "re-triaged")
+
+    def test_stale_items_rewarn_after_a_month(self) -> None:
+        item = self.new_item("still-forgotten")
+        h = self.repo / "work" / "items" / item / "handoff.md"
+        h.write_text(_lib.set_fm_value(h.read_text(), "status", "stale"))
+        old = (_lib.today() - timedelta(days=_lib.STALE_REWARN_DAYS + 1)).isoformat()
+        h.write_text(_lib.set_fm_value(h.read_text(), "updated", old))
+        self.assertIn("item-stale", self.fails("check", "--strict"))
 
     def test_same_status_transition_updates_in_place(self) -> None:
         item = self.new_item("research-handoff")

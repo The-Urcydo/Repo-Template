@@ -52,6 +52,7 @@ def mark_stale(item) -> None:
     text = set_fm_value(text, "status", "stale")
     text = set_fm_value(text, "owner_role", "orchestrator")
     text = set_fm_value(text, "next_action", yaml_scalar(f"Re-triage (idle {STALE_DAYS}+ days). Was: {old_next}"))
+    text = set_fm_value(text, "updated", today().isoformat())
     write_text(item.handoff, text)
 
 

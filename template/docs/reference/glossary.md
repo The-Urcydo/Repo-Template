@@ -26,5 +26,5 @@ summary: Definitions of the terms this repo uses - work item, handoff, role, ski
 | **Profile** | How much of the skeleton is generated: `full`, `standard`, `lean` or `custom` |
 | **Role** | A charter in `agents/roles/` defining what an agent in that job reads, writes and must never do |
 | **Skill** | A reusable procedure in the open Agent Skills format, loaded only when a task matches its description |
-| **Stale** | An item idle for 14 days; its handoff is untrusted until re-verified |
+| **Stale** | An item idle for 14 days; its handoff is untrusted until re-verified. `check.py` re-surfaces it after 30 days |
 | **Work item** | A unit of work tracked under `work/items/` with a status, an owner and a handoff |

@@ -42,6 +42,7 @@ DEFAULT_OWNER = {
     "canceled": "orchestrator",
 }
 STALE_DAYS = 14
+STALE_REWARN_DAYS = 30
 DONE_ARCHIVE_DAYS = 7
 
 DOC_TYPES = ("tutorial", "how-to", "reference", "explanation", "decision", "index", "meta")

@@ -17,7 +17,7 @@ All tools are `python3 tools/<name>.py`, standard library only. Every tool suppo
 | `new_item.py <slug> [--title T] [--light] [--owner ROLE] [--status S]` | `work/items/` | Id is `<date>-<slug>`; duplicates get `-2`, `-3`. Full item creates `handoff.md` and `brief.md` |
 | `item_file.py <id> <kind>` | `work/items/<id>/` | Kinds: `brief plan tasks review research design security-review`. Refuses to overwrite |
 | `transition.py <id> [<status>] --next "..." [--owner ROLE] [--evidence "..."]` | the item's `handoff.md`, board | `--evidence` may repeat. Leave the status out (or repeat current status) to change only next step, owner or evidence. Rules: see `agents/protocols/handoff.md` |
-| `archive_item.py <id>` / `--sweep [--dry-run]` | `work/items/`, `work/archive/` | Only `done` or `canceled` items archive. Sweep also marks active items idle for 14 days as `stale` |
+| `archive_item.py <id>` / `--sweep [--dry-run]` | `work/items/`, `work/archive/` | Only `done` or `canceled` items archive. Sweep marks active items idle for 14 days as `stale`; `check.py` re-warns after 30 days in `stale`. `verified` items are not swept |
 | `new_adr.py "Title" [--status proposed\|accepted] [--supersedes NNNN] [--decider NAME]` | `docs/decisions/` | Number allocated under a lock; `--supersedes` accepts `3`, `0003`, or `ADR-0003` |
 | `new_doc.py <type> "Title" [--summary S]` | `docs/` | Types: `tutorial how-to reference explanation runbook postmortem` (last two need the `operations` module) |
 | `question.py ask ...` / `answer Q-0001 "text"` / `list` | `work/HUMAN.md` | `ask` needs `--asked-by` (a known role) `--recommended --if-no-answer --cost`; optional `--options --item` |
