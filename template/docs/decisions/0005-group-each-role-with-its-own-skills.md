@@ -36,7 +36,7 @@ The charter file is `ROLE.md`. It mirrors `SKILL.md` and avoids `README.md`, whi
 ### Consequences
 
 - Good: the tree shows which skills are exclusive to a role; shared skills stay visible in `agents/skills/`; the generated `ROSTER.md` lists both; cutting the `security` module removes its charter and empty skills folder with one folder; the generated `.claude/` layout is unchanged, so Claude Code sees no difference.
-- Bad: a skill's place must be revisited when a second role starts using it (moving it is a rename); skill names must be unique across both places because `.claude/skills/` is flat; projects that updated from `v0.1.0` see the charters and two skills move, and Copier may report conflicts where they hand-edited a charter.
+- Bad: a skill's place must be revisited when a second role starts using it (moving it is a rename); skill names must be unique across both places because `.claude/skills/` is flat; projects that updated from `v0.1.0` see the charters and two skills move, Copier may report conflicts where they hand-edited a charter, and they must run the sync tools after the update to rebuild the generated indexes.
 - Neutral: the charter path quoted inside each generated subagent file changes from `agents/roles/<role>.md` to `agents/roles/<role>/ROLE.md`.
 
 ### Confirmation
