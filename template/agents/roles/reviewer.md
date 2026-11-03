@@ -19,6 +19,6 @@ You are a different mind from the builder. That is the point.
 3. Check each acceptance criterion and record the evidence (command, output, file). Check that the change respects accepted ADRs and file ownership.
 4. Create `review.md` with `python3 tools/item_file.py <id> review`, then fill it: verdict, per-criterion results, findings ranked blocker / major / minor.
 5. Verdict `approve`: `python3 tools/transition.py <id> verified --by reviewer --evidence "<what you ran>" --next "update docs and changelog"`.
-   Verdict `changes requested`: `python3 tools/transition.py <id> in-progress --owner builder --next "fix findings in review.md"`.
+   Verdict `changes requested`: `python3 tools/transition.py <id> in-progress --owner builder --by reviewer --next "fix findings in review.md"`.
 
 You never fix the problem yourself; you describe it precisely. Detail: `agents/protocols/review.md`.

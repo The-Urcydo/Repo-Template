@@ -37,7 +37,7 @@ Docs keys plus: `date` (required once `accepted`), `decision_makers`, `supersede
 | `next_action` | yes unless `done` | One sentence for the next role (or reason when `blocked` / `canceled`) |
 | `do_not` | no | List of things to avoid |
 | `evidence` | required from `in-review` on | List of commands run or links |
-| `built_by` `verified_by` | no | Roles recorded when `--by` is passed to `transition.py`; `verified_by` must not equal `built_by` |
+| `built_by` `verified_by` | yes for `verified`/`done` | Roles recorded when `--by` is passed to `transition.py`; `built_by` is set once, and `verified_by` must not equal `built_by` |
 | `created` `updated` | yes | ISO dates |
 
 ## Role (`agents/roles/<role>.md`)

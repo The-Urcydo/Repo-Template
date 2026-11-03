@@ -23,7 +23,7 @@ from _lib import (  # noqa: E402
 )
 
 
-def create(root: Path, slug: str, title: str | None, light: bool, owner: str | None, status: str) -> Path:
+def _prepare(root: Path, slug: str, owner: str | None, status: str, light: bool) -> tuple[str, str, Path]:
     slug = slugify(slug)
     if not slug:
         raise ValueError("slug is empty after cleaning; use letters and digits")
@@ -37,13 +37,36 @@ def create(root: Path, slug: str, title: str | None, light: bool, owner: str | N
     handoff_tpl = tpl_dir / ("light-item.md" if light else "handoff.md")
     if not handoff_tpl.exists():
         raise FileNotFoundError(f"missing template {handoff_tpl.relative_to(root)}")
+    return slug, owner, handoff_tpl
 
+
+def allocate_id(root: Path, slug: str) -> str:
+    """Reserve the next item id without writing files, so a worktree can be created first."""
+    slug = slugify(slug)
+    if not slug:
+        raise ValueError("slug is empty after cleaning; use letters and digits")
     with file_lock(root, "items"):
         existing = {i.id for i in iter_items(root)}
         base = f"{today().isoformat()}-{slug}"
         item_id, n = base, 2
         while item_id in existing:
             item_id, n = f"{base}-{n}", n + 1
+        return item_id
+
+
+def create(root: Path, slug: str, title: str | None, light: bool, owner: str | None, status: str,
+           item_id: str | None = None) -> Path:
+    slug, owner, handoff_tpl = _prepare(root, slug, owner, status, light)
+    tpl_dir = root / "work" / "_templates"
+    with file_lock(root, "items"):
+        existing = {i.id for i in iter_items(root)}
+        if item_id is None:
+            base = f"{today().isoformat()}-{slug}"
+            item_id, n = base, 2
+            while item_id in existing:
+                item_id, n = f"{base}-{n}", n + 1
+        elif item_id in existing:
+            raise ValueError(f"item '{item_id}' already exists")
         shown = title or slug.replace("-", " ").capitalize()
         tokens = {
             "__ID__": item_id,
@@ -78,11 +101,22 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--worktree", action="store_true", help="also create a sibling git worktree on branch item/<id>")
     args = ap.parse_args(argv)
     root = repo_root()
+    slug = " ".join(args.slug)
     try:
-        target = create(root, " ".join(args.slug), args.title, args.light, args.owner, args.status)
         if args.worktree:
-            item_id = target.parent.name if target.name == "handoff.md" else target.stem
-            worktree.create(root, item_id)
+            _prepare(root, slug, args.owner, args.status, args.light)
+            item_id = allocate_id(root, slug)
+            if worktree.branch_exists(root, item_id):
+                raise ValueError(f"branch {worktree.branch_name(item_id)} already exists")
+            wt_path = worktree.create_for_id(root, item_id)
+            try:
+                target = create(wt_path, slug, args.title, args.light, args.owner, args.status, item_id=item_id)
+            except Exception:
+                worktree.discard(root, item_id)
+                raise
+            print(target)
+            return 0
+        target = create(root, slug, args.title, args.light, args.owner, args.status)
     except (ValueError, FileNotFoundError, RuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

@@ -4,7 +4,7 @@
 Outputs (deterministic, so `--check` can detect drift):
   docs/INDEX.md              one line per doc, from front-matter `summary`
   docs/<group>/INDEX.md      only when a group has more than SPLIT_THRESHOLD docs
-  docs/reference/repo-map.md top-level folders, from each folder README `summary`
+  docs/reference/repo-map.md top-level folders and workspace components, from each folder README `summary`
   docs/reference/modules.md  installed modules and how to cut them
   work/ACTIVE.md             board of in-flight work items, from handoff front matter
   agents/ROSTER.md           the role table, from agents/roles/*.md + folder ownership
@@ -174,7 +174,7 @@ def build_repo_map(root: Path) -> str:
             + "\n".join(ws_rows) + "\n"
         )
     return (
-        _front("Repo map", "reference", "Generated table of top-level folders and what each is for.", "scribe")
+        _front("Repo map", "reference", "Generated table of top-level folders, workspace components, and what each is for.", "scribe")
         + "# Repo map\n\n| Folder | Purpose |\n|---|---|\n" + "\n".join(rows) + "\n" + ws_section
     )
 

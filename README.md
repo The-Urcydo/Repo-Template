@@ -58,13 +58,13 @@ cd path/to/project             # must be a clean git repo
 copier update --trust
 ```
 
-Local edits are merged, and modules you cut stay cut. See `docs/how-to/update-from-template.md` in a generated project. Tag releases of this template (`v0.1.0`, …) so updates have a stable reference.
+Local edits are merged, and modules you cut stay cut. See `docs/how-to/update-from-template.md` in a generated project. Tag releases of this template (`v0.2.0`, …) so updates have a stable reference.
 
 ## Releasing
 
 ```
-git tag -a v0.1.0 -m "v0.1.0"
-git push origin v0.1.0
+git tag -a v0.2.0 -m "v0.2.0"
+git push origin v0.2.0
 ```
 
 ## Developing this template
@@ -81,6 +81,7 @@ Layout of this repo: `copier.yml` (questions, exclusions, tasks) · `template/` 
 
 ## Known limits
 
+- The multi-agent workflows are exercised with fixtures and reference solutions, not yet with real parallel agent runs across separate sessions. Treat role handoffs as validated by the harness, not by production mileage.
 - Exercise the `agents/evals` golden tasks against your own agent CLI with `python3 tools/eval_harness.py --cmd "..."` (`--verify-fixtures` validates the sandbox seeding and grading logic offline).
 - The `.claude/` paths and file formats follow Claude Code's documentation as of November 2026 and may change; only `agents/` is yours to rely on.
 - Creating and updating a project needs Copier (so Python). Using a generated project needs only `python3`.

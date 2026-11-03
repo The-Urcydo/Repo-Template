@@ -16,7 +16,7 @@ The next session has no memory. Make `handoff.md` the only thing it needs.
 3. Set the `do_not` list in the front matter for anything the next role must avoid.
 4. Move the status with the tool; do not edit `status` by hand:
    ```
-   python3 tools/transition.py <id> <status> --next "<one sentence for the next role>" [--owner <role>] [--by <role>] [--evidence "<command or link>"]
+   python3 tools/transition.py <id> <status> --by <role> --next "<one sentence for the next role>" [--owner <role>] [--evidence "<command or link>"]
    ```
    `in-review`, `verified` and `done` need `--evidence`. `blocked` needs `--next` saying what unblocks it.
    To change only the next step, owner or evidence, leave the status out: `python3 tools/transition.py <id> --next "..."`.

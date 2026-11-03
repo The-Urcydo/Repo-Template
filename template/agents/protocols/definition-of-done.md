@@ -15,6 +15,7 @@ An item is done only when all of these are true. The tools check the mechanical 
 - [ ] `python3 tools/check.py` passes with no errors.
 - [ ] The tests the project defines pass; new behavior has tests.
 - [ ] The handoff is current: status, `next_action`, `evidence`, decisions and dead ends.
+- [ ] Status changes used `transition.py --by <role>`, and `built_by`/`verified_by` are different roles.
 - [ ] No file was changed outside the role's ownership without the owner's handoff.
 - [ ] No accepted ADR was contradicted. If one had to change, a superseding ADR exists.
 

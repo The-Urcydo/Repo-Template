@@ -16,7 +16,7 @@ Many agents at once is the normal case. Collisions are prevented by structure, n
    ```
    python3 tools/worktree.py create <item-id>
    ```
-   Or create the item and its worktree in one step with `python3 tools/new_item.py <slug> --worktree`. Agents never share a working directory.
+   Or create the item and its worktree in one step with `python3 tools/new_item.py <slug> --worktree`. The item is written inside the new worktree, so it stays off the main checkout until you commit and merge the item branch. Agents never share a working directory.
 3. **Locked shared tools.** Creating items, allocating ADR numbers, and editing the human queue go through `tools/`, which take a file lock under `work/.locks/` so two agents cannot allocate the same number or corrupt a file.
 
 ## What can run in parallel
@@ -35,4 +35,4 @@ Many agents at once is the normal case. Collisions are prevented by structure, n
 
 - Merge only items that are `verified`.
 - After merging, regenerate: `python3 tools/sync_indexes.py && python3 tools/sync_agents.py`, then `python3 tools/check.py`. Generated files conflict often and are never merged by hand; regenerate them instead.
-- Remove the sibling worktree when the item is `verified`, `done` or `canceled`: `python3 tools/worktree.py remove <item-id>`.
+- Remove the sibling worktree when the item is `verified`, `done` or `canceled`: `python3 tools/worktree.py remove <item-id>`. The tool finds the worktree by its `item/<item-id>` branch, so it also works after `create --path`. It deletes the branch only when it is already merged; otherwise it prints the exact command to remove it after merging.

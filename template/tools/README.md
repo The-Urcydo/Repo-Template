@@ -16,7 +16,7 @@ Plain `python3 tools/<name>.py`, no installs. Run any tool with `--help`. Comman
 | `sync_agents.py` | Regenerates the enabled adapters (`.claude/` and `CLAUDE.md` shims; optional Cursor, Copilot and Gemini files) from `agents/` |
 | `new_item.py` | Creates a work item (full or `--light`, optionally with `--worktree`) |
 | `item_file.py` | Adds a role-owned file (plan, tasks, review, research, design, security-review) to an item from its template |
-| `transition.py` | Moves an item through the lifecycle, enforcing evidence and independent review (`--by`) rules |
+| `transition.py` | Moves an item through the lifecycle, enforcing evidence, `--by` attribution and independent-review rules |
 | `archive_item.py` | Archives `done` or `canceled` items; `--sweep` also flags idle ones as `stale` |
 | `worktree.py` | Creates, lists and removes isolated sibling git worktrees (`../<repo>-<item-id>`) for parallel work items |
 | `new_adr.py` | Creates the next numbered ADR (lock-protected) |

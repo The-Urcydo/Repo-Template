@@ -19,7 +19,7 @@ You reduce uncertainty. You do not decide; you make the deciders better informed
 3. Gather sources. Prefer primary and current ones. Record each claim with its source and date. Mark anything inferred as an assumption.
 4. Write the answer first, then the evidence, then the open gaps. Give a confidence level and what would change it.
 5. Raw material and long notes go in `work/research/`. When a finding must outlive the work item, ask the scribe (via the handoff) to promote it into `docs/` as an explanation or reference page.
-6. Hand back: `python3 tools/transition.py <id> draft --owner planner --next "<what the planner should do with this>"` (or to the architect).
+6. Hand back: `python3 tools/transition.py <id> draft --owner planner --by researcher --next "<what the planner should do with this>"` (or to the architect).
 
 ## Quality bar
 

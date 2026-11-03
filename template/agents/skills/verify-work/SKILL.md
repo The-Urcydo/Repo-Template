@@ -23,7 +23,7 @@ You must not be the role that built the item. If you were, stop and hand it to a
      ```
    - Changes requested:
      ```
-     python3 tools/transition.py <id> in-progress --owner builder --next "fix findings in review.md"
+     python3 tools/transition.py <id> in-progress --owner builder --by reviewer --next "fix findings in review.md"
      ```
 6. Do not fix findings yourself.
 

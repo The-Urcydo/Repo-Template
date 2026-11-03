@@ -411,7 +411,11 @@ def check_items(root: Path, rep: Report) -> None:
             rep.error("handoff", r, f"built_by '{built_by}' is not a role")
         if roles and verified_by and verified_by not in roles:
             rep.error("handoff", r, f"verified_by '{verified_by}' is not a role")
-        if verified_by and verified_by == (built_by or "builder"):
+        if status in ("verified", "done") and not built_by:
+            rep.error("handoff", r, f"status {status} needs built_by; move the item through in-progress with transition.py --by <builder>")
+        if status in ("verified", "done") and not verified_by:
+            rep.error("handoff", r, f"status {status} needs verified_by; mark it verified with transition.py --by <reviewer>")
+        if verified_by and built_by and verified_by == built_by:
             rep.error("self-review", r, f"verified_by '{verified_by}' cannot be the same role that built the item")
         if status != "done" and not str(fm.get("next_action") or "").strip():
             rep.error("handoff", r, "next_action is empty: say what the next role should do")

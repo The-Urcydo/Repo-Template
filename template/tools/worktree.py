@@ -31,14 +31,75 @@ def default_wt_path(root: Path, item_id: str) -> Path:
     return root.parent / f"{root.name}-{item_id}"
 
 
-def create(root: Path, query: str, custom_path: str | None = None) -> Path:
-    item = find_item(root, query)
-    wt_path = Path(custom_path).resolve() if custom_path else default_wt_path(root, item.id)
+def branch_name(item_id: str) -> str:
+    return f"item/{item_id}"
+
+
+def branch_exists(root: Path, item_id: str) -> bool:
+    return _git(root, "rev-parse", "--verify", f"refs/heads/{branch_name(item_id)}").returncode == 0
+
+
+def _worktree_entries(root: Path) -> list[dict[str, str]]:
+    res = _git(root, "worktree", "list", "--porcelain")
+    if res.returncode != 0:
+        raise RuntimeError(res.stderr.strip() or "git worktree list failed")
+    entries: list[dict[str, str]] = []
+    current: dict[str, str] = {}
+    for line in res.stdout.splitlines() + [""]:
+        if not line.strip():
+            if current:
+                entries.append(current)
+                current = {}
+            continue
+        key, _, value = line.partition(" ")
+        current[key] = value
+    return entries
+
+
+def registered_worktree(root: Path, item_id: str) -> Path | None:
+    """Return the worktree currently checked out on item/<id>, wherever it lives."""
+    wanted = f"refs/heads/{branch_name(item_id)}"
+    for entry in _worktree_entries(root):
+        if entry.get("branch") == wanted:
+            return Path(entry["worktree"]).resolve()
+    return None
+
+
+def _resolve_item(root: Path, query: str) -> tuple[str, Path]:
+    """Find an item in the main checkout or, failing that, in a registered worktree."""
+    try:
+        item = find_item(root, query)
+        return item.id, item.handoff
+    except LookupError as original:
+        prefix = "refs/heads/item/"
+        matches: list[tuple[str, Path]] = []
+        for entry in _worktree_entries(root):
+            ref = entry.get("branch", "")
+            if not ref.startswith(prefix):
+                continue
+            item_id = ref[len(prefix):]
+            if item_id == query or query in item_id:
+                matches.append((item_id, Path(entry["worktree"]).resolve()))
+        exact = [m for m in matches if m[0] == query]
+        candidates = exact or matches
+        if len(candidates) > 1:
+            raise LookupError("'" + query + "' is ambiguous: " + ", ".join(i for i, _ in candidates)) from original
+        if not candidates:
+            raise original
+        item_id, wt_path = candidates[0]
+        items = wt_path / "work" / "items"
+        handoff = items / item_id / "handoff.md"
+        if not handoff.exists() and (items / f"{item_id}.md").exists():
+            handoff = items / f"{item_id}.md"
+        return item_id, handoff
+
+
+def create_for_id(root: Path, item_id: str, custom_path: str | None = None) -> Path:
+    wt_path = Path(custom_path).resolve() if custom_path else default_wt_path(root, item_id)
     if wt_path == root or root in wt_path.parents:
         raise ValueError("worktree path must be outside the repository root (prefer a sibling folder)")
-    branch = f"item/{item.id}"
-    check_branch = _git(root, "rev-parse", "--verify", f"refs/heads/{branch}")
-    if check_branch.returncode == 0:
+    branch = branch_name(item_id)
+    if branch_exists(root, item_id):
         res = _git(root, "worktree", "add", str(wt_path), branch)
     else:
         res = _git(root, "worktree", "add", str(wt_path), "-b", branch)
@@ -47,17 +108,42 @@ def create(root: Path, query: str, custom_path: str | None = None) -> Path:
     return wt_path
 
 
-def remove(root: Path, query: str, force: bool = False) -> str:
+def create(root: Path, query: str, custom_path: str | None = None) -> Path:
     item = find_item(root, query)
-    status = str(read_fm(item.handoff).get("status") or "") if item.handoff.exists() else ""
+    return create_for_id(root, item.id, custom_path)
+
+
+def discard(root: Path, item_id: str) -> None:
+    """Remove a worktree and branch created for an item that was never written. Best effort."""
+    wt_path = registered_worktree(root, item_id)
+    if wt_path is not None:
+        _git(root, "worktree", "remove", "--force", str(wt_path))
+    if branch_exists(root, item_id):
+        _git(root, "branch", "-D", branch_name(item_id))
+
+
+def remove(root: Path, query: str, force: bool = False) -> str:
+    item_id, handoff = _resolve_item(root, query)
+    status = str(read_fm(handoff).get("status") or "") if handoff.exists() else ""
     if not force and status not in ("done", "canceled", "verified"):
-        raise ValueError(f"{item.id} is '{status}'; only verified, done or canceled items should have their worktree removed (pass --force to override)")
-    wt_path = default_wt_path(root, item.id)
+        raise ValueError(f"{item_id} is '{status}'; only verified, done or canceled items should have their worktree removed (pass --force to override)")
+    wt_path = registered_worktree(root, item_id)
+    if wt_path is None:
+        raise ValueError(f"no registered worktree for branch {branch_name(item_id)}")
     args = ["worktree", "remove"] + (["--force"] if force else []) + [str(wt_path)]
     res = _git(root, *args)
     if res.returncode != 0:
         raise RuntimeError(res.stderr.strip() or res.stdout.strip() or "git worktree remove failed")
-    return f"removed worktree {wt_path}"
+    branch = branch_name(item_id)
+    if not branch_exists(root, item_id):
+        return f"removed worktree {wt_path}"
+    deleted = _git(root, "branch", "-d", branch)
+    if deleted.returncode == 0:
+        return f"removed worktree {wt_path} and branch {branch}"
+    return (
+        f"removed worktree {wt_path}; branch {branch} kept because it is not merged "
+        f"(merge it, then run: git branch -D {branch})"
+    )
 
 
 def list_worktrees(root: Path) -> str:

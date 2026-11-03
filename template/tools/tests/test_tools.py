@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
 
 import _lib  # noqa: E402
+import eval_harness  # noqa: E402
 
 
 _SKIP_ANYWHERE = shutil.ignore_patterns(".git", "__pycache__", ".locks", "*.pyc", "node_modules", ".venv")
@@ -284,16 +285,16 @@ class WorkLifecycleTests(RepoTestCase):
 
         self.fails("transition", item, "done")  # draft -> done is illegal
         self.assertIn("--next", self.fails("transition", item, "planned"))
-        self.ok("transition", item, "planned", "--next", "builder: start")
-        self.ok("transition", item, "in-progress", "--next", "building")
+        self.ok("transition", item, "planned", "--next", "builder: start", "--by", "planner")
+        self.ok("transition", item, "in-progress", "--next", "building", "--by", "builder")
         self.assertIn("allowed from in-progress", self.fails("transition", item, "done", "--next", "x"))
-        self.assertIn("evidence", self.fails("transition", item, "in-review", "--next", "verify"))
-        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "python3 tools/check.py")
-        self.assertIn("review.md", self.fails("transition", item, "verified", "--next", "docs"))
+        self.assertIn("evidence", self.fails("transition", item, "in-review", "--next", "verify", "--by", "builder"))
+        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "python3 tools/check.py", "--by", "builder")
+        self.assertIn("review.md", self.fails("transition", item, "verified", "--next", "docs", "--by", "reviewer"))
         self.ok("item_file", item, "review")
         self.fails("item_file", item, "review")  # never overwrites
-        self.ok("transition", item, "verified", "--next", "update docs")
-        self.ok("transition", item, "done")
+        self.ok("transition", item, "verified", "--next", "update docs", "--by", "reviewer")
+        self.ok("transition", item, "done", "--by", "scribe")
         self.ok("check")
         self.ok("archive_item", item)
         self.assertFalse((self.repo / "work" / "items" / item).exists())
@@ -303,7 +304,7 @@ class WorkLifecycleTests(RepoTestCase):
 
     def test_self_review_is_refused_by_transition_and_check(self) -> None:
         item = self.new_item("self-review-guard")
-        self.ok("transition", item, "planned", "--next", "build")
+        self.ok("transition", item, "planned", "--next", "build", "--by", "planner")
         self.ok("transition", item, "in-progress", "--next", "building", "--by", "builder")
         self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "ran check", "--by", "builder")
         self.ok("item_file", item, "review")
@@ -317,19 +318,45 @@ class WorkLifecycleTests(RepoTestCase):
         h.write_text(_lib.set_fm_value(h.read_text(), "verified_by", "builder"))
         self.assertIn("self-review", self.fails("check"))
 
+    def test_status_change_requires_by(self) -> None:
+        item = self.new_item("needs-actor")
+        self.assertIn("--by", self.fails("transition", item, "planned", "--next", "build"))
+        self.ok("transition", item, "planned", "--next", "build", "--by", "planner")
+        self.assertIn("--by", self.fails("transition", item, "in-progress", "--next", "build"))
+
+    def test_built_by_is_not_overwritten_when_reviewer_sends_back(self) -> None:
+        item = self.new_item("provenance")
+        self.ok("transition", item, "planned", "--next", "build", "--by", "planner")
+        self.ok("transition", item, "in-progress", "--next", "build", "--by", "builder")
+        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "ran check", "--by", "builder")
+        self.ok("transition", item, "in-progress", "--next", "fix findings", "--owner", "builder", "--by", "reviewer")
+        h = self.repo / "work" / "items" / item / "handoff.md"
+        self.assertEqual(_lib.read_fm(h).get("built_by"), "builder")
+
+    def test_verified_and_done_need_built_by(self) -> None:
+        item = self.new_item("missing-builder")
+        self.ok("transition", item, "planned", "--next", "build", "--by", "planner")
+        self.ok("transition", item, "in-progress", "--next", "build", "--by", "builder")
+        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "ran check", "--by", "builder")
+        self.ok("item_file", item, "review")
+        self.ok("transition", item, "verified", "--next", "docs", "--by", "reviewer")
+        h = self.repo / "work" / "items" / item / "handoff.md"
+        h.write_text(h.read_text().replace("built_by: builder\n", "", 1))
+        self.assertIn("built_by", self.fails("check", "--strict"))
+
     def test_archive_refuses_unfinished_items(self) -> None:
         item = self.new_item("half-done")
         self.assertIn("only done or canceled items", self.fails("archive_item", item))
 
     def test_canceled_item_and_reviewer_reject_to_draft(self) -> None:
         item = self.new_item("bad-idea")
-        self.ok("transition", item, "planned", "--next", "build")
-        self.ok("transition", item, "in-progress", "--next", "building")
-        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "ran check")
+        self.ok("transition", item, "planned", "--next", "build", "--by", "planner")
+        self.ok("transition", item, "in-progress", "--next", "building", "--by", "builder")
+        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "ran check", "--by", "builder")
         # Reviewer rejects back to draft for re-planning
-        self.ok("transition", item, "draft", "--next", "re-plan approach")
+        self.ok("transition", item, "draft", "--next", "re-plan approach", "--by", "reviewer")
         # Orchestrator cancels and archives
-        self.ok("transition", item, "canceled", "--next", "dropped after review rejection")
+        self.ok("transition", item, "canceled", "--next", "dropped after review rejection", "--by", "orchestrator")
         self.ok("check", "--strict")
         self.ok("archive_item", item)
         self.assertFalse((self.repo / "work" / "items" / item).exists())
@@ -337,14 +364,14 @@ class WorkLifecycleTests(RepoTestCase):
 
     def test_verified_item_can_still_be_canceled(self) -> None:
         item = self.new_item("overtaken-by-events")
-        self.ok("transition", item, "planned", "--next", "build")
-        self.ok("transition", item, "in-progress", "--next", "building")
-        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "ran check")
+        self.ok("transition", item, "planned", "--next", "build", "--by", "planner")
+        self.ok("transition", item, "in-progress", "--next", "building", "--by", "builder")
+        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "ran check", "--by", "builder")
         self.ok("item_file", item, "review")
-        self.ok("transition", item, "verified", "--next", "update docs", "--evidence", "criterion 1 checked")
-        self.ok("transition", item, "canceled", "--next", "priorities changed before release")
+        self.ok("transition", item, "verified", "--next", "update docs", "--evidence", "criterion 1 checked", "--by", "reviewer")
+        self.ok("transition", item, "canceled", "--next", "priorities changed before release", "--by", "orchestrator")
         self.assertEqual(_lib.read_fm(_lib.find_item(self.repo, item).handoff)["status"], "canceled")
-        self.fails("transition", item, "in-progress", "--next", "reopen")  # canceled is final
+        self.fails("transition", item, "in-progress", "--next", "reopen", "--by", "builder")  # canceled is final
         self.ok("check", "--strict")
 
     def test_security_review_item_file(self) -> None:
@@ -357,21 +384,21 @@ class WorkLifecycleTests(RepoTestCase):
 
     def test_blocked_needs_a_reason_and_can_resume(self) -> None:
         item = self.new_item("waits")
-        self.ok("transition", item, "planned", "--next", "go")
+        self.ok("transition", item, "planned", "--next", "go", "--by", "planner")
         self.fails("transition", item, "blocked")
-        self.ok("transition", item, "blocked", "--next", "waiting on Q-0001")
-        self.ok("transition", item, "in-progress", "--next", "resumed")
+        self.ok("transition", item, "blocked", "--next", "waiting on Q-0001", "--by", "orchestrator")
+        self.ok("transition", item, "in-progress", "--next", "resumed", "--by", "builder")
 
     def test_light_item_has_one_file_and_still_needs_evidence(self) -> None:
         item = self.new_item("quick-fix", "--light")
         self.assertTrue((self.repo / "work" / "items" / f"{item}.md").is_file())
         self.fails("item_file", item, "review")
-        self.ok("transition", item, "planned", "--next", "go")
-        self.ok("transition", item, "in-progress", "--next", "go")
-        self.fails("transition", item, "in-review", "--next", "verify")
-        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "ran it")
-        self.ok("transition", item, "verified", "--next", "close")
-        self.ok("transition", item, "done")
+        self.ok("transition", item, "planned", "--next", "go", "--by", "planner")
+        self.ok("transition", item, "in-progress", "--next", "go", "--by", "builder")
+        self.fails("transition", item, "in-review", "--next", "verify", "--by", "builder")
+        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "ran it", "--by", "builder")
+        self.ok("transition", item, "verified", "--next", "close", "--by", "reviewer")
+        self.ok("transition", item, "done", "--by", "scribe")
         self.ok("check")
 
     def test_same_slug_twice_gets_unique_ids(self) -> None:
@@ -405,7 +432,7 @@ class WorkLifecycleTests(RepoTestCase):
         self.assertEqual((fm["status"], fm["owner_role"]), ("stale", "orchestrator"))
         self.assertNotEqual(fm["updated"], "2020-01-01")  # marking stale resets the re-warn clock
         self.ok("check", "--strict")  # already marked stale: check --strict must not warn again
-        self.ok("transition", item, "planned", "--next", "re-triaged")
+        self.ok("transition", item, "planned", "--next", "re-triaged", "--by", "orchestrator")
 
     def test_stale_items_rewarn_after_a_month(self) -> None:
         item = self.new_item("still-forgotten")
@@ -425,11 +452,11 @@ class WorkLifecycleTests(RepoTestCase):
 
     def test_sweep_archives_old_done_items(self) -> None:
         item = self.new_item("ancient", "--light")
-        self.ok("transition", item, "planned", "--next", "g")
-        self.ok("transition", item, "in-progress", "--next", "g")
-        self.ok("transition", item, "in-review", "--next", "g", "--evidence", "e")
-        self.ok("transition", item, "verified", "--next", "g")
-        self.ok("transition", item, "done")
+        self.ok("transition", item, "planned", "--next", "g", "--by", "planner")
+        self.ok("transition", item, "in-progress", "--next", "g", "--by", "builder")
+        self.ok("transition", item, "in-review", "--next", "g", "--evidence", "e", "--by", "builder")
+        self.ok("transition", item, "verified", "--next", "g", "--by", "reviewer")
+        self.ok("transition", item, "done", "--by", "scribe")
         f = self.repo / "work" / "items" / f"{item}.md"
         f.write_text(_lib.set_fm_value(f.read_text(), "updated", "2020-01-01"))
         self.ok("archive_item", "--sweep")
@@ -454,11 +481,11 @@ class WorkLifecycleTests(RepoTestCase):
         self.assertIn("nothing to change", self.fails("transition", item))
         self.assertIn("unknown role", self.fails("transition", item, "--next", "x", "--owner", "wizard"))
         quick = self.new_item("quick-one", "--light")
-        self.ok("transition", quick, "planned", "--next", "go")
-        self.ok("transition", quick, "in-progress", "--next", "going")
-        self.ok("transition", quick, "in-review", "--next", "look", "--evidence", "ran it")
-        self.ok("transition", quick, "verified", "--next", "close", "--evidence", "checked")
-        self.ok("transition", quick, "done")
+        self.ok("transition", quick, "planned", "--next", "go", "--by", "planner")
+        self.ok("transition", quick, "in-progress", "--next", "going", "--by", "builder")
+        self.ok("transition", quick, "in-review", "--next", "look", "--evidence", "ran it", "--by", "builder")
+        self.ok("transition", quick, "verified", "--next", "close", "--evidence", "checked", "--by", "reviewer")
+        self.ok("transition", quick, "done", "--by", "scribe")
         self.assertIn("final", self.fails("transition", quick, "--next", "too late"))
 
     def test_light_item_can_be_handed_straight_to_another_role(self) -> None:
@@ -481,11 +508,39 @@ class WorktreeTests(RepoTestCase):
         item = self.new_item("wt-feature", "--worktree")
         wt_path = self.repo.parent / f"{self.repo.name}-{item}"
         self.assertTrue(wt_path.is_dir())
+        self.assertTrue((wt_path / "work" / "items" / item / "handoff.md").is_file())
+        self.assertFalse((self.repo / "work" / "items" / item).exists())
         self.assertIn(str(wt_path), self.ok("worktree", "list"))
         # Refuses to remove while still in draft without --force
         self.assertIn("only verified, done or canceled", self.fails("worktree", "remove", item))
         self.ok("worktree", "remove", item, "--force")
         self.assertFalse(wt_path.exists())
+        self.assertEqual(subprocess.run(
+            ["git", "-C", str(self.repo), "branch", "--list", f"item/{item}"],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip(), "")
+
+    def test_worktree_remove_finds_custom_path(self) -> None:
+        item = self.new_item("custom-path")
+        custom = self.repo.parent / f"custom-{item}"
+        self.ok("worktree", "create", item, "--path", str(custom))
+        self.assertTrue(custom.is_dir())
+        self.ok("worktree", "remove", item, "--force")
+        self.assertFalse(custom.exists())
+
+    def test_worktree_remove_keeps_unmerged_branch(self) -> None:
+        item = self.new_item("unmerged")
+        wt_path = self.ok("worktree", "create", item)
+        (Path(wt_path) / "scratch.txt").write_text("work\n", encoding="utf-8")
+        sh = ["git", "-C", wt_path]
+        subprocess.run(sh + ["-c", "user.email=t@t", "-c", "user.name=t", "add", "-A"], check=True)
+        subprocess.run(sh + ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "work"], check=True)
+        out = self.ok("worktree", "remove", item, "--force")
+        self.assertIn("kept because it is not merged", out)
+        self.assertTrue(subprocess.run(
+            ["git", "-C", str(self.repo), "branch", "--list", f"item/{item}"],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip())
 
     def test_worktree_refuses_path_inside_repo_root(self) -> None:
         item = self.new_item("inside-root")
@@ -502,6 +557,56 @@ class EvalHarnessTests(RepoTestCase):
             self.assertIn(task_id, listing)
         out = self.ok("eval_harness", "--verify-fixtures")
         self.assertEqual(out.count("PASS"), 4, out)
+        self.assertNotIn("FAIL", out)
+
+    def test_eval_harness_fails_closed_on_unknown_task(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        passed, reason = eval_harness.grade_task(self.repo, "bogus-task", {})
+        self.assertFalse(passed)
+        self.assertIn("unknown eval task", reason)
+
+    def test_eval_harness_rejects_placeholder_adr_body(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        decisions = self.repo / "docs" / "decisions"
+        existing = {p.name for p in decisions.glob("0*.md")}
+        path = eval_harness.new_adr.create(self.repo, "Use SQLite", "proposed", None, "human")
+        path.write_text(_lib.set_fm_value(path.read_text(), "summary", '"Use SQLite for the prototype."'))
+        eval_harness.sync_indexes.write_outputs(self.repo)
+        passed, reason = eval_harness.grade_task(
+            self.repo, "find-the-right-doc", {"existing_adrs": existing, "docs_snap": {}},
+        )
+        self.assertFalse(passed)
+        self.assertIn("context", reason)
+
+    def test_eval_harness_rejects_unchanged_handoff_body(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            meta = eval_harness.seed_fixture(sandbox, "handoff-roundtrip")
+            eval_harness.transition.transition(
+                sandbox, meta["item_id"], "in-progress", "continue", "builder", [], by_role="builder",
+            )
+            passed, reason = eval_harness.grade_task(sandbox, "handoff-roundtrip", meta)
+        self.assertFalse(passed)
+        self.assertIn("body", reason)
+
+    def test_eval_harness_rejects_wrong_escalation_target(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            meta = eval_harness.seed_fixture(sandbox, "escalation-discipline")
+            eval_harness.run_reference_solution(sandbox, "escalation-discipline", meta)
+            backup = next(i for i in eval_harness.iter_items(sandbox) if "backup" in i.id)
+            eval_harness.transition.transition(
+                sandbox, backup.id, "planned", "do it anyway", "builder", [], by_role="orchestrator",
+            )
+            passed, reason = eval_harness.grade_task(sandbox, "escalation-discipline", meta)
+        self.assertFalse(passed)
+        self.assertIn("not blocked", reason)
 
 
 class QueueTests(RepoTestCase):

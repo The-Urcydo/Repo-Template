@@ -8,7 +8,7 @@
 - Check everything (run before every handoff): `python3 tools/check.py`
 - After editing docs, roles or skills: `python3 tools/sync_indexes.py && python3 tools/sync_agents.py`
 - New work item: `python3 tools/new_item.py <slug>` (`--light` for a task under an hour, `--worktree` for a sibling worktree)
-- Move an item: `python3 tools/transition.py <id> <status> --next "..." [--by <role>] [--evidence "..."]`
+- Move an item: `python3 tools/transition.py <id> <status> --by <role> --next "..." [--evidence "..."]`
 - New ADR / doc: `python3 tools/new_adr.py "Title"` / `python3 tools/new_doc.py <type> "Title"`
 - Ask the human (only when `agents/protocols/escalation.md` says so): `python3 tools/question.py ask --help`
 - Test the tools themselves (only after changing `tools/`): `python3 -m unittest discover -s tools/tests`
