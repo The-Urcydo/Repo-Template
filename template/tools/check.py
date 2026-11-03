@@ -363,14 +363,15 @@ def check_queue(root: Path, rep: Report) -> None:
 
 
 # ------------------------------------------------------------ generated state
-def check_generated(root: Path, rep: Report) -> None:
+def check_generated(root: Path, rep: Report, adapters_ok: bool = True) -> None:
     stale, orphans = sync_indexes.stale_outputs(root)
     for p in stale:
         rep.error("generated-drift", rel(root, p), "generated file is out of date: run `python3 tools/sync_indexes.py`")
     for p in orphans:
         rep.error("generated-drift", rel(root, p), "orphan generated index: run `python3 tools/sync_indexes.py`")
-    for problem in sync_agents.drift(root):
-        rep.error("adapter-drift", ".claude/", f"{problem}: run `python3 tools/sync_agents.py`")
+    if adapters_ok:
+        for problem in sync_agents.drift(root):
+            rep.error("adapter-drift", "agents/adapters/", f"{problem}: run `python3 tools/sync_agents.py`")
 
 
 def check_modules(root: Path, rep: Report) -> None:
@@ -386,13 +387,20 @@ def check_modules(root: Path, rep: Report) -> None:
                 rep.error("module-requires", "tools/modules.json", f"module '{name}' requires '{dep}', which is not installed")
 
 
-def check_adapters_config(root: Path, rep: Report) -> None:
+def check_adapters_config(root: Path, rep: Report) -> bool:
     p = root / "agents" / "adapters" / "targets.json"
-    if p.exists():
-        try:
-            load_targets(root)
-        except json.JSONDecodeError as exc:
-            rep.error("adapters", "agents/adapters/targets.json", f"invalid JSON: {exc}")
+    if not p.exists():
+        return True
+    try:
+        targets = load_targets(root)
+    except json.JSONDecodeError as exc:
+        rep.error("adapters", "agents/adapters/targets.json", f"invalid JSON: {exc}")
+        return False
+    if not isinstance(targets, dict) or any(not isinstance(v, dict) for v in targets.values()):
+        rep.error("adapters", "agents/adapters/targets.json",
+                  "must be an object mapping target names to config objects")
+        return False
+    return True
 
 
 # ------------------------------------------------------------------------ main
@@ -408,8 +416,8 @@ def run_all(root: Path) -> Report:
     check_items(root, rep)
     check_queue(root, rep)
     check_modules(root, rep)
-    check_adapters_config(root, rep)
-    check_generated(root, rep)
+    adapters_ok = check_adapters_config(root, rep)
+    check_generated(root, rep, adapters_ok)
     return rep
 
 

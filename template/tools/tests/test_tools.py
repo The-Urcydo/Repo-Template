@@ -156,6 +156,18 @@ class HealthTests(RepoTestCase):
     def test_stubs_listing_never_fails(self) -> None:
         self.assertIn("placeholder", self.ok("check", "--stubs"))
 
+    def test_invalid_adapter_targets_report_without_crashing(self) -> None:
+        p = self.repo / "agents" / "adapters" / "targets.json"
+        p.write_text("{not json\n", encoding="utf-8")
+        out = self.fails("check")
+        self.assertIn("adapters", out)
+        self.assertNotIn("Traceback", out)
+
+        p.write_text("[]\n", encoding="utf-8")
+        out = self.fails("check")
+        self.assertIn("adapters", out)
+        self.assertNotIn("Traceback", out)
+
     def test_agents_md_over_budget_fails(self) -> None:
         p = self.repo / "AGENTS.md"
         p.write_text(p.read_text() + "\n".join(f"- extra rule {i}" for i in range(120)) + "\n")
@@ -528,6 +540,15 @@ class ModuleTests(RepoTestCase):
 
 
 class AdapterTests(RepoTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        # Every test starts from "Cursor and Copilot off", whatever this project has enabled.
+        self.enable(cursor=False, copilot=False)
+        shutil.rmtree(self.repo / ".cursor", ignore_errors=True)
+        (self.repo / ".github" / "copilot-instructions.md").unlink(missing_ok=True)
+        self.ok("sync_agents")
+        self.ok("sync_indexes")
+
     def test_adapters_are_generated_and_removed_with_their_source(self) -> None:
         targets = _lib.load_targets(self.repo)
         if not targets.get("claude", {}).get("enabled"):
@@ -563,6 +584,99 @@ class AdapterTests(RepoTestCase):
         self.assertFalse((self.repo / ".claude").exists())
         self.assertFalse((self.repo / "CLAUDE.md").exists())
         self.ok("check")
+
+    def enable(self, **targets: bool) -> None:
+        t = self.repo / "agents" / "adapters" / "targets.json"
+        data = json.loads(t.read_text())
+        for name, on in targets.items():
+            data.setdefault(name, {})["enabled"] = on
+        t.write_text(json.dumps(data))
+
+    def test_cursor_adapter_writes_role_rules_and_a_short_pointer(self) -> None:
+        self.enable(cursor=True)
+        self.ok("sync_agents")
+        rules = self.repo / ".cursor" / "rules"
+        pointer = (rules / "00-repo.mdc").read_text()
+        self.assertIn("alwaysApply: true", pointer)
+        self.assertIn("`AGENTS.md`", pointer)
+        self.assertLess(len(pointer), 600, "the pointer must not copy AGENTS.md (the tool loads that file itself)")
+        role = (rules / "role-builder.mdc").read_text()
+        self.assertTrue(role.startswith("---\ndescription:"))
+        self.assertIn("alwaysApply: false", role)
+        self.assertIn("You are the **builder** role", role)
+        self.ok("check", "--strict")
+        self.ok("sync_agents", "--check")
+        charter = self.repo / "agents" / "roles" / "builder.md"
+        charter.write_text(charter.read_text().rstrip() + "\n\nExtra rule.\n")
+        self.assertIn("role-builder.mdc", self.fails("sync_agents", "--check"))
+        self.ok("sync_agents")
+        self.assertIn("Extra rule.", (rules / "role-builder.mdc").read_text())
+
+    def test_claude_and_cursor_share_one_role_text(self) -> None:
+        if not _lib.load_targets(self.repo).get("claude", {}).get("enabled"):
+            self.skipTest("claude adapter disabled")
+        self.enable(cursor=True)
+        self.ok("sync_agents")
+        claude = (self.repo / ".claude" / "agents" / "builder.md").read_text().split("---\n", 2)[2]
+        cursor = (self.repo / ".cursor" / "rules" / "role-builder.mdc").read_text().split("---\n", 2)[2]
+        self.assertEqual(claude, cursor)
+
+    def test_copilot_adapter_writes_a_pointer_that_check_accepts(self) -> None:
+        self.enable(copilot=True)
+        self.ok("sync_agents")
+        text = (self.repo / ".github" / "copilot-instructions.md").read_text()
+        self.assertIn("`AGENTS.md`", text)
+        self.assertNotIn("python3 tools/", text)
+        self.ok("check", "--strict")
+        self.ok("sync_agents", "--check")
+
+    def test_copilot_adapter_does_not_turn_the_github_module_on(self) -> None:
+        if "github" in _lib.load_modules(self.repo):
+            self.ok("remove_module", "github", "--apply")
+        self.enable(copilot=True)
+        self.ok("sync_agents")
+        self.assertTrue((self.repo / ".github" / "copilot-instructions.md").is_file())
+        self.assertNotIn("github", _lib.load_modules(self.repo))
+        self.ok("sync_indexes", "--check")
+        self.assertNotIn("`.github/`", (self.repo / "docs" / "reference" / "repo-map.md").read_text())
+        self.ok("check", "--strict")
+
+    def test_cutting_the_github_module_keeps_the_copilot_pointer(self) -> None:
+        if "github" not in _lib.load_modules(self.repo):
+            self.skipTest("github module not installed")
+        self.enable(copilot=True)
+        self.ok("sync_agents")
+        self.ok("sync_indexes")
+        self.ok("remove_module", "github", "--apply")
+        self.assertTrue((self.repo / ".github" / "copilot-instructions.md").is_file())
+        self.assertFalse((self.repo / ".github" / "workflows").exists())
+        self.assertNotIn("github", _lib.load_modules(self.repo))
+        self.ok("sync_agents", "--check")
+        self.ok("sync_indexes", "--check")
+        self.ok("check", "--strict")
+
+    def test_disabling_cursor_and_copilot_removes_what_they_generated(self) -> None:
+        self.enable(cursor=True, copilot=True)
+        self.ok("sync_agents")
+        self.enable(cursor=False, copilot=False)
+        self.ok("sync_agents")
+        self.assertFalse((self.repo / ".cursor").exists())
+        self.assertFalse((self.repo / ".github" / "copilot-instructions.md").exists())
+        self.ok("check", "--strict")
+
+    def test_sync_never_overwrites_a_hand_written_copilot_file(self) -> None:
+        mine = self.repo / ".github" / "copilot-instructions.md"
+        mine.parent.mkdir(exist_ok=True)
+        mine.write_text("my own instructions\n")
+        self.enable(copilot=True)
+        self.assertIn("SKIPPED", self.fails("sync_agents"))
+        self.assertEqual(mine.read_text(), "my own instructions\n")
+
+    def test_files_under_dot_cursor_are_not_checked_as_documentation(self) -> None:
+        mine = self.repo / ".cursor" / "rules" / "mine.md"
+        mine.parent.mkdir(parents=True)
+        mine.write_text("# Mine\n\n[broken](does/not/exist.md)\n")
+        self.ok("check", "--strict")
 
 
 if __name__ == "__main__":

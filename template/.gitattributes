@@ -14,3 +14,5 @@ agents/ROSTER.md linguist-generated
 agents/adapters/manifest.json linguist-generated
 CLAUDE.md linguist-generated
 .claude/** linguist-generated
+.cursor/rules/** linguist-generated
+.github/copilot-instructions.md linguist-generated

@@ -138,11 +138,14 @@ def build_repo_map(root: Path) -> str:
     mod_of: dict[str, str] = {}
     for name, m in modules.items():
         for path in m.get("paths", []):
-            if "/" not in path.strip("/"):  # only a whole top-level folder is "a module folder"
-                mod_of[path.strip("/")] = name
+            top = path.strip("/").split("/")[0]
+            # a whole top-level folder is "a module folder"; so is a hidden tool folder (.github) the module's files live in
+            if top == path.strip("/") or top.startswith("."):
+                mod_of[top] = name
     rows = []
     for d in sorted(root.iterdir()):
-        if not d.is_dir() or d.name in SKIP_DIRS or (d.name.startswith(".") and d.name != ".github"):
+        # .github is listed only while its module is installed: a Copilot adapter file alone does not make it a module
+        if not d.is_dir() or d.name in SKIP_DIRS or (d.name.startswith(".") and d.name not in mod_of):
             continue
         readme = d / "README.md"
         summary = read_fm(readme).get("summary") if readme.exists() else None

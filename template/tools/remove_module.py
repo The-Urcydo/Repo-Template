@@ -98,8 +98,8 @@ def main(argv: list[str] | None = None) -> int:
     remaining = [n for n in installed if n != args.name]
     if update_answers(root, remaining):
         print("  updated .copier-answers.yml (profile: custom)")
+    sync_agents.sync(root)  # first: adapters can create or delete files the indexes describe
     sync_indexes.write_outputs(root)
-    sync_agents.sync(root)
     check = root / "tools" / "check.py"
     result = subprocess.run([sys.executable, str(check)], cwd=root, env={**__import__("os").environ, "REPO_ROOT": str(root)})
     print("module removed." + ("" if result.returncode == 0 else " check.py reports problems: fix them (usually dangling mentions)."))
