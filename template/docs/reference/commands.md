@@ -4,7 +4,6 @@ type: reference
 status: active
 summary: Every tool in tools/ with its arguments, what it changes, and its exit behavior.
 related_code: [tools/check.py, tools/new_item.py, tools/transition.py, tools/item_file.py, tools/archive_item.py, tools/new_adr.py, tools/new_doc.py, tools/question.py, tools/remove_module.py, tools/sync_indexes.py, tools/sync_agents.py]
-last_verified: 2026-11-02
 ---
 # Command reference
 

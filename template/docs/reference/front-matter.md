@@ -4,7 +4,6 @@ type: reference
 status: active
 summary: The required and optional front matter keys for docs, ADRs, handoffs, roles, skills and folder READMEs.
 related_code: [tools/_lib.py, tools/check.py]
-last_verified: 2026-11-02
 ---
 # Front matter schema
 
