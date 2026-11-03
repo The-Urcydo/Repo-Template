@@ -59,7 +59,7 @@ def full(tmp_path_factory) -> Path:
     return generate(tmp_path_factory.mktemp("full") / "p", profile="full")
 
 
-@pytest.mark.parametrize("layout", ["single", "workspace"])
+@pytest.mark.parametrize("layout", ["single", "workspace", "data-ml", "minimal"])
 @pytest.mark.parametrize("profile", ["lean", "standard", "full"])
 def test_profile_generates_a_healthy_repo(tmp_path, profile, layout):
     p = generate(tmp_path / "p", profile=profile, layout=layout)
@@ -67,9 +67,14 @@ def test_profile_generates_a_healthy_repo(tmp_path, profile, layout):
     assert r.returncode == 0, r.stdout
     for module, path in MODULE_PATHS.items():
         assert (p / path).exists() == (module in PROFILES[profile]), f"{module} wrong for profile {profile}"
-    assert (p / "src").exists() == (layout == "single")
+    assert (p / "src").exists() == (layout in ("single", "data-ml"))
     assert (p / "apps").exists() == (layout == "workspace")
     assert (p / "packages").exists() == (layout == "workspace")
+    assert (p / "data").exists() == (layout == "data-ml")
+    assert (p / "notebooks").exists() == (layout == "data-ml")
+    assert (p / "tests").exists() == (layout != "minimal")
+    # a layout's folder excludes must never reach into tools/ (the unit tests live in tools/tests)
+    assert (p / "tools" / "tests" / "test_tools.py").exists(), layout
     # core is always present
     for core in ["AGENTS.md", "README.md", "docs/INDEX.md", "work/ACTIVE.md", "work/HUMAN.md", "agents/ROSTER.md",
                  "tools/check.py", "docs/decisions/0000-use-madr-for-decision-records.md", "agents/roles/builder.md"]:
@@ -108,6 +113,17 @@ def test_agents_md_lists_every_generated_adapter_output():
         text = (TEMPLATE / "template" / rel).read_text(encoding="utf-8")
         for token in (".claude/", ".cursor/rules/", "CLAUDE.md", "copilot-instructions.md"):
             assert token in text, f"{rel} does not mention {token}"
+
+
+def test_template_ships_no_hardcoded_last_verified_date():
+    """A date baked into a template doc is older than any project's first commit, so `check --strict` would
+    warn `doc-stale` in every generated project (and fail its CI) as soon as the related code is committed."""
+    bad = [
+        p.relative_to(TEMPLATE).as_posix()
+        for p in (TEMPLATE / "template").rglob("*")
+        if p.is_file() and re.search(r"^last_verified:", p.read_text(encoding="utf-8", errors="ignore"), re.M)
+    ]
+    assert not bad, bad
 
 
 def test_generation_is_deterministic(tmp_path):

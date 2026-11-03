@@ -10,7 +10,7 @@ A [Copier](https://copier.readthedocs.io) template for new repositories that one
 | Volatile work | `work/` | Inbox, one folder per work item with a `handoff.md`, a generated board, and a queue of questions for the human |
 | Agent harness | `agents/` | Role charters, protocols, skills. **The source of truth** for any agent tool |
 | Tooling | `tools/` | Standard-library Python (3.9+): health check, index generators, work/ADR/doc helpers |
-| Code | `src/` or `apps/` + `packages/`, `tests/` | Placeholders for you to replace |
+| Code | `src/`, `apps/` + `packages/`, `data/` + `notebooks/`, or none (`minimal`) | Placeholders for your stack or engine |
 
 Rules that make it work for agents: a short root `AGENTS.md` (≤100 lines, enforced), a `CLAUDE.md` shim beside each `AGENTS.md`, front matter on every doc, one declared owner per folder, evidence required before work counts as done, and `python3 tools/check.py` as the single "is the repo healthy?" command.
 
@@ -42,6 +42,8 @@ You answer five questions: project name, one-line description, **profile**, **la
 |---|---|
 | `single` (default) | `src/`, `tests/` |
 | `workspace` | `apps/`, `packages/`, `tests/` |
+| `data-ml` | `src/`, `data/`, `notebooks/`, `tests/` |
+| `minimal` | none (for game engines, hardware/firmware, or custom root layouts) |
 
 Modules are folders that nothing in the core links to, so they can be removed at any time: `python3 tools/remove_module.py <name> --apply` (omit `--apply` for a dry run). It also records the cut in `.copier-answers.yml`, so a later update does not bring the module back.
 
@@ -76,4 +78,3 @@ Layout of this repo: `copier.yml` (questions, exclusions, tasks) · `template/` 
 - The `.claude/` paths and file formats follow Claude Code's documentation as of November 2026 and may change; only `agents/` is yours to rely on.
 - Creating and updating a project needs Copier (so Python). Using a generated project needs only `python3`.
 - No license is included. Add one before publishing.
-# Repo-Template

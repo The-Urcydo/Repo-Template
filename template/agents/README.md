@@ -29,8 +29,9 @@ The orchestrator reads `work/ACTIVE.md` and routes each item by status. `tools/t
 | `in-review` | Built, awaiting verification | reviewer | Verify against the acceptance criteria, write `review.md` |
 | `verified` | Reviewer signed off | scribe | Update docs and `CHANGELOG.md`, then hand to orchestrator |
 | `done` | Finished | orchestrator | Archive with `tools/archive_item.py` |
+| `canceled` | Dropped without shipping | orchestrator | Archive with `tools/archive_item.py` |
 | `blocked` | Waiting on something | orchestrator | Resolve it, or raise a question to the human |
-| `stale` | Idle too long | orchestrator | Re-triage: continue, re-plan, or drop |
+| `stale` | Idle too long | orchestrator | Re-triage: continue, re-plan, or cancel |
 
 Full rules for each transition: `protocols/handoff.md`.
 

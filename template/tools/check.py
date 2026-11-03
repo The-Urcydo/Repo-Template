@@ -327,10 +327,10 @@ def check_items(root: Path, rep: Report) -> None:
         updated = parse_date(fm.get("updated"))
         if updated is None:
             rep.error("handoff", r, "updated must be an ISO date")
-        elif status not in ("done",) and (today() - updated).days > STALE_DAYS:
+        elif status not in ("done", "canceled", "stale") and (today() - updated).days > STALE_DAYS:
             rep.warn("item-stale", r, f"not updated for {(today() - updated).days} days; run tools/archive_item.py --sweep")
-        elif status == "done" and (today() - updated).days > 7:
-            rep.warn("item-archive", r, "done for over a week; run tools/archive_item.py --sweep")
+        elif status in ("done", "canceled") and (today() - updated).days > 7:
+            rep.warn("item-archive", r, f"{status} for over a week; run tools/archive_item.py --sweep")
 
 
 def check_queue(root: Path, rep: Report) -> None:

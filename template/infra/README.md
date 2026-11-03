@@ -14,4 +14,4 @@ Rules worth keeping from the start:
 - Secrets never live here; reference them by name from a secret manager.
 - Each environment gets its own folder under `environments/`.
 
-When the first resource lands, propose how to plan and apply for the root `AGENTS.md` (the human owns it; see `src/README.md`) and set this file's `status` to `active`. Cut this module with `python3 tools/remove_module.py infra`.
+When the first resource lands, propose how to plan and apply for the root `AGENTS.md` (the human owns it; propose the change with `python3 tools/question.py ask`) and set this file's `status` to `active`. Cut this module with `python3 tools/remove_module.py infra`.

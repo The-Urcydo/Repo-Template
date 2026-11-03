@@ -9,4 +9,4 @@ owner_role: builder
 
 Placeholder. One folder per deployable application (web app, API, CLI). Shared libraries go in `packages/`. Apps may depend on packages, never on each other.
 
-When the first app lands: propose its build, test and run commands for the root `AGENTS.md` (the human owns it; see `src/README.md`), then change this file's `status` to `active`.
+When the first app lands: propose its build, test and run commands for the root `AGENTS.md` (the human owns it; propose the change with `python3 tools/question.py ask`), then change this file's `status` to `active`.
