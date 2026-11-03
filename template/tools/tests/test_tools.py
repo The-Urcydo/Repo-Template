@@ -21,7 +21,7 @@ import _lib  # noqa: E402
 
 
 _SKIP_ANYWHERE = shutil.ignore_patterns(".git", "__pycache__", ".locks", "*.pyc", "node_modules", ".venv")
-_CODE_FOLDERS = {"src", "apps", "packages", "tests"}  # product code is irrelevant here and may be huge
+_CODE_FOLDERS = {"src", "apps", "packages", "data", "notebooks", "tests"}  # product code is irrelevant here and may be huge
 _VOLATILE = ("items", "archive", "inbox", "research")  # work/ subfolders that hold real project data
 
 
