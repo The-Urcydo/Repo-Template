@@ -156,6 +156,18 @@ class HealthTests(RepoTestCase):
     def test_stubs_listing_never_fails(self) -> None:
         self.assertIn("placeholder", self.ok("check", "--stubs"))
 
+    def test_invalid_adapter_targets_report_without_crashing(self) -> None:
+        p = self.repo / "agents" / "adapters" / "targets.json"
+        p.write_text("{not json\n", encoding="utf-8")
+        out = self.fails("check")
+        self.assertIn("adapters", out)
+        self.assertNotIn("Traceback", out)
+
+        p.write_text("[]\n", encoding="utf-8")
+        out = self.fails("check")
+        self.assertIn("adapters", out)
+        self.assertNotIn("Traceback", out)
+
     def test_agents_md_over_budget_fails(self) -> None:
         p = self.repo / "AGENTS.md"
         p.write_text(p.read_text() + "\n".join(f"- extra rule {i}" for i in range(120)) + "\n")
