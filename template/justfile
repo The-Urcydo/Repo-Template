@@ -26,13 +26,17 @@ sync:
 test:
     python3 -m unittest discover -s tools/tests
 
-# New work item: just item my-slug   (add --light for a one-file item)
+# New work item: just item my-slug   (add --light for a one-file item, --worktree for a sibling worktree)
 item *args:
     python3 tools/new_item.py {{args}}
 
 # Move an item: just move <id> in-review --next "..." --evidence "..."
 move *args:
     python3 tools/transition.py {{args}}
+
+# Manage sibling worktrees: just wt create <id> / just wt remove <id> / just wt list
+wt *args:
+    python3 tools/worktree.py {{args}}
 
 # Archive done items and flag stale ones
 sweep:
@@ -53,3 +57,7 @@ questions:
 # List optional modules, or preview cutting one: just cut evals
 cut name="":
     python3 tools/remove_module.py {{name}}
+
+# Verify or run harness evals
+evals *args="--verify-fixtures":
+    python3 tools/eval_harness.py {{args}}

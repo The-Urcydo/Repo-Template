@@ -3,7 +3,7 @@ title: Command reference
 type: reference
 status: active
 summary: Every tool in tools/ with its arguments, what it changes, and its exit behavior.
-related_code: [tools/check.py, tools/new_item.py, tools/transition.py, tools/item_file.py, tools/archive_item.py, tools/new_adr.py, tools/new_doc.py, tools/question.py, tools/remove_module.py, tools/sync_indexes.py, tools/sync_agents.py]
+related_code: [tools/check.py, tools/new_item.py, tools/transition.py, tools/item_file.py, tools/archive_item.py, tools/new_adr.py, tools/new_doc.py, tools/question.py, tools/remove_module.py, tools/sync_indexes.py, tools/sync_agents.py, tools/worktree.py, tools/eval_harness.py]
 ---
 # Command reference
 
@@ -13,15 +13,17 @@ All tools are `python3 tools/<name>.py`, standard library only. Every tool suppo
 |---|---|---|
 | `check.py` | nothing | Health check. `--strict` makes warnings fail; `--json` machine output; `--stubs` lists placeholders (exit 0) |
 | `sync_indexes.py` | generated indexes | Rebuilds `docs/INDEX.md`, `work/ACTIVE.md`, `agents/ROSTER.md`, `docs/reference/repo-map.md`, `docs/reference/modules.md`. `--check` only reports drift |
-| `sync_agents.py` | `.claude/`, `CLAUDE.md` shims, optional `.cursor/rules/` and `.github/copilot-instructions.md`, `agents/adapters/manifest.json` | Generates the adapters enabled in `agents/adapters/targets.json` from `agents/`. `--check` only reports drift. Refuses to overwrite files it did not generate |
-| `new_item.py <slug> [--title T] [--light] [--owner ROLE] [--status S]` | `work/items/` | Id is `<date>-<slug>`; duplicates get `-2`, `-3`. Full item creates `handoff.md` and `brief.md` |
+| `sync_agents.py` | `.claude/`, `CLAUDE.md` shims, optional `.cursor/rules/`, `.github/copilot-instructions.md` and `.gemini/settings.json`, `agents/adapters/manifest.json` | Generates the adapters enabled in `agents/adapters/targets.json` from `agents/`. `--check` only reports drift. Refuses to overwrite files it did not generate |
+| `new_item.py <slug> [--title T] [--light] [--owner ROLE] [--status S] [--worktree]` | `work/items/` | Id is `<date>-<slug>`; duplicates get `-2`, `-3`. Full item creates `handoff.md` and `brief.md`; `--worktree` also creates a sibling git worktree |
 | `item_file.py <id> <kind>` | `work/items/<id>/` | Kinds: `brief plan tasks review research design security-review`. Refuses to overwrite |
-| `transition.py <id> [<status>] --next "..." [--owner ROLE] [--evidence "..."]` | the item's `handoff.md`, board | `--evidence` may repeat. Leave the status out (or repeat current status) to change only next step, owner or evidence. Rules: see `agents/protocols/handoff.md` |
+| `transition.py <id> [<status>] --next "..." [--owner ROLE] [--by ROLE] [--evidence "..."]` | the item's `handoff.md`, board | `--evidence` may repeat. `--by` records `built_by`/`verified_by` and blocks self-review. Leave the status out (or repeat current status) to change only next step, owner or evidence |
 | `archive_item.py <id>` / `--sweep [--dry-run]` | `work/items/`, `work/archive/` | Only `done` or `canceled` items archive. Sweep marks active items idle for 14 days as `stale`; `check.py` re-warns after 30 days in `stale`. `verified` items are not swept |
+| `worktree.py create <id> [--path DIR]` / `remove <id> [--force]` / `list` | sibling git worktrees | Creates or removes `../<repo>-<item-id>` on branch `item/<item-id>` for parallel agents |
 | `new_adr.py "Title" [--status proposed\|accepted] [--supersedes NNNN] [--decider NAME]` | `docs/decisions/` | Number allocated under a lock; `--supersedes` accepts `3`, `0003`, or `ADR-0003` |
 | `new_doc.py <type> "Title" [--summary S]` | `docs/` | Types: `tutorial how-to reference explanation runbook postmortem` (last two need the `operations` module) |
 | `question.py ask ...` / `answer Q-0001 "text"` / `list` | `work/HUMAN.md` | `ask` needs `--asked-by` (a known role) `--recommended --if-no-answer --cost`; optional `--options --item` |
 | `remove_module.py [name] [--apply]` | module paths, `.copier-answers.yml` | Without a name lists modules; without `--apply` is a dry run |
+| `eval_harness.py [--list] [--verify-fixtures] [--task ID] [--cmd "..."]` | temp sandboxes | Seeds throwaway sandboxes for golden tasks in `agents/evals/tasks/`, runs reference or external agent commands, and grades post-conditions |
 
 Tools that create or move things also regenerate the indexes, so `docs/INDEX.md`, `work/ACTIVE.md` and `agents/ROSTER.md` may change as a side effect.
 
@@ -37,8 +39,9 @@ Tools that create or move things also regenerate the indexes, so `docs/INDEX.md`
 | `module-coupling` | error | A core file links into an optional module (or one module links into another) |
 | `agents-md` `agents-md-size` | error | Missing root `AGENTS.md`, or over budget (root 100 lines, nested 60) |
 | `role` `ownership` `folder-readme` | error | Role charter incomplete, ownership claimed twice or by an unknown role, folder README missing |
+| `workspace-readme` `workspace-boundary` `workspace-cycle` | error | A subfolder in `apps/` or `packages/` is missing a README `summary`, or violates `depends_on` rules (packages depending on apps, apps depending on apps, missing targets, or cycles) |
 | `skill` | error | Skill name, folder match or description invalid |
-| `item` `item-id` `handoff` | error | A work item breaks the handoff rules |
+| `item` `item-id` `handoff` `self-review` | error | A work item breaks the handoff rules, or `verified_by` matches the builder (`built_by`) |
 | `human-queue` | error / warn | Malformed question, or one waiting more than 7 days (warn) |
 | `generated-drift` `adapter-drift` | error | A generated file differs from its source: run the sync tools |
 | `module-partial` | warn | A module is partly present |

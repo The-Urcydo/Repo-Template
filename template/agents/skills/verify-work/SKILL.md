@@ -19,7 +19,7 @@ You must not be the role that built the item. If you were, stop and hand it to a
 5. Move the item:
    - Approved:
      ```
-     python3 tools/transition.py <id> verified --evidence "<what you ran>" --next "update docs and changelog"
+     python3 tools/transition.py <id> verified --by reviewer --evidence "<what you ran>" --next "update docs and changelog"
      ```
    - Changes requested:
      ```

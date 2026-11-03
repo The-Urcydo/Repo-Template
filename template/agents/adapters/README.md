@@ -14,8 +14,9 @@ owner_role: architect
 | `claude` | enabled | `.claude/agents/<role>.md`, `.claude/skills/<name>/`, a `CLAUDE.md` containing `@AGENTS.md` beside every `AGENTS.md` | Claude Code loads subagents and skills from `.claude/`, and reads `CLAUDE.md` instead of `AGENTS.md` when both exist, so each shim imports the real file |
 | `cursor` | disabled | `.cursor/rules/00-repo.mdc`, `.cursor/rules/role-<role>.mdc` | One short always-on pointer to `AGENTS.md`, plus each role charter as an agent-requested rule. `AGENTS.md` itself is not copied, so Cursor never loads it twice |
 | `copilot` | disabled | `.github/copilot-instructions.md` | A short pointer to `AGENTS.md` in the path Copilot reads repository instructions from |
+| `gemini` | disabled | `.gemini/settings.json` | Configures `context.fileName` to `["AGENTS.md", "GEMINI.md"]` so Gemini CLI reads `AGENTS.md` directly |
 
-Codex and most other agent tools read `AGENTS.md` and the plain Markdown in `agents/` directly; nothing is generated for them. Gemini CLI reads `GEMINI.md` by default: set `context.fileName` to `["AGENTS.md", "GEMINI.md"]` in `.gemini/settings.json` (or tell it to read `AGENTS.md`). No Gemini adapter is shipped; this setting is the supported path.
+Codex and most other agent tools read `AGENTS.md` and the plain Markdown in `agents/` directly; nothing is generated for them.
 
 ## Commands
 
@@ -28,7 +29,7 @@ python3 tools/sync_agents.py --check    # fail if generated files differ from th
 
 ## Turn a target on or off
 
-Set `"enabled"` to `true` or `false` for `claude`, `cursor` or `copilot` in `targets.json`, then run `python3 tools/sync_agents.py`. Turning a target off removes the files it generated (and any folder left empty). To manage a tool's files yourself, copy what you need from `agents/` first (for Claude Code: `agents/roles/*.md` and `agents/skills/*` into `.claude/`), then set `enabled` to false so the sync tool leaves them alone. The sync tool never overwrites a file it did not generate: it reports `SKIPPED` and exits 1.
+Set `"enabled"` to `true` or `false` for `claude`, `cursor`, `copilot` or `gemini` in `targets.json`, then run `python3 tools/sync_agents.py`. Turning a target off removes the files it generated (and any folder left empty). To manage a tool's files yourself, copy what you need from `agents/` first (for Claude Code: `agents/roles/*.md` and `agents/skills/*` into `.claude/`), then set `enabled` to false so the sync tool leaves them alone. The sync tool never overwrites a file it did not generate: it reports `SKIPPED` and exits 1.
 
 An adapter file does not make a module: `.github/copilot-instructions.md` exists without the `github` module, and cutting that module leaves it in place.
 

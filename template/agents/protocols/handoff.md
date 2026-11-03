@@ -29,7 +29,7 @@ A session ends and a fresh one starts with no memory. The handoff file is the me
 
 1. Every status except `done` needs `--next`: one sentence saying what the next role does (or why the item was `blocked` or `canceled`). If several roles must act, name the first here and list the rest under Current state.
 2. `in-review`, `verified` and `done` need evidence in the handoff (commands run, links), not assertions.
-3. `verified` and `done` need `review.md` in the item folder (full items), written by a different role than the builder.
+3. `verified` and `done` need `review.md` in the item folder (full items), written by a different role than the builder. Pass `--by <role>` to `python3 tools/transition.py` to record `built_by` and `verified_by` and mechanically block self-review.
 4. The next owner defaults to the role in the dispatch table in `agents/README.md`. Override with `--owner`.
 
 ## handoff.md format

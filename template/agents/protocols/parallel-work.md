@@ -12,11 +12,11 @@ Many agents at once is the normal case. Collisions are prevented by structure, n
 ## Three mechanisms
 
 1. **One writer per path.** Folder ownership (`owner_role` in each folder README) and per-role `item_files` mean two roles never write the same file. If you need a change in a path you do not own, say so in the handoff for the owner.
-2. **One worktree per agent.** Each building agent works in its own `git worktree` on its own branch:
+2. **One worktree per agent.** Each building agent works in its own `git worktree` on its own branch (`item/<item-id>`), created in a sibling folder outside the repository root:
    ```
-   git worktree add ../<repo>-<item-id> -b item/<item-id>
+   python3 tools/worktree.py create <item-id>
    ```
-   Agents never share a working directory.
+   Or create the item and its worktree in one step with `python3 tools/new_item.py <slug> --worktree`. Agents never share a working directory.
 3. **Locked shared tools.** Creating items, allocating ADR numbers, and editing the human queue go through `tools/`, which take a file lock under `work/.locks/` so two agents cannot allocate the same number or corrupt a file.
 
 ## What can run in parallel
@@ -35,4 +35,4 @@ Many agents at once is the normal case. Collisions are prevented by structure, n
 
 - Merge only items that are `verified`.
 - After merging, regenerate: `python3 tools/sync_indexes.py && python3 tools/sync_agents.py`, then `python3 tools/check.py`. Generated files conflict often and are never merged by hand; regenerate them instead.
-- Delete the worktree and branch when the item is `done`.
+- Remove the sibling worktree when the item is `verified`, `done` or `canceled`: `python3 tools/worktree.py remove <item-id>`.
