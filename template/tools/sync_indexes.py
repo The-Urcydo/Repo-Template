@@ -237,7 +237,7 @@ def build_roster(root: Path) -> str:
                "architect"),
         "# Agent roster",
         "",
-        "Ownership comes from each folder README's `owner_role` (nearest ancestor wins) plus the role files in `roles/`.",
+        "Ownership comes from each folder README's `owner_role` (nearest ancestor wins) plus each role's `ROLE.md` in `roles/<role>/`.",
         "Dispatch rule: `protocols/handoff.md`.",
         "",
         "| Role | Mission | Owns (exclusive writes) | Item files |",

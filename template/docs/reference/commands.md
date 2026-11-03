@@ -36,8 +36,8 @@ Tools that create or move things also regenerate the indexes, so `docs/INDEX.md`
 | `broken-link` `link-outside-repo` | error | A relative Markdown link does not resolve |
 | `module-coupling` | error | A core file links into an optional module (or one module links into another) |
 | `agents-md` `agents-md-size` | error | Missing root `AGENTS.md`, or over budget (root 100 lines, nested 60) |
-| `role` `ownership` `folder-readme` | error | Role charter incomplete, ownership claimed twice or by an unknown role, folder README missing |
-| `skill` | error | Skill name, folder match or description invalid |
+| `role` `ownership` `folder-readme` | error | Role charter incomplete, not at `agents/roles/<role>/ROLE.md` or not matching its folder, ownership claimed twice or by an unknown role, folder README missing |
+| `skill` | error | Skill name, folder match or description invalid, or the same skill name used twice (shared and per-role skills share one flat namespace) |
 | `item` `item-id` `handoff` | error | A work item breaks the handoff rules |
 | `human-queue` | error / warn | Malformed question, or one waiting more than 7 days (warn) |
 | `generated-drift` `adapter-drift` | error | A generated file differs from its source: run the sync tools |

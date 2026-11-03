@@ -7,7 +7,7 @@ owner_role: security
 ---
 # docs/security/
 
-Module `security`. Includes the `security` role (`agents/roles/security.md`) and the root `SECURITY.md` vulnerability-reporting policy.
+Module `security`. Includes the `security` role (`agents/roles/security/`) and the root `SECURITY.md` vulnerability-reporting policy.
 
 | Page | Holds |
 |---|---|

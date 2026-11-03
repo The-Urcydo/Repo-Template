@@ -39,13 +39,13 @@ Docs keys plus: `date` (required once `accepted`), `decision_makers`, `supersede
 | `evidence` | required from `in-review` on | List of commands run or links |
 | `created` `updated` | yes | ISO dates |
 
-## Role (`agents/roles/<role>.md`)
+## Role (`agents/roles/<role>/ROLE.md`)
 
-Required: `role` (equals filename), `mission`, `reads`, `never`, `done_when`, `escalate_when`. Optional: `item_files`, `writes_files`.
+Required: `role` (equals the folder name), `mission`, `reads`, `never`, `done_when`, `escalate_when`. Optional: `item_files`, `writes_files`.
 
-## Skill (`agents/skills/<name>/SKILL.md`)
+## Skill (`agents/roles/<role>/skills/<name>/SKILL.md` or `agents/skills/<name>/SKILL.md`)
 
-Per the Agent Skills specification: `name` (1-64 chars, lowercase letters, digits and single hyphens, equals the folder), `description` (1-1024 chars, what it does and when to use it).
+Per the Agent Skills specification: `name` (1-64 chars, lowercase letters, digits and single hyphens, equals the folder), `description` (1-1024 chars, what it does and when to use it). A skill only one role uses lives under that role; a skill several roles use lives in `agents/skills/`. The name is unique across both places.
 
 ## Folder README (top-level folders, and any folder that owns something)
 

@@ -28,7 +28,7 @@ python3 tools/sync_agents.py --check    # fail if generated files differ from th
 
 ## Turn a target on or off
 
-Set `"enabled"` to `true` or `false` for `claude`, `cursor` or `copilot` in `targets.json`, then run `python3 tools/sync_agents.py`. Turning a target off removes the files it generated (and any folder left empty). To manage a tool's files yourself, copy what you need from `agents/` first (for Claude Code: `agents/roles/*.md` and `agents/skills/*` into `.claude/`), then set `enabled` to false so the sync tool leaves them alone. The sync tool never overwrites a file it did not generate: it reports `SKIPPED` and exits 1.
+Set `"enabled"` to `true` or `false` for `claude`, `cursor` or `copilot` in `targets.json`, then run `python3 tools/sync_agents.py`. Turning a target off removes the files it generated (and any folder left empty). To manage a tool's files yourself, copy what you need from `agents/` first (for Claude Code: each `agents/roles/<role>/ROLE.md` and every skill folder, shared and per role, into `.claude/`), then set `enabled` to false so the sync tool leaves them alone. The sync tool never overwrites a file it did not generate: it reports `SKIPPED` and exits 1.
 
 An adapter file does not make a module: `.github/copilot-instructions.md` exists without the `github` module, and cutting that module leaves it in place.
 

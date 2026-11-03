@@ -11,7 +11,7 @@ Goal: any agent, from any vendor, follows the same roles and protocols.
 ## The universal way (works with every tool)
 
 1. Point the agent at `AGENTS.md`. Most coding tools read it automatically (Gemini CLI needs a setting, see below); for the rest, put "read AGENTS.md first" in the system prompt.
-2. Tell it its role: "You are the builder. Read `agents/roles/builder.md`."
+2. Tell it its role: "You are the builder. Read `agents/roles/builder/ROLE.md`."
 3. Give it the work item: "Your item is `<id>`; start from its `handoff.md`."
 4. Make sure it can run shell commands, because every action goes through `python3 tools/...`.
 
@@ -21,7 +21,7 @@ Roles, protocols and skills are plain Markdown, so no tool-specific format is re
 
 Works out of the box: `tools/sync_agents.py` generates `.claude/agents/<role>.md` (subagents), `.claude/skills/` (skills) and a `CLAUDE.md` shim next to every `AGENTS.md`. Claude Code reads `CLAUDE.md` instead of `AGENTS.md` when both exist, so the shim imports the real file with `@AGENTS.md`.
 
-Prefer to manage `.claude/` yourself? Set `"enabled": false` for `claude` in `agents/adapters/targets.json`, run `python3 tools/sync_agents.py` (it removes what it generated), then copy `agents/roles/*.md` and `agents/skills/*` as you like.
+Prefer to manage `.claude/` yourself? Set `"enabled": false` for `claude` in `agents/adapters/targets.json`, run `python3 tools/sync_agents.py` (it removes what it generated), then copy each `agents/roles/<role>/ROLE.md` and every skill folder (`agents/skills/*` and `agents/roles/<role>/skills/*`) as you like.
 
 ## Cursor and GitHub Copilot
 
@@ -43,7 +43,7 @@ Gemini CLI reads `GEMINI.md` by default, not `AGENTS.md`. Add this to `.gemini/s
 ## Another tool with its own folder format
 
 1. Add a target in `agents/adapters/targets.json`.
-2. Extend `expected_outputs()` in `tools/sync_agents.py` to render that tool's files from `agents/roles/` and `agents/skills/`.
+2. Extend `expected_outputs()` in `tools/sync_agents.py` to render that tool's files from `agents/roles/<role>/ROLE.md` and the skill folders (`agents/skills/` and `agents/roles/<role>/skills/`).
 3. Add a unit test and an ADR. Steps in `agents/adapters/README.md`.
 
 ## Tips for weaker or smaller models
