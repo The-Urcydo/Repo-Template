@@ -22,22 +22,24 @@ from typing import Any, Iterator
 TOOLS_DIR = Path(__file__).resolve().parent
 
 # --- work-item state machine (single source of truth; protocol doc mirrors it) ---
-STATUSES = ("draft", "planned", "in-progress", "in-review", "verified", "done", "blocked", "stale")
+STATUSES = ("draft", "planned", "in-progress", "in-review", "verified", "done", "blocked", "stale", "canceled")
 TRANSITIONS: dict[str, set[str]] = {
-    "draft": {"planned", "blocked"},
-    "planned": {"in-progress", "blocked", "draft"},
-    "in-progress": {"in-review", "blocked", "planned"},
-    "in-review": {"verified", "in-progress", "blocked"},
-    "verified": {"done", "in-progress"},
-    "blocked": {"draft", "planned", "in-progress"},
-    "stale": {"draft", "planned", "in-progress", "in-review"},
+    "draft": {"planned", "blocked", "canceled"},
+    "planned": {"in-progress", "blocked", "draft", "canceled"},
+    "in-progress": {"in-review", "blocked", "planned", "canceled"},
+    "in-review": {"verified", "in-progress", "blocked", "draft", "canceled"},
+    "verified": {"done", "in-progress", "canceled"},
+    "blocked": {"draft", "planned", "in-progress", "canceled"},
+    "stale": {"draft", "planned", "in-progress", "in-review", "canceled"},
     "done": set(),
+    "canceled": set(),
 }
 NEEDS_EVIDENCE = {"in-review", "verified", "done"}
 # Who acts next by default after a transition (mirrored in agents/protocols/handoff.md).
 DEFAULT_OWNER = {
     "draft": "planner", "planned": "builder", "in-progress": "builder", "in-review": "reviewer",
     "verified": "scribe", "done": "orchestrator", "blocked": "orchestrator", "stale": "orchestrator",
+    "canceled": "orchestrator",
 }
 STALE_DAYS = 14
 DONE_ARCHIVE_DAYS = 7

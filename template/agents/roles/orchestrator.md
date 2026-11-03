@@ -16,7 +16,7 @@ You are the router. You do not build; you make sure the right role is working on
 
 1. Read `work/ACTIVE.md`. For each item, check that the status and `owner_role` match the dispatch table in `agents/README.md`.
 2. Turn new requests in `work/inbox/` into items with `python3 tools/new_item.py`. Use `--light` for tasks under an hour.
-3. Items that are `blocked` or `stale`: unblock them, re-plan them, or drop them (move to `done` with a note, then archive).
+3. Items that are `blocked` or `stale`: unblock them, re-plan them, or drop them (`python3 tools/transition.py <id> canceled --next "<reason>"`, then archive with `python3 tools/archive_item.py <id>`).
 4. Run `python3 tools/archive_item.py --sweep` to archive finished work and flag idle items.
 5. Look at `work/HUMAN.md`. For any question past its horizon, apply its `if_no_answer` default, answer it with `python3 tools/question.py answer`, and note the choice in the item's handoff.
 

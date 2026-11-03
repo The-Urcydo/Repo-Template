@@ -2,9 +2,9 @@
 """Archive finished work items and flag abandoned ones.
 
 Usage:
-  python3 tools/archive_item.py <item-id>          archive one item (must be `done`)
+  python3 tools/archive_item.py <item-id>          archive one item (must be `done` or `canceled`)
   python3 tools/archive_item.py --sweep [--dry-run]
-        - archive every `done` item last updated more than DONE_ARCHIVE_DAYS ago
+        - archive every `done` or `canceled` item last updated more than DONE_ARCHIVE_DAYS ago
         - mark active items not updated for STALE_DAYS as `stale` (owner -> orchestrator)
 
 Archived items move to work/archive/<year>/ (moved, never deleted; git keeps history).
@@ -24,6 +24,7 @@ from _lib import (  # noqa: E402
 )
 
 ACTIVE = {"draft", "planned", "in-progress", "in-review", "blocked"}
+ARCHIVABLE = {"done", "canceled"}
 
 
 def _fm(item):
@@ -62,7 +63,7 @@ def sweep(root: Path, dry: bool) -> list[str]:
         if updated is None:
             continue
         age = (today() - updated).days
-        if status == "done" and age > DONE_ARCHIVE_DAYS:
+        if status in ARCHIVABLE and age > DONE_ARCHIVE_DAYS:
             log.append(f"would archive {item.id}" if dry else archive(root, item))
         elif status in ACTIVE and age > STALE_DAYS:
             if not dry:
@@ -85,8 +86,8 @@ def main(argv: list[str] | None = None) -> int:
             elif args.item:
                 item = find_item(root, args.item)
                 status = _fm(item).get("status")
-                if status != "done":
-                    print(f"error: {item.id} is '{status}', only done items can be archived", file=sys.stderr)
+                if status not in ARCHIVABLE:
+                    print(f"error: {item.id} is '{status}', only done or canceled items can be archived", file=sys.stderr)
                     return 2
                 log = [f"would archive {item.id}"] if args.dry_run else [archive(root, item)]
             else:

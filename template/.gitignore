@@ -1,5 +1,6 @@
 # OS / editor
 .DS_Store
+**/.DS_Store
 Thumbs.db
 .idea/
 .vscode/
@@ -10,6 +11,9 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 
 # Secrets and local config: never commit
 .env
@@ -31,4 +35,5 @@ work/items/*/scratch/
 node_modules/
 dist/
 build/
+target/
 coverage/

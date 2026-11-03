@@ -76,4 +76,3 @@ Layout of this repo: `copier.yml` (questions, exclusions, tasks) · `template/` 
 - The `.claude/` paths and file formats follow Claude Code's documentation as of November 2026 and may change; only `agents/` is yours to rely on.
 - Creating and updating a project needs Copier (so Python). Using a generated project needs only `python3`.
 - No license is included. Add one before publishing.
-# Repo-Template

@@ -36,6 +36,6 @@ Each finding states: what, where (file and line), why it matters, and a recommen
 
 - **approve**: move to `verified` with evidence.
 - **changes requested**: move back to `in-progress` with the builder as owner and `--next "fix findings in review.md"`.
-- **reject**: the approach is wrong; move to `blocked` or `draft` with an explanation and let the orchestrator re-plan.
+- **reject**: the approach is wrong; move to `blocked`, `draft` (to re-plan), or `canceled` (to drop it) with an explanation in `--next`.
 
 A second review is needed after changes requested if any blocker was found.
