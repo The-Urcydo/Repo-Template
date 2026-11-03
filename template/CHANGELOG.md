@@ -6,4 +6,4 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: de
 ## [Unreleased]
 
 ### Added
-- Project created from the agent-repo-skeleton template.
+- Project created from Repo-Template.

@@ -14,7 +14,7 @@ Before you start: the repo was generated with `copier copy --trust` and you are 
 
 1. Create the git repo and commit the pristine state (so `copier update` and `git diff` have a baseline):
    ```
-   git init && git add -A && git commit -m "Initial commit from agent-repo-skeleton"
+   git init && git add -A && git commit -m "Initial commit from Repo-Template"
    ```
 2. Confirm it is healthy: `python3 tools/check.py` prints `ok`.
 3. See what is unfilled: `python3 tools/check.py --stubs`. Every line is a placeholder to fill or delete.

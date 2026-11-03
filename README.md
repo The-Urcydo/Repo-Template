@@ -1,4 +1,4 @@
-# agent-repo-skeleton
+# Repo-Template
 
 A [Copier](https://copier.readthedocs.io) template for new repositories that one human and several AI agents work in together. It gives you a finished *structure* — docs, work tracking, agent roles, health checks — so nobody researches how to organize the repo again, and every part can be cut off when you do not need it.
 
@@ -20,9 +20,9 @@ Requires Python 3.9+, git and Copier 9.4+.
 
 ```
 pipx install copier            # or: pip install copier
-copier copy --trust gh:<you>/agent-repo-skeleton path/to/new-project
+copier copy --trust gh:<you>/Repo-Template path/to/new-project
 cd path/to/new-project
-git init && git add -A && git commit -m "Initial commit from agent-repo-skeleton"
+git init && git add -A && git commit -m "Initial commit from Repo-Template"
 python3 tools/check.py         # prints "ok"
 python3 tools/check.py --stubs # placeholders to fill or delete
 ```

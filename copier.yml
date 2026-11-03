@@ -43,7 +43,7 @@ _message_after_copy: |
 
   Next:
     cd {{ _copier_conf.dst_path }}
-    git init && git add -A && git commit -m "Initial commit from agent-repo-skeleton"
+    git init && git add -A && git commit -m "Initial commit from Repo-Template"
     python3 tools/check.py            # should print "ok"
     python3 tools/check.py --stubs    # placeholders to fill or delete
   Then read docs/how-to/bootstrap-from-template.md.

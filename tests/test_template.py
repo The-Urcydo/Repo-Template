@@ -108,6 +108,13 @@ def test_no_unrendered_template_syntax_leaks(full):
     assert not bad, bad
 
 
+def test_template_name_is_consistent():
+    for rel in ("README.md", "copier.yml", "template/CHANGELOG.md", "template/README.md.jinja",
+                "template/docs/how-to/bootstrap-from-template.md"):
+        text = (TEMPLATE / rel).read_text(encoding="utf-8")
+        assert "agent-repo-skeleton" not in text, rel
+
+
 def test_agents_md_lists_every_generated_adapter_output():
     for rel in ("AGENTS.md.jinja", "agents/AGENTS.md"):
         text = (TEMPLATE / "template" / rel).read_text(encoding="utf-8")
