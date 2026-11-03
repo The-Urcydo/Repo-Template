@@ -53,7 +53,7 @@ DIATAXIS_DIRS = {
     "decisions": "decision",
 }
 
-SKIP_DIRS = {".git", "node_modules", ".venv", "__pycache__", ".claude", ".idea", ".vscode"}
+SKIP_DIRS = {".git", "node_modules", ".venv", "__pycache__", ".claude", ".cursor", ".idea", ".vscode"}
 
 
 def repo_root() -> Path:

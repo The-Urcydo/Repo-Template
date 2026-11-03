@@ -10,7 +10,7 @@ Goal: any agent, from any vendor, follows the same roles and protocols.
 
 ## The universal way (works with every tool)
 
-1. Point the agent at `AGENTS.md`. Most coding tools read it automatically; for the rest, put "read AGENTS.md first" in the system prompt.
+1. Point the agent at `AGENTS.md`. Most coding tools read it automatically (Gemini CLI needs a setting, see below); for the rest, put "read AGENTS.md first" in the system prompt.
 2. Tell it its role: "You are the builder. Read `agents/roles/builder.md`."
 3. Give it the work item: "Your item is `<id>`; start from its `handoff.md`."
 4. Make sure it can run shell commands, because every action goes through `python3 tools/...`.
@@ -22,6 +22,23 @@ Roles, protocols and skills are plain Markdown, so no tool-specific format is re
 Works out of the box: `tools/sync_agents.py` generates `.claude/agents/<role>.md` (subagents), `.claude/skills/` (skills) and a `CLAUDE.md` shim next to every `AGENTS.md`. Claude Code reads `CLAUDE.md` instead of `AGENTS.md` when both exist, so the shim imports the real file with `@AGENTS.md`.
 
 Prefer to manage `.claude/` yourself? Set `"enabled": false` for `claude` in `agents/adapters/targets.json`, run `python3 tools/sync_agents.py` (it removes what it generated), then copy `agents/roles/*.md` and `agents/skills/*` as you like.
+
+## Cursor and GitHub Copilot
+
+Both adapters ship disabled. Cursor and Copilot read `AGENTS.md` themselves, so the adapters add only what they cannot find on their own, as short generated files:
+
+- Cursor: set `"enabled": true` under `"cursor"` in `agents/adapters/targets.json`, then run `python3 tools/sync_agents.py`. You get `.cursor/rules/role-<role>.mdc` (one agent-requested rule per role charter) and a short always-on `00-repo.mdc` that points at `AGENTS.md`.
+- Copilot: set `"enabled": true` under `"copilot"` and run the same command. You get `.github/copilot-instructions.md`, a short pointer to `AGENTS.md`.
+
+Run `python3 tools/check.py` afterwards; it fails if a generated file drifts from its source.
+
+## Gemini CLI
+
+Gemini CLI reads `GEMINI.md` by default, not `AGENTS.md`. Add this to `.gemini/settings.json` so it reads `AGENTS.md` too:
+
+```json
+{ "context": { "fileName": ["AGENTS.md", "GEMINI.md"] } }
+```
 
 ## Another tool with its own folder format
 

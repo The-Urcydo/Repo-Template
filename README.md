@@ -47,7 +47,7 @@ Modules are folders that nothing in the core links to, so they can be removed at
 
 ## Use it with agents other than Claude
 
-`agents/` is tool-neutral. Claude Code reads `.claude/` and `CLAUDE.md`, which are *generated* from `agents/` by `python3 tools/sync_agents.py` (the sync refuses to overwrite files it did not generate). Any other agent can read `AGENTS.md` and `agents/` directly. See `docs/how-to/use-with-other-agents.md` in a generated project.
+`agents/` is tool-neutral. Claude Code reads `.claude/` and `CLAUDE.md`, which are *generated* from `agents/` by `python3 tools/sync_agents.py` (the sync refuses to overwrite files it did not generate). Optional adapters for Cursor (`.cursor/rules/`) and GitHub Copilot (`.github/copilot-instructions.md`) can be enabled in `agents/adapters/targets.json`; they are short pointers, not copies of `AGENTS.md`. Any other agent can read `AGENTS.md` and `agents/` directly. See `docs/how-to/use-with-other-agents.md` in a generated project.
 
 ## Pull in template improvements
 
