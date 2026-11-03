@@ -103,6 +103,13 @@ def test_no_unrendered_template_syntax_leaks(full):
     assert not bad, bad
 
 
+def test_agents_md_lists_every_generated_adapter_output():
+    for rel in ("AGENTS.md.jinja", "agents/AGENTS.md"):
+        text = (TEMPLATE / "template" / rel).read_text(encoding="utf-8")
+        for token in (".claude/", ".cursor/rules/", "CLAUDE.md", "copilot-instructions.md"):
+            assert token in text, f"{rel} does not mention {token}"
+
+
 def test_generation_is_deterministic(tmp_path):
     a = tree(generate(tmp_path / "a", profile="full"))
     b = tree(generate(tmp_path / "b", profile="full"))
