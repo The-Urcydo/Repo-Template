@@ -17,18 +17,18 @@ _exclude:
   - __pycache__
   - "*.pyc"
   - .DS_Store
-  - "{% if 'product' not in enabled_modules %}docs/product{% endif %}"
-  - "{% if 'operations' not in enabled_modules %}docs/operations{% endif %}"
-  - "{% if 'security' not in enabled_modules %}docs/security{% endif %}"
-  - "{% if 'security' not in enabled_modules %}SECURITY.md{% endif %}"
-  - "{% if 'security' not in enabled_modules %}agents/roles/security.md{% endif %}"
-  - "{% if 'security' not in enabled_modules %}work/_templates/security-review.md{% endif %}"
-  - "{% if 'release' not in enabled_modules %}docs/release{% endif %}"
-  - "{% if 'infra' not in enabled_modules %}infra{% endif %}"
-  - "{% if 'evals' not in enabled_modules %}agents/evals{% endif %}"
-  - "{% if 'github' not in enabled_modules %}.github{% endif %}"
-  - "{% if layout != 'workspace' %}apps{% endif %}"
-  - "{% if layout != 'workspace' %}packages{% endif %}"
+  - "{% if 'product' not in enabled_modules %}/docs/product{% endif %}"
+  - "{% if 'operations' not in enabled_modules %}/docs/operations{% endif %}"
+  - "{% if 'security' not in enabled_modules %}/docs/security{% endif %}"
+  - "{% if 'security' not in enabled_modules %}/SECURITY.md{% endif %}"
+  - "{% if 'security' not in enabled_modules %}/agents/roles/security.md{% endif %}"
+  - "{% if 'security' not in enabled_modules %}/work/_templates/security-review.md{% endif %}"
+  - "{% if 'release' not in enabled_modules %}/docs/release{% endif %}"
+  - "{% if 'infra' not in enabled_modules %}/infra{% endif %}"
+  - "{% if 'evals' not in enabled_modules %}/agents/evals{% endif %}"
+  - "{% if 'github' not in enabled_modules %}/.github{% endif %}"
+  - "{% if layout != 'workspace' %}/apps{% endif %}"
+  - "{% if layout != 'workspace' %}/packages{% endif %}"
   - "{% if layout not in ['single', 'data-ml'] %}/src{% endif %}"
   - "{% if layout != 'data-ml' %}/data{% endif %}"
   - "{% if layout != 'data-ml' %}/notebooks{% endif %}"
@@ -43,7 +43,7 @@ _message_after_copy: |
 
   Next:
     cd {{ _copier_conf.dst_path }}
-    git init && git add -A && git commit -m "Initial commit from agent-repo-skeleton"
+    git init && git add -A && git commit -m "Initial commit from Repo-Template"
     python3 tools/check.py            # should print "ok"
     python3 tools/check.py --stubs    # placeholders to fill or delete
   Then read docs/how-to/bootstrap-from-template.md.

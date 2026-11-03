@@ -15,7 +15,7 @@ owner_role: architect
 | `cursor` | disabled | `.cursor/rules/00-repo.mdc`, `.cursor/rules/role-<role>.mdc` | One short always-on pointer to `AGENTS.md`, plus each role charter as an agent-requested rule. `AGENTS.md` itself is not copied, so Cursor never loads it twice |
 | `copilot` | disabled | `.github/copilot-instructions.md` | A short pointer to `AGENTS.md` in the path Copilot reads repository instructions from |
 
-Codex and most other agent tools read `AGENTS.md` and the plain Markdown in `agents/` directly; nothing is generated for them. Gemini CLI reads `GEMINI.md` by default: set `context.fileName` to `["AGENTS.md", "GEMINI.md"]` in `.gemini/settings.json` (or tell it to read `AGENTS.md`).
+Codex and most other agent tools read `AGENTS.md` and the plain Markdown in `agents/` directly; nothing is generated for them. Gemini CLI reads `GEMINI.md` by default: set `context.fileName` to `["AGENTS.md", "GEMINI.md"]` in `.gemini/settings.json` (or tell it to read `AGENTS.md`). No Gemini adapter is shipped; this setting is the supported path.
 
 ## Commands
 

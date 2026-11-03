@@ -1,4 +1,4 @@
-# agent-repo-skeleton
+# Repo-Template
 
 A [Copier](https://copier.readthedocs.io) template for new repositories that one human and several AI agents work in together. It gives you a finished *structure* — docs, work tracking, agent roles, health checks — so nobody researches how to organize the repo again, and every part can be cut off when you do not need it.
 
@@ -20,9 +20,9 @@ Requires Python 3.9+, git and Copier 9.4+.
 
 ```
 pipx install copier            # or: pip install copier
-copier copy --trust gh:<you>/agent-repo-skeleton path/to/new-project
+copier copy --trust gh:<you>/Repo-Template path/to/new-project
 cd path/to/new-project
-git init && git add -A && git commit -m "Initial commit from agent-repo-skeleton"
+git init && git add -A && git commit -m "Initial commit from Repo-Template"
 python3 tools/check.py         # prints "ok"
 python3 tools/check.py --stubs # placeholders to fill or delete
 ```
@@ -60,6 +60,13 @@ copier update --trust
 
 Local edits are merged, and modules you cut stay cut. See `docs/how-to/update-from-template.md` in a generated project. Tag releases of this template (`v0.1.0`, …) so updates have a stable reference.
 
+## Releasing
+
+```
+git tag -a v0.1.0 -m "v0.1.0"
+git push origin v0.1.0
+```
+
 ## Developing this template
 
 ```
@@ -77,4 +84,7 @@ Layout of this repo: `copier.yml` (questions, exclusions, tasks) · `template/` 
 - Not exercised with real multi-agent runs yet; the `agents/evals` module exists so you can measure that on your own project.
 - The `.claude/` paths and file formats follow Claude Code's documentation as of November 2026 and may change; only `agents/` is yours to rely on.
 - Creating and updating a project needs Copier (so Python). Using a generated project needs only `python3`.
-- No license is included. Add one before publishing.
+
+## License
+
+Released under the [MIT License](LICENSE).

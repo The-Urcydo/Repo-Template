@@ -73,6 +73,10 @@ def test_profile_generates_a_healthy_repo(tmp_path, profile, layout):
     assert (p / "data").exists() == (layout == "data-ml")
     assert (p / "notebooks").exists() == (layout == "data-ml")
     assert (p / "tests").exists() == (layout != "minimal")
+    if layout == "data-ml":
+        ignore = (p / ".gitignore").read_text(encoding="utf-8")
+        for pattern in ("data/raw/", ".ipynb_checkpoints/", "*.parquet"):
+            assert pattern in ignore, pattern
     # a layout's folder excludes must never reach into tools/ (the unit tests live in tools/tests)
     assert (p / "tools" / "tests" / "test_tools.py").exists(), layout
     # core is always present
@@ -106,6 +110,21 @@ def test_no_unrendered_template_syntax_leaks(full):
         if p.suffix in (".md", ".json", ".yml") and "_templates" not in p.parts:
             assert not re.search(r"__[A-Z_]+__", text), f"unfilled work/doc token leaked into {p}"
     assert not bad, bad
+
+
+def test_template_name_is_consistent():
+    for rel in ("README.md", "copier.yml", "template/CHANGELOG.md", "template/README.md.jinja",
+                "template/docs/how-to/bootstrap-from-template.md"):
+        text = (TEMPLATE / rel).read_text(encoding="utf-8")
+        assert "agent-repo-skeleton" not in text, rel
+
+
+def test_root_only_copier_excludes_are_anchored():
+    text = (TEMPLATE / "copier.yml").read_text(encoding="utf-8")
+    for path in ("docs/product", "docs/operations", "docs/security", "SECURITY.md",
+                 "agents/roles/security.md", "work/_templates/security-review.md", "docs/release",
+                 "infra", "agents/evals", ".github", "apps", "packages"):
+        assert f'/{path}' in text, path
 
 
 def test_agents_md_lists_every_generated_adapter_output():

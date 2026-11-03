@@ -25,7 +25,7 @@ import sync_agents  # noqa: E402
 import sync_indexes  # noqa: E402
 from _lib import (  # noqa: E402
     ADR_STATUSES, DIATAXIS_DIRS, DOC_STATUSES, DOC_TYPES, ITEM_ID_RE, NEEDS_EVIDENCE, SKIP_DIRS,
-    STALE_DAYS, STATUSES, FrontMatterError, folder_owners, git_last_change, iter_docs, iter_items,
+    STALE_DAYS, STALE_REWARN_DAYS, STATUSES, FrontMatterError, folder_owners, git_last_change, iter_docs, iter_items,
     iter_markdown, load_catalog, load_modules, load_roles, load_targets, md_links, module_of,
     module_present, parse_date, parse_front_matter, parse_queue, read_fm, read_text, repo_root,
     resolve_link, today,
@@ -106,7 +106,7 @@ def check_docs(root: Path, rep: Report) -> None:
             rep.info("placeholder", r, "unfilled placeholder: fill it or delete it")
         elif summary.upper().startswith("TODO"):
             rep.info("placeholder", r, "summary still says TODO: write the one-sentence summary")
-        n_lines = text.count("\n") + 1
+        n_lines = len(text.splitlines())
         if status != "generated" and n_lines > DOC_MAX_LINES:
             rep.warn("doc-size", r, f"{n_lines} lines; split by topic so agents can load only what they need")
         if "related_code" in fm:
@@ -212,6 +212,18 @@ def check_agents_md(root: Path, rep: Report) -> None:
             rep.info("placeholder", r, "contains TODO/<fill> markers: complete before relying on it")
 
 
+def check_placeholders(root: Path, rep: Report) -> None:
+    for name in ("README.md", "SECURITY.md"):
+        p = root / name
+        if p.exists() and re.search(r"\bTODO\b|<fill", read_text(p)):
+            rep.info("placeholder", name, "contains TODO/<fill> markers: complete before publishing")
+    p = root / ".github" / "CODEOWNERS"
+    if p.exists():
+        lines = [line.strip() for line in read_text(p).splitlines() if line.strip()]
+        if lines and all(line.startswith("#") for line in lines):
+            rep.info("placeholder", ".github/CODEOWNERS", "entirely commented out; replace the placeholders or delete it")
+
+
 def check_roles(root: Path, rep: Report) -> None:
     roles = load_roles(root)
     if not roles:
@@ -283,7 +295,7 @@ def check_skills(root: Path, rep: Report) -> None:
             rep.error("skill", r, f"name '{name}' must match the folder '{d.name}'")
         if not desc.strip() or len(desc) > 1024:
             rep.error("skill", r, "description must be 1-1024 chars and say what the skill does and when to use it")
-        n = text.count("\n") + 1
+        n = len(text.splitlines())
         if n > SKILL_MAX_LINES:
             rep.warn("skill-size", r, f"{n} lines; move detail into references/ (spec recommends < {SKILL_MAX_LINES})")
 
@@ -327,6 +339,8 @@ def check_items(root: Path, rep: Report) -> None:
         updated = parse_date(fm.get("updated"))
         if updated is None:
             rep.error("handoff", r, "updated must be an ISO date")
+        elif status == "stale" and (today() - updated).days > STALE_REWARN_DAYS:
+            rep.warn("item-stale", r, f"stale for {(today() - updated).days} days; re-triage or close it")
         elif status not in ("done", "canceled", "stale") and (today() - updated).days > STALE_DAYS:
             rep.warn("item-stale", r, f"not updated for {(today() - updated).days} days; run tools/archive_item.py --sweep")
         elif status in ("done", "canceled") and (today() - updated).days > 7:
@@ -410,6 +424,7 @@ def run_all(root: Path) -> Report:
     check_adrs(root, rep)
     check_links(root, rep)
     check_agents_md(root, rep)
+    check_placeholders(root, rep)
     check_roles(root, rep)
     check_top_level_readmes(root, rep)
     check_skills(root, rep)

@@ -15,7 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sync_indexes  # noqa: E402
-from _lib import apply_tokens, read_text, repo_root, slugify, today, write_text, yaml_scalar  # noqa: E402
+from _lib import apply_tokens, file_lock, read_text, repo_root, slugify, today, write_text, yaml_scalar  # noqa: E402
 
 # type -> (target folder under docs/, template path under docs/)
 TYPES = {
@@ -39,17 +39,18 @@ def create(root: Path, type_: str, title: str, summary: str | None) -> Path:
     if not slug:
         raise ValueError("title is empty after cleaning")
     target = root / "docs" / folder / f"{slug}.md"
-    if target.exists():
-        raise FileExistsError(f"{target.relative_to(root)} already exists")
-    one_liner = (summary or "TODO one sentence saying what this doc answers").strip()
-    text = apply_tokens(read_text(tpl), {
-        "__TITLE_YAML__": yaml_scalar(title.strip()),
-        "__TITLE__": title.strip(),
-        "__DATE__": today().isoformat(),
-        "__SUMMARY_YAML__": yaml_scalar(one_liner),
-    })
-    write_text(target, text)
-    sync_indexes.write_outputs(root)
+    with file_lock(root, "docs"):
+        if target.exists():
+            raise FileExistsError(f"{target.relative_to(root)} already exists")
+        one_liner = (summary or "TODO one sentence saying what this doc answers").strip()
+        text = apply_tokens(read_text(tpl), {
+            "__TITLE_YAML__": yaml_scalar(title.strip()),
+            "__TITLE__": title.strip(),
+            "__DATE__": today().isoformat(),
+            "__SUMMARY_YAML__": yaml_scalar(one_liner),
+        })
+        write_text(target, text)
+        sync_indexes.write_outputs(root)
     return target
 
 

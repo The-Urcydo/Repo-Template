@@ -31,6 +31,20 @@ AGENTS.override.md
 work/.locks/
 work/items/*/scratch/
 
+# Data and notebooks (data-ml layout): keep raw and large artifacts out of git
+data/raw/
+data/external/
+data/interim/
+.ipynb_checkpoints/
+*.parquet
+*.feather
+*.h5
+*.hdf5
+*.pkl
+*.joblib
+mlruns/
+wandb/
+
 # Dependencies and build output (adjust for your stack)
 node_modules/
 dist/
