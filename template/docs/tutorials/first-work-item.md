@@ -33,21 +33,23 @@ The tool prints the path to the new `handoff.md`, for example `work/items/2026-1
 Open `work/items/<id>/brief.md` and replace the placeholders: a goal and at least one acceptance criterion. Then move the item:
 
 ```
-python3 tools/transition.py <id> planned --next "Builder: create the greeting file and verify it exists"
+python3 tools/transition.py <id> planned --next "Builder: create the greeting file and verify it exists" --by planner
 ```
+
+Every status change requires `--by <role>`: it records who acted and lets the tool block self-review later.
 
 The board now shows `planned`, owned by the builder.
 
 ## 4. Build it
 
 ```
-python3 tools/transition.py <id> in-progress --next "Creating the file"
+python3 tools/transition.py <id> in-progress --next "Creating the file" --by builder
 ```
 
 Do the work (for this tutorial, nothing real is needed). Then ask for review:
 
 ```
-python3 tools/transition.py <id> in-review --next "Reviewer: verify criterion 1" --evidence "python3 tools/check.py"
+python3 tools/transition.py <id> in-review --next "Reviewer: verify criterion 1" --evidence "python3 tools/check.py" --by builder
 ```
 
 ## 5. Hit a guard rail
@@ -58,7 +60,7 @@ Try to skip the review:
 python3 tools/transition.py <id> done
 ```
 
-The tool refuses: an item cannot go from `in-review` to `done`. The lifecycle is enforced, not advisory. Try `verified` and it refuses again, because no independent `review.md` exists yet.
+The tool refuses: an item cannot go from `in-review` to `done`. The lifecycle is enforced, not advisory. Add `--by reviewer --next x` and `verified` refuses again, because no independent `review.md` exists yet.
 
 ## 6. Review it
 
@@ -71,8 +73,8 @@ python3 tools/item_file.py <id> review
 Now sign off, as the reviewer:
 
 ```
-python3 tools/transition.py <id> verified --next "Scribe: update docs and changelog" --evidence "criterion 1 checked"
-python3 tools/transition.py <id> done
+python3 tools/transition.py <id> verified --next "Scribe: update docs and changelog" --evidence "criterion 1 checked" --by reviewer
+python3 tools/transition.py <id> done --by scribe
 ```
 
 ## 7. Archive it

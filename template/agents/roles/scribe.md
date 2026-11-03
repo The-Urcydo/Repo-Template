@@ -19,7 +19,7 @@ You own `docs/` (except `docs/decisions/`, which the architect owns) and `CHANGE
 3. Every doc needs front matter with a one-sentence `summary`. Docs about code list it in `related_code` and set `last_verified`.
 4. Promote research worth keeping from `work/research/` into `docs/` as explanation or reference, then note it in the handoff so the original can be deleted.
 5. Add a line under `[Unreleased]` in `CHANGELOG.md`.
-6. Run `python3 tools/sync_indexes.py && python3 tools/check.py`, then hand to the orchestrator: `python3 tools/transition.py <id> done --evidence "docs updated, check passes"`.
+6. Run `python3 tools/sync_indexes.py && python3 tools/check.py`, then hand to the orchestrator: `python3 tools/transition.py <id> done --by scribe --evidence "docs updated, check passes"`.
 
 ## Quality bar
 

@@ -36,7 +36,8 @@ def copier(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess:
 def generate(dest: Path, src: Path = TEMPLATE, *extra: str, **answers: str) -> Path:
     answers.setdefault("project_name", "Test Project")
     data = [x for k, v in answers.items() for x in ("--data", f"{k}={v}")]
-    r = copier("copy", "--defaults", "--trust", "-q", *data, *extra, str(src), str(dest))
+    vcs = [] if "--vcs-ref" in extra else ["--vcs-ref", "HEAD"]
+    r = copier("copy", "--defaults", "--trust", "-q", *data, *vcs, *extra, str(src), str(dest))
     assert r.returncode == 0, f"copier copy failed:\n{r.stdout}\n{r.stderr}"
     return dest
 
@@ -90,7 +91,7 @@ def test_custom_profile_picks_exactly_the_chosen_modules(tmp_path, modules):
     data = tmp_path / "answers.yml"
     data.write_text("custom_modules: [" + ", ".join(modules) + "]\n")
     dest = tmp_path / "p"
-    r = copier("copy", "--defaults", "--trust", "-q", "--data", "project_name=C", "--data", "profile=custom",
+    r = copier("copy", "--defaults", "--trust", "-q", "--vcs-ref", "HEAD", "--data", "project_name=C", "--data", "profile=custom",
                "--data-file", str(data), str(TEMPLATE), str(dest))
     assert r.returncode == 0, r.stderr
     for module, path in MODULE_PATHS.items():
@@ -130,8 +131,19 @@ def test_root_only_copier_excludes_are_anchored():
 def test_agents_md_lists_every_generated_adapter_output():
     for rel in ("AGENTS.md.jinja", "agents/AGENTS.md"):
         text = (TEMPLATE / "template" / rel).read_text(encoding="utf-8")
-        for token in (".claude/", ".cursor/rules/", "CLAUDE.md", "copilot-instructions.md"):
+        for token in (".claude/", ".cursor/rules/", "CLAUDE.md", "copilot-instructions.md", ".gemini/settings.json"):
             assert token in text, f"{rel} does not mention {token}"
+
+
+def test_every_tool_is_documented_in_tools_readme_and_commands_ref():
+    tools_dir = TEMPLATE / "template" / "tools"
+    tools_readme = (tools_dir / "README.md").read_text(encoding="utf-8")
+    commands_doc = (TEMPLATE / "template" / "docs" / "reference" / "commands.md").read_text(encoding="utf-8")
+    for p in sorted(tools_dir.glob("*.py")):
+        if p.name == "_lib.py":
+            continue
+        assert p.name in tools_readme, f"tools/README.md does not document {p.name}"
+        assert p.name in commands_doc, f"docs/reference/commands.md does not document {p.name}"
 
 
 def test_template_ships_no_hardcoded_last_verified_date():
@@ -176,6 +188,8 @@ def test_every_documented_command_and_flag_exists(full):
             parts = [py(full, f"tools/{tool}.py", "--help").stdout]
             if tool == "question":
                 parts += [py(full, f"tools/{tool}.py", sub, "--help").stdout for sub in ("ask", "answer")]
+            elif tool == "worktree":
+                parts += [py(full, f"tools/{tool}.py", sub, "--help").stdout for sub in ("create", "remove", "list")]
             helps[tool] = "\n".join(parts)
         return helps[tool]
 
@@ -209,16 +223,22 @@ def test_tutorial_runs_end_to_end(full):
     path = run("tools/new_item.py", "hello-world", "--title", "Say hello")
     item = Path(path).parent.name
     assert "draft" in (full / "work/ACTIVE.md").read_text()
-    run("tools/transition.py", item, "planned", "--next", "Builder: create the greeting file and verify it exists")
-    run("tools/transition.py", item, "in-progress", "--next", "Creating the file")
-    run("tools/transition.py", item, "in-review", "--next", "Reviewer: verify criterion 1", "--evidence", "python3 tools/check.py")
+    run("tools/transition.py", item, "planned", "--next", "Builder: create the greeting file and verify it exists", "--by", "planner")
+    run("tools/transition.py", item, "in-progress", "--next", "Creating the file", "--by", "builder")
+    run("tools/transition.py", item, "in-review", "--next", "Reviewer: verify criterion 1", "--evidence", "python3 tools/check.py", "--by", "builder")
     refuses("tools/transition.py", item, "done")
-    refuses("tools/transition.py", item, "verified")  # no review.md yet
+    refuses("tools/transition.py", item, "verified", "--next", "x")  # no review.md yet
     run("tools/item_file.py", item, "review")
-    run("tools/transition.py", item, "verified", "--next", "Scribe: update docs and changelog", "--evidence", "criterion 1 checked")
-    run("tools/transition.py", item, "done")
+    run("tools/transition.py", item, "verified", "--next", "Scribe: update docs and changelog", "--evidence", "criterion 1 checked", "--by", "reviewer")
+    run("tools/transition.py", item, "done", "--by", "scribe")
     run("tools/archive_item.py", item)
     assert run("tools/check.py").startswith("ok")
+
+
+def test_eval_harness_verifies_all_golden_tasks(full):
+    r = py(full, "tools/eval_harness.py", "--verify-fixtures")
+    assert r.returncode == 0, f"{r.stdout}\n{r.stderr}"
+    assert r.stdout.count("PASS") == 4
 
 
 def test_shipped_unit_tests_pass(full):
@@ -353,5 +373,7 @@ def test_cursor_and_copilot_adapters_ship_disabled(full):
     targets = json.loads((full / "agents" / "adapters" / "targets.json").read_text(encoding="utf-8"))
     assert targets["cursor"]["enabled"] is False
     assert targets["copilot"]["enabled"] is False
+    assert targets["gemini"]["enabled"] is False
     assert not (full / ".cursor").exists()
     assert not (full / ".github" / "copilot-instructions.md").exists()
+    assert not (full / ".gemini").exists()
