@@ -212,6 +212,18 @@ def check_agents_md(root: Path, rep: Report) -> None:
             rep.info("placeholder", r, "contains TODO/<fill> markers: complete before relying on it")
 
 
+def check_placeholders(root: Path, rep: Report) -> None:
+    for name in ("README.md", "SECURITY.md"):
+        p = root / name
+        if p.exists() and re.search(r"\bTODO\b|<fill", read_text(p)):
+            rep.info("placeholder", name, "contains TODO/<fill> markers: complete before publishing")
+    p = root / ".github" / "CODEOWNERS"
+    if p.exists():
+        lines = [line.strip() for line in read_text(p).splitlines() if line.strip()]
+        if lines and all(line.startswith("#") for line in lines):
+            rep.info("placeholder", ".github/CODEOWNERS", "entirely commented out; replace the placeholders or delete it")
+
+
 def check_roles(root: Path, rep: Report) -> None:
     roles = load_roles(root)
     if not roles:
@@ -410,6 +422,7 @@ def run_all(root: Path) -> Report:
     check_adrs(root, rep)
     check_links(root, rep)
     check_agents_md(root, rep)
+    check_placeholders(root, rep)
     check_roles(root, rep)
     check_top_level_readmes(root, rep)
     check_skills(root, rep)

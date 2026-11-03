@@ -156,6 +156,11 @@ class HealthTests(RepoTestCase):
     def test_stubs_listing_never_fails(self) -> None:
         self.assertIn("placeholder", self.ok("check", "--stubs"))
 
+    def test_stubs_report_release_placeholders(self) -> None:
+        out = self.ok("check", "--stubs")
+        for where in ("README.md", "SECURITY.md", ".github/CODEOWNERS"):
+            self.assertIn(where, out)
+
     def test_invalid_adapter_targets_report_without_crashing(self) -> None:
         p = self.repo / "agents" / "adapters" / "targets.json"
         p.write_text("{not json\n", encoding="utf-8")
