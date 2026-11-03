@@ -60,6 +60,13 @@ copier update --trust
 
 Local edits are merged, and modules you cut stay cut. See `docs/how-to/update-from-template.md` in a generated project. Tag releases of this template (`v0.1.0`, …) so updates have a stable reference.
 
+## Releasing
+
+```
+git tag -a v0.1.0 -m "v0.1.0"
+git push origin v0.1.0
+```
+
 ## Developing this template
 
 ```
@@ -77,4 +84,7 @@ Layout of this repo: `copier.yml` (questions, exclusions, tasks) · `template/` 
 - Not exercised with real multi-agent runs yet; the `agents/evals` module exists so you can measure that on your own project.
 - The `.claude/` paths and file formats follow Claude Code's documentation as of November 2026 and may change; only `agents/` is yours to rely on.
 - Creating and updating a project needs Copier (so Python). Using a generated project needs only `python3`.
-- No license is included. Add one before publishing.
+
+## License
+
+Released under the [MIT License](LICENSE).
