@@ -6,6 +6,7 @@ Needs: pytest, copier>=9.4, git, python3.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
 import shutil
@@ -304,3 +305,11 @@ def test_template_has_no_stray_artifacts():
     assert not stray
     empty = [p for p in (TEMPLATE / "template").rglob("*") if p.is_dir() and not any(p.iterdir())]
     assert not empty, f"empty dirs are not tracked by git and will vanish: {empty}"
+
+
+def test_cursor_and_copilot_adapters_ship_disabled(full):
+    targets = json.loads((full / "agents" / "adapters" / "targets.json").read_text(encoding="utf-8"))
+    assert targets["cursor"]["enabled"] is False
+    assert targets["copilot"]["enabled"] is False
+    assert not (full / ".cursor").exists()
+    assert not (full / ".github" / "copilot-instructions.md").exists()

@@ -472,6 +472,15 @@ class ModuleTests(RepoTestCase):
 
 
 class AdapterTests(RepoTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        # Every test starts from "Cursor and Copilot off", whatever this project has enabled.
+        self.enable(cursor=False, copilot=False)
+        shutil.rmtree(self.repo / ".cursor", ignore_errors=True)
+        (self.repo / ".github" / "copilot-instructions.md").unlink(missing_ok=True)
+        self.ok("sync_agents")
+        self.ok("sync_indexes")
+
     def test_adapters_are_generated_and_removed_with_their_source(self) -> None:
         targets = _lib.load_targets(self.repo)
         if not targets.get("claude", {}).get("enabled"):
@@ -514,13 +523,6 @@ class AdapterTests(RepoTestCase):
         for name, on in targets.items():
             data.setdefault(name, {})["enabled"] = on
         t.write_text(json.dumps(data))
-
-    def test_cursor_and_copilot_are_disabled_by_default(self) -> None:
-        targets = _lib.load_targets(self.repo)
-        self.assertFalse(targets["cursor"]["enabled"])
-        self.assertFalse(targets["copilot"]["enabled"])
-        self.assertFalse((self.repo / ".cursor").exists())
-        self.assertFalse((self.repo / ".github" / "copilot-instructions.md").exists())
 
     def test_cursor_adapter_writes_role_rules_and_a_short_pointer(self) -> None:
         self.enable(cursor=True)
