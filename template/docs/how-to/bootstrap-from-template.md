@@ -18,6 +18,7 @@ Before you start: the repo was generated with `copier copy --trust` and you are 
    ```
 2. Confirm it is healthy: `python3 tools/check.py` prints `ok`.
 3. See what is unfilled: `python3 tools/check.py --stubs`. Every line is a placeholder to fill or delete.
+   With the `github` module, replace the commented entries in `.github/CODEOWNERS` with real users/teams, or delete the file.
 4. Cut modules you do not need: `python3 tools/remove_module.py` lists them; preview with `python3 tools/remove_module.py <name>`; apply with `--apply`. See `docs/how-to/cut-a-module.md`.
 5. Fill `AGENTS.md`: replace the `TODO` line with the real build, test and run commands. Keep the file under 100 lines and add only what an agent cannot discover from the repo.
 6. Describe the project in `README.md` (one paragraph) and fill the READMEs of the modules you kept.
