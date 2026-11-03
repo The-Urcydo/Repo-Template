@@ -241,6 +241,39 @@ class HealthTests(RepoTestCase):
         p.write_text(p.read_text() + f"\nSee [module](../../{target}).\n")
         self.assertIn("module-coupling", self.fails("check"))
 
+    def test_workspace_packages_and_boundary_checks(self) -> None:
+        apps = self.repo / "apps"
+        pkgs = self.repo / "packages"
+        apps.mkdir(exist_ok=True)
+        pkgs.mkdir(exist_ok=True)
+        (apps / "README.md").write_text("---\nsummary: Apps.\nowner_role: builder\n---\n# apps\n")
+        (pkgs / "README.md").write_text("---\nsummary: Packages.\nowner_role: builder\n---\n# packages\n")
+
+        # Missing README inside a package subfolder fails
+        (pkgs / "core").mkdir()
+        self.assertIn("workspace-readme", self.fails("check"))
+
+        # Valid package and app depending on package pass and appear in repo-map.md
+        (pkgs / "core" / "README.md").write_text("---\nsummary: Core primitives.\n---\n# core\n")
+        (apps / "web").mkdir()
+        (apps / "web" / "README.md").write_text("---\nsummary: Web client.\ndepends_on: [core]\n---\n# web\n")
+        self.ok("sync_indexes")
+        self.ok("sync_agents")
+        self.ok("check", "--strict")
+        self.assertIn("`apps/web/`", (self.repo / "docs" / "reference" / "repo-map.md").read_text())
+
+        # Package depending on app fails with workspace-boundary
+        (pkgs / "core" / "README.md").write_text("---\nsummary: Core primitives.\ndepends_on: [apps/web]\n---\n# core\n")
+        self.ok("sync_indexes")
+        self.assertIn("workspace-boundary", self.fails("check"))
+
+        # Package dependency cycle fails with workspace-cycle
+        (pkgs / "auth").mkdir()
+        (pkgs / "core" / "README.md").write_text("---\nsummary: Core primitives.\ndepends_on: [auth]\n---\n# core\n")
+        (pkgs / "auth" / "README.md").write_text("---\nsummary: Auth package.\ndepends_on: [core]\n---\n# auth\n")
+        self.ok("sync_indexes")
+        self.assertIn("workspace-cycle", self.fails("check"))
+
 
 class WorkLifecycleTests(RepoTestCase):
     def test_full_lifecycle_and_guard_rails(self) -> None:
@@ -267,6 +300,22 @@ class WorkLifecycleTests(RepoTestCase):
         self.assertTrue(list((self.repo / "work" / "archive").glob(f"*/{item}")))
         self.assertNotIn(item, (self.repo / "work" / "ACTIVE.md").read_text())
         self.ok("check")
+
+    def test_self_review_is_refused_by_transition_and_check(self) -> None:
+        item = self.new_item("self-review-guard")
+        self.ok("transition", item, "planned", "--next", "build")
+        self.ok("transition", item, "in-progress", "--next", "building", "--by", "builder")
+        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "ran check", "--by", "builder")
+        self.ok("item_file", item, "review")
+        self.assertIn("independent review required",
+                      self.fails("transition", item, "verified", "--next", "docs", "--by", "builder"))
+        self.ok("transition", item, "verified", "--next", "docs", "--by", "reviewer")
+        h = self.repo / "work" / "items" / item / "handoff.md"
+        self.assertEqual(_lib.read_fm(h).get("verified_by"), "reviewer")
+        self.ok("check", "--strict")
+        # Hand-editing verified_by to match built_by is caught by check.py
+        h.write_text(_lib.set_fm_value(h.read_text(), "verified_by", "builder"))
+        self.assertIn("self-review", self.fails("check"))
 
     def test_archive_refuses_unfinished_items(self) -> None:
         item = self.new_item("half-done")
@@ -419,6 +468,42 @@ class WorkLifecycleTests(RepoTestCase):
         self.ok("check")
 
 
+class WorktreeTests(RepoTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        subprocess.run(["git", "-C", str(self.repo), "init", "-q"], check=True)
+        subprocess.run(["git", "-C", str(self.repo), "-c", "user.email=t@t", "-c", "user.name=t",
+                        "add", "-A"], check=True)
+        subprocess.run(["git", "-C", str(self.repo), "-c", "user.email=t@t", "-c", "user.name=t",
+                        "commit", "-qm", "init"], check=True)
+
+    def test_worktree_create_list_and_remove(self) -> None:
+        item = self.new_item("wt-feature", "--worktree")
+        wt_path = self.repo.parent / f"{self.repo.name}-{item}"
+        self.assertTrue(wt_path.is_dir())
+        self.assertIn(str(wt_path), self.ok("worktree", "list"))
+        # Refuses to remove while still in draft without --force
+        self.assertIn("only verified, done or canceled", self.fails("worktree", "remove", item))
+        self.ok("worktree", "remove", item, "--force")
+        self.assertFalse(wt_path.exists())
+
+    def test_worktree_refuses_path_inside_repo_root(self) -> None:
+        item = self.new_item("inside-root")
+        self.assertIn("outside the repository root",
+                      self.fails("worktree", "create", item, "--path", str(self.repo / "sub")))
+
+
+class EvalHarnessTests(RepoTestCase):
+    def test_eval_harness_lists_and_verifies_golden_tasks(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        listing = self.ok("eval_harness", "--list")
+        for task_id in ("find-the-right-doc", "respect-ownership", "handoff-roundtrip", "escalation-discipline"):
+            self.assertIn(task_id, listing)
+        out = self.ok("eval_harness", "--verify-fixtures")
+        self.assertEqual(out.count("PASS"), 4, out)
+
+
 class QueueTests(RepoTestCase):
     ASK = ["ask", "Delete old backups?", "--asked-by", "orchestrator", "--recommended", "keep them",
            "--if-no-answer", "keep them", "--cost", "high: data loss"]
@@ -557,9 +642,10 @@ class ModuleTests(RepoTestCase):
 class AdapterTests(RepoTestCase):
     def setUp(self) -> None:
         super().setUp()
-        # Every test starts from "Cursor and Copilot off", whatever this project has enabled.
-        self.enable(cursor=False, copilot=False)
+        # Every test starts from "Cursor, Copilot and Gemini off", whatever this project has enabled.
+        self.enable(cursor=False, copilot=False, gemini=False)
         shutil.rmtree(self.repo / ".cursor", ignore_errors=True)
+        shutil.rmtree(self.repo / ".gemini", ignore_errors=True)
         (self.repo / ".github" / "copilot-instructions.md").unlink(missing_ok=True)
         self.ok("sync_agents")
         self.ok("sync_indexes")
@@ -644,6 +730,18 @@ class AdapterTests(RepoTestCase):
         self.assertNotIn("python3 tools/", text)
         self.ok("check", "--strict")
         self.ok("sync_agents", "--check")
+
+    def test_gemini_adapter_writes_settings_that_check_accepts(self) -> None:
+        self.enable(gemini=True)
+        self.ok("sync_agents")
+        cfg = json.loads((self.repo / ".gemini" / "settings.json").read_text())
+        self.assertEqual(cfg["context"]["fileName"], ["AGENTS.md", "GEMINI.md"])
+        self.ok("check", "--strict")
+        self.ok("sync_agents", "--check")
+        self.enable(gemini=False)
+        self.ok("sync_agents")
+        self.assertFalse((self.repo / ".gemini").exists())
+        self.ok("check", "--strict")
 
     def test_copilot_adapter_does_not_turn_the_github_module_on(self) -> None:
         if "github" in _lib.load_modules(self.repo):

@@ -152,9 +152,30 @@ def build_repo_map(root: Path) -> str:
         summary = summary or FALLBACK_SUMMARY.get(d.name) or "(no README.md: add one with a `summary`)"
         mod = f" `[module: {mod_of[d.name]}]`" if d.name in mod_of else ""
         rows.append(f"| `{d.name}/` | {summary}{mod} |")
+    ws_rows = []
+    for folder in ("apps", "packages"):
+        base = root / folder
+        if not base.is_dir():
+            continue
+        for child in sorted(base.iterdir()):
+            if not child.is_dir() or child.name.startswith((".", "_")) or child.name in SKIP_DIRS:
+                continue
+            fm = read_fm(child / "README.md") if (child / "README.md").exists() else {}
+            summary = fm.get("summary") or "(no README.md: add one with a `summary`)"
+            raw_deps = fm.get("depends_on") or []
+            deps = [str(x).strip() for x in (raw_deps if isinstance(raw_deps, list) else [raw_deps]) if str(x).strip()]
+            dep_str = ", ".join(f"`{x}`" for x in deps) if deps else "—"
+            ws_rows.append(f"| `{folder}/{child.name}/` | {summary} | {dep_str} |")
+    ws_section = ""
+    if ws_rows:
+        ws_section = (
+            "\n## Workspace components\n\n"
+            "| Component | Purpose | Depends on |\n|---|---|---|\n"
+            + "\n".join(ws_rows) + "\n"
+        )
     return (
         _front("Repo map", "reference", "Generated table of top-level folders and what each is for.", "scribe")
-        + "# Repo map\n\n| Folder | Purpose |\n|---|---|\n" + "\n".join(rows) + "\n"
+        + "# Repo map\n\n| Folder | Purpose |\n|---|---|\n" + "\n".join(rows) + "\n" + ws_section
     )
 
 

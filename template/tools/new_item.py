@@ -3,7 +3,7 @@
 
 Usage:
   python3 tools/new_item.py <slug words...> [--title "Human title"] [--light]
-                            [--owner ROLE] [--status STATUS]
+                            [--owner ROLE] [--status STATUS] [--worktree]
 
 Full item  -> work/items/<date>-<slug>/{handoff.md, brief.md}   (other files are added by the role that owns them)
 Light item -> work/items/<date>-<slug>.md                        (one file; for tasks under ~an hour)
@@ -16,6 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sync_indexes  # noqa: E402
+import worktree  # noqa: E402
 from _lib import (  # noqa: E402
     DEFAULT_OWNER, STATUSES, apply_tokens, file_lock, iter_items, load_roles, read_text, repo_root,
     slugify, today, write_text, yaml_scalar,
@@ -74,11 +75,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--light", action="store_true", help="single-file item")
     ap.add_argument("--owner", help="role that acts first (default depends on status)")
     ap.add_argument("--status", default="draft", help="initial status (default: draft)")
+    ap.add_argument("--worktree", action="store_true", help="also create a sibling git worktree on branch item/<id>")
     args = ap.parse_args(argv)
     root = repo_root()
     try:
         target = create(root, " ".join(args.slug), args.title, args.light, args.owner, args.status)
-    except (ValueError, FileNotFoundError) as exc:
+        if args.worktree:
+            item_id = target.parent.name if target.name == "handoff.md" else target.stem
+            worktree.create(root, item_id)
+    except (ValueError, FileNotFoundError, RuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     print(target.relative_to(root).as_posix())
