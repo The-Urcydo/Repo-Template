@@ -279,6 +279,82 @@ def check_top_level_readmes(root: Path, rep: Report) -> None:
             rep.info("placeholder", r, "unfilled placeholder: fill it or delete the folder")
 
 
+def check_workspace_packages(root: Path, rep: Report) -> None:
+    """Enforce README summaries and dependency boundaries in workspace folders (apps/*, packages/*)."""
+    apps_dir = root / "apps"
+    pkgs_dir = root / "packages"
+    apps: dict[str, dict] = {}
+    pkgs: dict[str, dict] = {}
+    for kind, base, store in (("app", apps_dir, apps), ("package", pkgs_dir, pkgs)):
+        if not base.is_dir():
+            continue
+        for d in sorted(base.iterdir()):
+            if not d.is_dir() or d.name.startswith((".", "_")) or d.name in SKIP_DIRS:
+                continue
+            readme = d / "README.md"
+            r = f"{base.name}/{d.name}/README.md"
+            if not readme.exists():
+                rep.error("workspace-readme", f"{base.name}/{d.name}/",
+                          f"workspace {kind} '{d.name}' needs a README.md with a summary")
+                continue
+            try:
+                fm, _ = parse_front_matter(read_text(readme))
+            except FrontMatterError as exc:
+                rep.error("front-matter", r, str(exc))
+                continue
+            fm = fm or {}
+            if not str(fm.get("summary") or "").strip():
+                rep.error("workspace-readme", r, "front matter is missing 'summary'")
+            if fm.get("status") == "placeholder":
+                rep.info("placeholder", r, "unfilled placeholder: fill it or delete the folder")
+            store[d.name] = {"readme": r, "fm": fm}
+
+    pkg_deps: dict[str, list[str]] = {}
+    for kind, store in (("app", apps), ("package", pkgs)):
+        for name, info in store.items():
+            r = info["readme"]
+            raw = info["fm"].get("depends_on") or []
+            deps = [str(x).strip() for x in (raw if isinstance(raw, list) else [raw]) if str(x).strip()]
+            norm_deps: list[str] = []
+            for dep in deps:
+                if dep.startswith("apps/") or dep in apps:
+                    target_app = dep.split("/", 1)[1] if dep.startswith("apps/") else dep
+                    msg = (f"package '{name}' depends on app '{target_app}'; packages must not depend on apps"
+                           if kind == "package"
+                           else f"app '{name}' depends on app '{target_app}'; apps may depend on packages, never on each other")
+                    rep.error("workspace-boundary", r, msg)
+                    continue
+                pkg_name = dep.split("/", 1)[1] if dep.startswith("packages/") else dep
+                if pkg_name == name and kind == "package":
+                    rep.error("workspace-cycle", r, f"package '{name}' cannot depend on itself")
+                    continue
+                if pkg_name not in pkgs:
+                    rep.error("workspace-boundary", r, f"depends_on package '{dep}' does not exist in packages/")
+                    continue
+                norm_deps.append(pkg_name)
+            if kind == "package":
+                pkg_deps[name] = norm_deps
+
+    # Detect cycles across packages/*
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def dfs(node: str, chain: list[str]) -> None:
+        visiting.add(node)
+        for nxt in pkg_deps.get(node, []):
+            if nxt in visiting:
+                cycle = " -> ".join(chain[chain.index(nxt):] + [nxt])
+                rep.error("workspace-cycle", pkgs[node]["readme"], f"package dependency cycle: {cycle}")
+            elif nxt not in visited and nxt in pkg_deps:
+                dfs(nxt, chain + [nxt])
+        visiting.remove(node)
+        visited.add(node)
+
+    for pkg_name in sorted(pkg_deps):
+        if pkg_name not in visited:
+            dfs(pkg_name, [pkg_name])
+
+
 def check_skills(root: Path, rep: Report) -> None:
     # Two lanes: agents/skills/<name>/ (shared) and agents/roles/<role>/skills/<name>/ (one role).
     # `.claude/skills/` is flat, so a name may appear only once across both.
@@ -342,6 +418,18 @@ def check_items(root: Path, rep: Report) -> None:
             continue
         if roles and str(fm.get("owner_role")) not in roles:
             rep.error("handoff", r, f"owner_role '{fm.get('owner_role')}' is not a role")
+        built_by = str(fm.get("built_by") or "").strip()
+        verified_by = str(fm.get("verified_by") or "").strip()
+        if roles and built_by and built_by not in roles:
+            rep.error("handoff", r, f"built_by '{built_by}' is not a role")
+        if roles and verified_by and verified_by not in roles:
+            rep.error("handoff", r, f"verified_by '{verified_by}' is not a role")
+        if status in ("verified", "done") and not built_by:
+            rep.error("handoff", r, f"status {status} needs built_by; move the item through in-progress with transition.py --by <builder>")
+        if status in ("verified", "done") and not verified_by:
+            rep.error("handoff", r, f"status {status} needs verified_by; mark it verified with transition.py --by <reviewer>")
+        if verified_by and built_by and verified_by == built_by:
+            rep.error("self-review", r, f"verified_by '{verified_by}' cannot be the same role that built the item")
         if status != "done" and not str(fm.get("next_action") or "").strip():
             rep.error("handoff", r, "next_action is empty: say what the next role should do")
         evidence = fm.get("evidence") or []
@@ -440,6 +528,7 @@ def run_all(root: Path) -> Report:
     check_placeholders(root, rep)
     check_roles(root, rep)
     check_top_level_readmes(root, rep)
+    check_workspace_packages(root, rep)
     check_skills(root, rep)
     check_items(root, rep)
     check_queue(root, rep)

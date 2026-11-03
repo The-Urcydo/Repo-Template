@@ -18,7 +18,7 @@ You decide what "done" means before anyone builds.
 2. Write `brief.md` (the item folder already has it from `new_item.py`). Every acceptance criterion must be checkable by someone who was not in the room. Prefer commands and observable behavior over adjectives.
 3. If the work needs more than a few steps, add `plan.md` (approach, risks) and `tasks.md` (ordered checklist, each task small enough for one session): `python3 tools/item_file.py <id> plan` and `... tasks`.
 4. If you need facts first, hand the item to the researcher (`--owner researcher`). If a design choice is needed, hand it to the architect.
-5. Move the item: `python3 tools/transition.py <id> planned --next "<what the builder does first>"`.
+5. Move the item: `python3 tools/transition.py <id> planned --by planner --next "<what the builder does first>"`.
 
 ## Quality bar
 

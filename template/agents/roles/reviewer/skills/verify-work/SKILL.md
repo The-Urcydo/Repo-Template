@@ -19,11 +19,11 @@ You must not be the role that built the item. If you were, stop and hand it to a
 5. Move the item:
    - Approved:
      ```
-     python3 tools/transition.py <id> verified --evidence "<what you ran>" --next "update docs and changelog"
+     python3 tools/transition.py <id> verified --by reviewer --evidence "<what you ran>" --next "update docs and changelog"
      ```
    - Changes requested:
      ```
-     python3 tools/transition.py <id> in-progress --owner builder --next "fix findings in review.md"
+     python3 tools/transition.py <id> in-progress --owner builder --by reviewer --next "fix findings in review.md"
      ```
 6. Do not fix findings yourself.
 

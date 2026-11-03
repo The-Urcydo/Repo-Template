@@ -4,7 +4,7 @@
 Outputs (deterministic, so `--check` can detect drift):
   docs/INDEX.md              one line per doc, from front-matter `summary`
   docs/<group>/INDEX.md      only when a group has more than SPLIT_THRESHOLD docs
-  docs/reference/repo-map.md top-level folders, from each folder README `summary`
+  docs/reference/repo-map.md top-level folders and workspace components, from each folder README `summary`
   docs/reference/modules.md  installed modules and how to cut them
   work/ACTIVE.md             board of in-flight work items, from handoff front matter
   agents/ROSTER.md           the role table, from agents/roles/<role>/ROLE.md + folder ownership
@@ -152,9 +152,30 @@ def build_repo_map(root: Path) -> str:
         summary = summary or FALLBACK_SUMMARY.get(d.name) or "(no README.md: add one with a `summary`)"
         mod = f" `[module: {mod_of[d.name]}]`" if d.name in mod_of else ""
         rows.append(f"| `{d.name}/` | {summary}{mod} |")
+    ws_rows = []
+    for folder in ("apps", "packages"):
+        base = root / folder
+        if not base.is_dir():
+            continue
+        for child in sorted(base.iterdir()):
+            if not child.is_dir() or child.name.startswith((".", "_")) or child.name in SKIP_DIRS:
+                continue
+            fm = read_fm(child / "README.md") if (child / "README.md").exists() else {}
+            summary = fm.get("summary") or "(no README.md: add one with a `summary`)"
+            raw_deps = fm.get("depends_on") or []
+            deps = [str(x).strip() for x in (raw_deps if isinstance(raw_deps, list) else [raw_deps]) if str(x).strip()]
+            dep_str = ", ".join(f"`{x}`" for x in deps) if deps else "—"
+            ws_rows.append(f"| `{folder}/{child.name}/` | {summary} | {dep_str} |")
+    ws_section = ""
+    if ws_rows:
+        ws_section = (
+            "\n## Workspace components\n\n"
+            "| Component | Purpose | Depends on |\n|---|---|---|\n"
+            + "\n".join(ws_rows) + "\n"
+        )
     return (
-        _front("Repo map", "reference", "Generated table of top-level folders and what each is for.", "scribe")
-        + "# Repo map\n\n| Folder | Purpose |\n|---|---|\n" + "\n".join(rows) + "\n"
+        _front("Repo map", "reference", "Generated table of top-level folders, workspace components, and what each is for.", "scribe")
+        + "# Repo map\n\n| Folder | Purpose |\n|---|---|\n" + "\n".join(rows) + "\n" + ws_section
     )
 
 

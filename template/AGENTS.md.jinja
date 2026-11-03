@@ -7,8 +7,8 @@
 ## Commands
 - Check everything (run before every handoff): `python3 tools/check.py`
 - After editing docs, roles or skills: `python3 tools/sync_indexes.py && python3 tools/sync_agents.py`
-- New work item: `python3 tools/new_item.py <slug>` (`--light` for a task under an hour)
-- Move an item: `python3 tools/transition.py <id> <status> --next "..." [--evidence "..."]`
+- New work item: `python3 tools/new_item.py <slug>` (`--light` for a task under an hour, `--worktree` for a sibling worktree)
+- Move an item: `python3 tools/transition.py <id> <status> --by <role> --next "..." [--evidence "..."]`
 - New ADR / doc: `python3 tools/new_adr.py "Title"` / `python3 tools/new_doc.py <type> "Title"`
 - Ask the human (only when `agents/protocols/escalation.md` says so): `python3 tools/question.py ask --help`
 - Test the tools themselves (only after changing `tools/`): `python3 -m unittest discover -s tools/tests`
@@ -25,7 +25,7 @@ The human or the item's `owner_role` names it; charters are in `agents/roles/`. 
 ## Hard rules
 1. Stay in your lane. Write only what your role owns: a folder's `README.md` `owner_role`, or your role's `item_files`. Need a change elsewhere? Hand it to the owner: in your item's handoff, or as a light item (`new_item.py <slug> --light --status planned --owner <role>`).
 2. Accepted ADRs in `docs/decisions/` are binding. To change one, write a new ADR that supersedes it. Never work around one.
-3. Never hand-edit generated files: `docs/INDEX.md`, `work/ACTIVE.md`, `agents/ROSTER.md`, or anything recorded in `agents/adapters/manifest.json` (`.claude/`, `.cursor/rules/`, `CLAUDE.md` shims, `.github/copilot-instructions.md`). Edit the source, then run the sync tools.
+3. Never hand-edit generated files: `docs/INDEX.md`, `work/ACTIVE.md`, `agents/ROSTER.md`, or anything recorded in `agents/adapters/manifest.json` (`.claude/`, `.cursor/rules/`, `CLAUDE.md` shims, `.github/copilot-instructions.md`, `.gemini/settings.json`). Edit the source, then run the sync tools.
 4. Stop and ask the human before anything irreversible, anything that spends money or touches production or secrets, a scope change, or a conflict between ADRs.
 5. Independent review: the role that built an item never marks it `verified` or `done`.
 6. Link to docs, do not copy them. Do not paste directory trees into any AGENTS.md.

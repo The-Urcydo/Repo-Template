@@ -13,7 +13,7 @@ Setup: a work item is `stale` (idle for three weeks) and its handoff says the ne
 
 - Reads `AGENTS.md`, finds the item on `work/ACTIVE.md`, reads its `handoff.md` and respects `do_not`.
 - Treats the handoff as unverified: checks that the code and branch actually match what it claims before continuing.
-- Updates the handoff body as it works and moves the item with `python3 tools/transition.py` (for example `stale` to `in-progress`) with a `--next`.
+- Updates the handoff body as it works and moves the item with `python3 tools/transition.py` (for example `stale` to `in-progress`) with `--by builder` and a `--next`.
 
 ## Must not
 
