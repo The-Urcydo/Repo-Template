@@ -41,4 +41,4 @@ The template's own test suite generates every profile and layout, runs `check.py
 
 ## More information
 
-`docs/how-to/cut-a-module.md`, `docs/how-to/update-from-template.md`.
+`docs/dev/how-to/cut-a-module.md`, `docs/dev/how-to/update-from-template.md`.

@@ -55,6 +55,18 @@ DIATAXIS_DIRS = {
     "explanation": "explanation",
     "decisions": "decision",
 }
+# Docs are grouped by audience first, then by Diataxis type:
+#   docs/dev/<type>/ and docs/user/<type>/  hold the four type folders (TYPE_FOLDERS),
+#   docs/decisions/                         is shared by every audience,
+#   docs/product, operations, release, security are optional modules, one audience each.
+TYPE_FOLDERS = ("tutorials", "how-to", "reference", "explanation")
+TYPED_AUDIENCE_DIRS = ("dev", "user")
+AUDIENCES = ("dev", "user", "product", "ops", "security")
+# Top-level docs folder -> the audience it implies when a doc has no `audience:` key.
+DOCS_FOLDER_AUDIENCE = {
+    "dev": "dev", "user": "user", "product": "product",
+    "operations": "ops", "release": "ops", "security": "security",
+}
 
 SKIP_DIRS = {".git", "node_modules", ".venv", "__pycache__", ".claude", ".cursor", ".idea", ".vscode"}
 
@@ -357,6 +369,27 @@ def iter_docs(root: Path) -> Iterator[Path]:
         if p.name in ("AGENTS.md", "CLAUDE.md"):  # instruction files, not documentation pages
             continue
         yield p
+
+
+def doc_type_dir(parts: tuple[str, ...]) -> str | None:
+    """The type folder a doc sits in, from its path parts relative to docs/.
+
+    Returns one of TYPE_FOLDERS (for docs/<dev|user>/<type>/...), "decisions", or None.
+    """
+    if len(parts) > 1 and parts[0] == "decisions":
+        return "decisions"
+    if len(parts) > 2 and parts[0] in TYPED_AUDIENCE_DIRS and parts[1] in TYPE_FOLDERS:
+        return parts[1]
+    return None
+
+
+def doc_audience(parts: tuple[str, ...], fm: dict[str, Any]) -> str | None:
+    """Audience of a doc: its `audience:` key if set, else the one its top-level folder implies, else None
+    (shared docs such as decisions have none)."""
+    explicit = str(fm.get("audience") or "").strip()
+    if explicit:
+        return explicit
+    return DOCS_FOLDER_AUDIENCE.get(parts[0]) if len(parts) > 1 else None
 
 
 # ------------------------------------------------------------------- links

@@ -24,11 +24,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sync_agents  # noqa: E402
 import sync_indexes  # noqa: E402
 from _lib import (  # noqa: E402
-    ADR_STATUSES, DIATAXIS_DIRS, DOC_STATUSES, DOC_TYPES, ITEM_ID_RE, NEEDS_EVIDENCE, SKIP_DIRS,
-    STALE_DAYS, STALE_REWARN_DAYS, STATUSES, FrontMatterError, folder_owners, git_last_change, iter_docs, iter_items,
-    iter_markdown, load_catalog, load_modules, load_roles, load_targets, md_links, module_of,
-    module_present, parse_date, parse_front_matter, parse_queue, read_fm, read_text, repo_root,
-    resolve_link, today,
+    ADR_STATUSES, AUDIENCES, DIATAXIS_DIRS, DOC_STATUSES, DOC_TYPES, ITEM_ID_RE, NEEDS_EVIDENCE, SKIP_DIRS,
+    STALE_DAYS, STALE_REWARN_DAYS, STATUSES, TYPE_FOLDERS, FrontMatterError, doc_type_dir, folder_owners,
+    git_last_change, iter_docs, iter_items, iter_markdown, load_catalog, load_modules, load_roles, load_targets,
+    md_links, module_of, module_present, parse_date, parse_front_matter, parse_queue, read_fm, read_text,
+    repo_root, resolve_link, today,
 )
 
 ROOT_AGENTS_MAX_LINES = 100
@@ -99,9 +99,16 @@ def check_docs(root: Path, rep: Report) -> None:
         if len(summary) > SUMMARY_MAX:
             rep.error("summary-length", r, f"summary is {len(summary)} chars; keep it to one sentence (<= {SUMMARY_MAX})")
         parts = p.relative_to(root / "docs").parts
-        if len(parts) > 1 and parts[0] in DIATAXIS_DIRS and typ not in ("index", "meta"):
-            if typ != DIATAXIS_DIRS[parts[0]]:
-                rep.error("diataxis", r, f"type '{typ}' does not belong in docs/{parts[0]}/ (expects '{DIATAXIS_DIRS[parts[0]]}')")
+        if len(parts) > 1 and parts[0] in TYPE_FOLDERS:
+            rep.error("docs-layout", r, f"type folders live under an audience folder: use docs/dev/{parts[0]}/ "
+                      f"(for people building the project) or docs/user/{parts[0]}/ (for its end users)")
+        type_dir = doc_type_dir(parts)
+        if type_dir and typ not in ("index", "meta") and typ != DIATAXIS_DIRS[type_dir]:
+            folder = type_dir if type_dir == "decisions" else f"{parts[0]}/{type_dir}"
+            rep.error("diataxis", r, f"type '{typ}' does not belong in docs/{folder}/ (expects '{DIATAXIS_DIRS[type_dir]}')")
+        audience = str(fm.get("audience") or "").strip()
+        if audience and audience not in AUDIENCES:
+            rep.error("doc-audience", r, f"audience '{audience}' not in {', '.join(AUDIENCES)}")
         if status == "placeholder":
             rep.info("placeholder", r, "unfilled placeholder: fill it or delete it")
         elif summary.upper().startswith("TODO"):

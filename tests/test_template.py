@@ -33,10 +33,16 @@ def copier(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess:
     return subprocess.run([sys.executable, "-m", "copier", *args], cwd=cwd, capture_output=True, text=True, timeout=300)
 
 
+# Without --vcs-ref Copier generates from the latest git tag, not from the files being tested, so a
+# checkout that has a release tag would silently test the previous release. HEAD means "this tree".
+CURRENT_TREE = ("--vcs-ref", "HEAD")
+
+
 def generate(dest: Path, src: Path = TEMPLATE, *extra: str, **answers: str) -> Path:
     answers.setdefault("project_name", "Test Project")
     data = [x for k, v in answers.items() for x in ("--data", f"{k}={v}")]
-    r = copier("copy", "--defaults", "--trust", "-q", *data, *extra, str(src), str(dest))
+    ref = () if "--vcs-ref" in extra else CURRENT_TREE
+    r = copier("copy", "--defaults", "--trust", "-q", *ref, *data, *extra, str(src), str(dest))
     assert r.returncode == 0, f"copier copy failed:\n{r.stdout}\n{r.stderr}"
     return dest
 
@@ -81,8 +87,13 @@ def test_profile_generates_a_healthy_repo(tmp_path, profile, layout):
     assert (p / "tools" / "tests" / "test_tools.py").exists(), layout
     # core is always present
     for core in ["AGENTS.md", "README.md", "docs/INDEX.md", "work/ACTIVE.md", "work/HUMAN.md", "agents/ROSTER.md",
-                 "tools/check.py", "docs/decisions/0000-use-madr-for-decision-records.md", "agents/roles/builder.md"]:
+                 "tools/check.py", "docs/decisions/0000-use-madr-for-decision-records.md", "agents/roles/builder.md",
+                 "docs/dev/how-to/README.md", "docs/dev/reference/repo-map.md", "docs/user/README.md"]:
         assert (p / core).exists(), core
+    # docs are grouped by audience: the four type folders live under docs/dev/, never at the top of docs/
+    for type_folder in ("tutorials", "how-to", "reference", "explanation"):
+        assert (p / "docs" / "dev" / type_folder).is_dir(), type_folder
+        assert not (p / "docs" / type_folder).exists(), f"docs/{type_folder}/ must not exist at the top level"
 
 
 @pytest.mark.parametrize("modules", [[], ["evals"], ["infra", "github"], ["product", "security"]])
@@ -90,7 +101,7 @@ def test_custom_profile_picks_exactly_the_chosen_modules(tmp_path, modules):
     data = tmp_path / "answers.yml"
     data.write_text("custom_modules: [" + ", ".join(modules) + "]\n")
     dest = tmp_path / "p"
-    r = copier("copy", "--defaults", "--trust", "-q", "--data", "project_name=C", "--data", "profile=custom",
+    r = copier("copy", "--defaults", "--trust", "-q", *CURRENT_TREE, "--data", "project_name=C", "--data", "profile=custom",
                "--data-file", str(data), str(TEMPLATE), str(dest))
     assert r.returncode == 0, r.stderr
     for module, path in MODULE_PATHS.items():
@@ -114,7 +125,7 @@ def test_no_unrendered_template_syntax_leaks(full):
 
 def test_template_name_is_consistent():
     for rel in ("README.md", "copier.yml", "template/CHANGELOG.md", "template/README.md.jinja",
-                "template/docs/how-to/bootstrap-from-template.md"):
+                "template/docs/dev/how-to/bootstrap-from-template.md"):
         text = (TEMPLATE / rel).read_text(encoding="utf-8")
         assert "agent-repo-skeleton" not in text, rel
 
@@ -259,7 +270,7 @@ def test_copier_update_merges_improvements_and_respects_cuts(tmp_path):
     git(proj, "init", "-q")
     git(proj, "add", "-A")
     git(proj, "commit", "-qm", "init")
-    note = proj / "docs/reference/naming-conventions.md"
+    note = proj / "docs/dev/reference/naming-conventions.md"
     note.write_text(note.read_text() + "\nLocal convention: tabs are banned.\n")
     git(proj, "commit", "-qam", "local edit")
     r = py(proj, "tools/remove_module.py", "evals", "--apply")
@@ -269,9 +280,9 @@ def test_copier_update_merges_improvements_and_respects_cuts(tmp_path):
     assert "profile: custom" in (proj / ".copier-answers.yml").read_text()
 
     # 3. the template improves: a new how-to, a new glossary row, and a changed module file
-    (tpl / "template/docs/how-to/new-guide.md").write_text(
+    (tpl / "template/docs/dev/how-to/new-guide.md").write_text(
         "---\ntitle: A new guide\ntype: how-to\nstatus: active\nsummary: Added in template v0.2.0.\n---\n# A new guide\n")
-    g = tpl / "template/docs/reference/glossary.md"
+    g = tpl / "template/docs/dev/reference/glossary.md"
     g.write_text(g.read_text() + "| **Zebra** | A new term added upstream |\n")
     ev = tpl / "template/agents/evals/README.md"
     ev.write_text(ev.read_text() + "\nUpstream change to the evals module.\n")
@@ -283,8 +294,8 @@ def test_copier_update_merges_improvements_and_respects_cuts(tmp_path):
     r = copier("update", "--defaults", "--trust", "-q", "--vcs-ref", "v0.2.0", cwd=proj)
     assert r.returncode == 0, f"{r.stdout}\n{r.stderr}"
     assert "_commit: v0.2.0" in (proj / ".copier-answers.yml").read_text()
-    assert (proj / "docs/how-to/new-guide.md").exists(), "template improvement not delivered"
-    assert "Zebra" in (proj / "docs/reference/glossary.md").read_text()
+    assert (proj / "docs/dev/how-to/new-guide.md").exists(), "template improvement not delivered"
+    assert "Zebra" in (proj / "docs/dev/reference/glossary.md").read_text()
     assert "tabs are banned" in note.read_text(), "local edit was lost"
     assert not (proj / "agents/evals").exists(), "cut module was resurrected by the update"
     assert "new-guide.md" in (proj / "docs/INDEX.md").read_text(), "tasks did not regenerate the index"

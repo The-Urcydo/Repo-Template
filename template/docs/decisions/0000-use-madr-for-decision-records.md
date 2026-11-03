@@ -40,4 +40,4 @@ Chosen option: "MADR", because its optional sections keep small decisions small,
 
 ## More information
 
-MADR: https://adr.github.io/madr/. Process: `docs/how-to/write-an-adr.md`.
+MADR: https://adr.github.io/madr/. Process: `docs/dev/how-to/write-an-adr.md`.

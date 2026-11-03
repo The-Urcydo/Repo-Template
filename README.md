@@ -6,7 +6,7 @@ A [Copier](https://copier.readthedocs.io) template for new repositories that one
 
 | Layer | Folder | Purpose |
 |---|---|---|
-| Durable knowledge | `docs/` | [Diátaxis](https://diataxis.fr) docs (tutorials, how-to, reference, explanation) and numbered decision records (ADRs) |
+| Durable knowledge | `docs/` | Docs grouped by audience (`dev/`, `user/`), each in [Diátaxis](https://diataxis.fr) types (tutorials, how-to, reference, explanation), plus numbered decision records (ADRs) |
 | Volatile work | `work/` | Inbox, one folder per work item with a `handoff.md`, a generated board, and a queue of questions for the human |
 | Agent harness | `agents/` | Role charters, protocols, skills. **The source of truth** for any agent tool |
 | Tooling | `tools/` | Standard-library Python (3.9+): health check, index generators, work/ADR/doc helpers |
@@ -49,7 +49,7 @@ Modules are folders that nothing in the core links to, so they can be removed at
 
 ## Use it with agents other than Claude
 
-`agents/` is tool-neutral. Claude Code reads `.claude/` and `CLAUDE.md`, which are *generated* from `agents/` by `python3 tools/sync_agents.py` (the sync refuses to overwrite files it did not generate). Optional adapters for Cursor (`.cursor/rules/`) and GitHub Copilot (`.github/copilot-instructions.md`) can be enabled in `agents/adapters/targets.json`; they are short pointers, not copies of `AGENTS.md`. Any other agent can read `AGENTS.md` and `agents/` directly. See `docs/how-to/use-with-other-agents.md` in a generated project.
+`agents/` is tool-neutral. Claude Code reads `.claude/` and `CLAUDE.md`, which are *generated* from `agents/` by `python3 tools/sync_agents.py` (the sync refuses to overwrite files it did not generate). Optional adapters for Cursor (`.cursor/rules/`) and GitHub Copilot (`.github/copilot-instructions.md`) can be enabled in `agents/adapters/targets.json`; they are short pointers, not copies of `AGENTS.md`. Any other agent can read `AGENTS.md` and `agents/` directly. See `docs/dev/how-to/use-with-other-agents.md` in a generated project.
 
 ## Pull in template improvements
 
@@ -58,7 +58,7 @@ cd path/to/project             # must be a clean git repo
 copier update --trust
 ```
 
-Local edits are merged, and modules you cut stay cut. See `docs/how-to/update-from-template.md` in a generated project. Tag releases of this template (`v0.1.0`, …) so updates have a stable reference.
+Local edits are merged, and modules you cut stay cut. See `docs/dev/how-to/update-from-template.md` in a generated project. Tag releases of this template (`v0.1.0`, …) so updates have a stable reference.
 
 ## Releasing
 

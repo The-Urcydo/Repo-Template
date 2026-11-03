@@ -6,9 +6,9 @@
 
 # Generated files: collapse in diffs on GitHub
 docs/INDEX.md linguist-generated
-docs/*/INDEX.md linguist-generated
-docs/reference/repo-map.md linguist-generated
-docs/reference/modules.md linguist-generated
+docs/**/INDEX.md linguist-generated
+docs/dev/reference/repo-map.md linguist-generated
+docs/dev/reference/modules.md linguist-generated
 work/ACTIVE.md linguist-generated
 agents/ROSTER.md linguist-generated
 agents/adapters/manifest.json linguist-generated
