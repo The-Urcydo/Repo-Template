@@ -32,5 +32,5 @@ python3 -m unittest discover -s tools/tests    # when you changed tools/
 
 ## Changing the harness itself
 
-Edits to `AGENTS.md`, `agents/roles/`, `agents/skills/` or `agents/protocols/` change how every agent behaves.
+Edits anywhere under `agents/` — roles, skills, protocols, adapters — and to `AGENTS.md` change how every agent behaves.
 They need the human's approval (the human owns `AGENTS.md`; agents propose changes with `question.py ask`), and if the `evals` module is installed, a before/after run of its golden tasks.
