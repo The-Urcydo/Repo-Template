@@ -81,7 +81,7 @@ def test_profile_generates_a_healthy_repo(tmp_path, profile, layout):
     assert (p / "tools" / "tests" / "test_tools.py").exists(), layout
     # core is always present
     for core in ["AGENTS.md", "README.md", "docs/INDEX.md", "work/ACTIVE.md", "work/HUMAN.md", "agents/ROSTER.md",
-                 "tools/check.py", "docs/decisions/0000-use-madr-for-decision-records.md", "agents/roles/builder.md"]:
+                 "tools/check.py", "docs/decisions/0000-use-madr-for-decision-records.md", "agents/roles/builder/ROLE.md"]:
         assert (p / core).exists(), core
 
 
@@ -95,7 +95,20 @@ def test_custom_profile_picks_exactly_the_chosen_modules(tmp_path, modules):
     assert r.returncode == 0, r.stderr
     for module, path in MODULE_PATHS.items():
         assert (dest / path).exists() == (module in modules), module
+    # the security role is a whole bundle folder (charter + skills/): cutting the module removes all of it
+    assert (dest / "agents" / "roles" / "security").exists() == ("security" in modules)
     assert py(dest, "tools/check.py", "--strict").returncode == 0
+
+
+def test_every_role_is_a_bundle_with_a_skills_folder(full):
+    roles = full / "agents" / "roles"
+    bundles = sorted(p for p in roles.iterdir() if p.is_dir())
+    assert bundles, "no role folders"
+    for b in bundles:
+        assert (b / "ROLE.md").is_file(), f"{b.name} has no ROLE.md"
+        assert (b / "skills").is_dir(), f"{b.name} has no skills/ folder (keep an empty one with .gitkeep)"
+    flat = [p.name for p in roles.glob("*.md") if p.name.lower() != "readme.md"]
+    assert not flat, f"flat role files left behind: {flat}"
 
 
 def test_no_unrendered_template_syntax_leaks(full):
@@ -122,7 +135,7 @@ def test_template_name_is_consistent():
 def test_root_only_copier_excludes_are_anchored():
     text = (TEMPLATE / "copier.yml").read_text(encoding="utf-8")
     for path in ("docs/product", "docs/operations", "docs/security", "SECURITY.md",
-                 "agents/roles/security.md", "work/_templates/security-review.md", "docs/release",
+                 "agents/roles/security", "work/_templates/security-review.md", "docs/release",
                  "infra", "agents/evals", ".github", "apps", "packages"):
         assert f'/{path}' in text, path
 

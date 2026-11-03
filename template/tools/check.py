@@ -26,9 +26,9 @@ import sync_indexes  # noqa: E402
 from _lib import (  # noqa: E402
     ADR_STATUSES, DIATAXIS_DIRS, DOC_STATUSES, DOC_TYPES, ITEM_ID_RE, NEEDS_EVIDENCE, SKIP_DIRS,
     STALE_DAYS, STALE_REWARN_DAYS, STATUSES, FrontMatterError, folder_owners, git_last_change, iter_docs, iter_items,
-    iter_markdown, load_catalog, load_modules, load_roles, load_targets, md_links, module_of,
+    ROLE_FILE, iter_markdown, load_catalog, load_modules, load_roles, load_targets, md_links, module_of,
     module_present, parse_date, parse_front_matter, parse_queue, read_fm, read_text, repo_root,
-    resolve_link, today,
+    resolve_link, skill_folders, today,
 )
 
 ROOT_AGENTS_MAX_LINES = 100
@@ -226,12 +226,20 @@ def check_placeholders(root: Path, rep: Report) -> None:
 
 def check_roles(root: Path, rep: Report) -> None:
     roles = load_roles(root)
+    base = root / "agents" / "roles"
+    if base.is_dir():
+        for entry in sorted(base.iterdir()):
+            if entry.is_file() and entry.suffix == ".md" and entry.name.lower() != "readme.md":
+                rep.error("role", rel(root, entry),
+                          f"roles live in agents/roles/<role>/{ROLE_FILE}: move this file to agents/roles/{entry.stem}/{ROLE_FILE}")
+            elif entry.is_dir() and not (entry / ROLE_FILE).is_file():
+                rep.error("role", rel(root, entry), f"role folder has no {ROLE_FILE}")
     if not roles:
         return
     seen_item: dict[str, str] = {}
     seen_file: dict[str, str] = {}
     for name, r in roles.items():
-        p = f"agents/roles/{name}.md"
+        p = f"agents/roles/{name}/{ROLE_FILE}"
         if r["error"]:
             rep.error("role", p, r["error"])
             continue
@@ -243,7 +251,7 @@ def check_roles(root: Path, rep: Report) -> None:
             if not fm.get(k):
                 rep.error("role", p, f"missing '{k}'")
         if fm.get("role") != name:
-            rep.error("role", p, f"role '{fm.get('role')}' must equal the filename '{name}'")
+            rep.error("role", p, f"role '{fm.get('role')}' must equal the folder name '{name}'")
         for key, seen in (("item_files", seen_item), ("writes_files", seen_file)):
             for f in fm.get(key) or []:
                 if f in seen:
@@ -272,15 +280,20 @@ def check_top_level_readmes(root: Path, rep: Report) -> None:
 
 
 def check_skills(root: Path, rep: Report) -> None:
-    base = root / "agents" / "skills"
-    if not base.is_dir():
-        return
-    for d in sorted(p for p in base.iterdir() if p.is_dir()):
+    # Two lanes: agents/skills/<name>/ (shared) and agents/roles/<role>/skills/<name>/ (one role).
+    # `.claude/skills/` is flat, so a name may appear only once across both.
+    seen: dict[str, str] = {}
+    for _owner, d in skill_folders(root):
         sk = d / "SKILL.md"
         r = rel(root, sk)
         if not sk.exists():
             rep.error("skill", rel(root, d), "skill folder has no SKILL.md")
             continue
+        if d.name in seen:
+            rep.error("skill", rel(root, d),
+                      f"skill name '{d.name}' is already used by {seen[d.name]}; names must be unique across agents/skills/ and every role's skills/")
+        else:
+            seen[d.name] = rel(root, d)
         text = read_text(sk)
         try:
             fm, _ = parse_front_matter(text)

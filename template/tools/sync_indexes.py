@@ -7,7 +7,7 @@ Outputs (deterministic, so `--check` can detect drift):
   docs/reference/repo-map.md top-level folders, from each folder README `summary`
   docs/reference/modules.md  installed modules and how to cut them
   work/ACTIVE.md             board of in-flight work items, from handoff front matter
-  agents/ROSTER.md           the role table, from agents/roles/*.md + folder ownership
+  agents/ROSTER.md           the role table, from agents/roles/<role>/ROLE.md + folder ownership
 
 Usage: python3 tools/sync_indexes.py [--check]
 """
@@ -248,7 +248,7 @@ def build_roster(root: Path) -> str:
         own = list(owned.get(name, []))
         own += [f"`{f}`" for f in (fm.get("writes_files") or [])]
         items = ", ".join(f"`{f}`" for f in (fm.get("item_files") or [])) or "—"
-        lines.append(f"| [`{name}`](roles/{name}.md) | {fm.get('mission', '(missing)')} | {', '.join(own) or '—'} | {items} |")
+        lines.append(f"| [`{name}`](roles/{name}/ROLE.md) | {fm.get('mission', '(missing)')} | {', '.join(own) or '—'} | {items} |")
     return "\n".join(lines) + "\n"
 
 
