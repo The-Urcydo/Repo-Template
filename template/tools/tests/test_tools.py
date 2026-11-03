@@ -203,7 +203,7 @@ class HealthTests(RepoTestCase):
         self.ok("check")
 
     def test_role_change_requires_resync(self) -> None:
-        p = self.repo / "agents" / "roles" / "builder.md"
+        p = self.repo / "agents" / "roles" / "builder" / "ROLE.md"
         p.write_text(p.read_text().replace("Implement work items", "Build work items", 1))
         out = self.fails("check")
         self.assertTrue("generated-drift" in out or "adapter-drift" in out)
@@ -212,7 +212,7 @@ class HealthTests(RepoTestCase):
         self.ok("check")
 
     def test_duplicate_item_file_ownership_fails(self) -> None:
-        p = self.repo / "agents" / "roles" / "builder.md"
+        p = self.repo / "agents" / "roles" / "builder" / "ROLE.md"
         p.write_text(p.read_text().replace("item_files: []", "item_files: [brief.md]", 1))
         self.ok("sync_indexes")
         self.ok("sync_agents")
@@ -224,9 +224,57 @@ class HealthTests(RepoTestCase):
         self.assertIn("ownership", self.fails("check"))
 
     def test_skill_name_must_match_folder(self) -> None:
-        p = self.repo / "agents" / "skills" / "write-doc" / "SKILL.md"
-        p.write_text(p.read_text().replace("name: write-doc", "name: Write_Doc", 1))
+        p = self.repo / "agents" / "roles" / "reviewer" / "skills" / "verify-work" / "SKILL.md"
+        p.write_text(p.read_text().replace("name: verify-work", "name: Verify_Work", 1))
         self.assertIn("skill", self.fails("check"))
+
+    def test_skill_names_must_be_unique_across_shared_and_role_lanes(self) -> None:
+        # .claude/skills/ is flat: the same name in a role lane and in agents/skills/ would collide.
+        src = self.repo / "agents" / "roles" / "reviewer" / "skills" / "verify-work"
+        shutil.copytree(src, self.repo / "agents" / "skills" / "verify-work")
+        out = self.fails("check")
+        self.assertIn("skill", out)
+        self.assertIn("already used", out)
+
+    def test_skill_in_a_role_lane_needs_its_own_skill_md(self) -> None:
+        (self.repo / "agents" / "roles" / "researcher" / "skills" / "empty-skill").mkdir(parents=True)
+        self.assertIn("no SKILL.md", self.fails("check"))
+
+    def test_role_must_equal_its_folder_name(self) -> None:
+        p = self.repo / "agents" / "roles" / "builder" / "ROLE.md"
+        p.write_text(p.read_text().replace("role: builder", "role: constructor", 1))
+        self.assertIn("must equal the folder name", self.fails("check"))
+
+    def test_old_flat_role_file_is_rejected_with_the_new_location(self) -> None:
+        shutil.copy(self.repo / "agents" / "roles" / "builder" / "ROLE.md", self.repo / "agents" / "roles" / "legacy.md")
+        out = self.fails("check")
+        self.assertIn("agents/roles/legacy/ROLE.md", out)
+
+    def test_role_folder_without_a_charter_is_an_error(self) -> None:
+        (self.repo / "agents" / "roles" / "ghost").mkdir()
+        self.assertIn("has no ROLE.md", self.fails("check"))
+
+    def test_role_folders_without_skills_are_fine(self) -> None:
+        # builder, orchestrator, planner, researcher, scribe and security keep an empty skills/ folder (.gitkeep).
+        skills = self.repo / "agents" / "roles" / "researcher" / "skills"
+        if not skills.is_dir():
+            self.skipTest("researcher has no skills/ folder in this project")
+        self.assertEqual([p.name for p in skills.iterdir() if p.is_dir()], [])
+        self.assertTrue((skills / ".gitkeep").is_file())
+        self.ok("check")
+
+    def test_role_folder_without_a_skills_folder_is_an_error(self) -> None:
+        src = self.repo / "agents" / "roles" / "builder" / "ROLE.md"
+        dst = self.repo / "agents" / "roles" / "ghost" / "ROLE.md"
+        dst.parent.mkdir()
+        dst.write_text(src.read_text().replace("role: builder", "role: ghost", 1))
+        self.assertIn("has no skills/", self.fails("check"))
+
+    def test_default_owner_must_be_a_real_role(self) -> None:
+        shutil.rmtree(self.repo / "agents" / "roles" / "scribe")
+        out = self.fails("check")
+        self.assertIn("DEFAULT_OWNER", out)
+        self.assertIn("scribe", out)
 
     def test_core_linking_into_module_is_an_error(self) -> None:
         modules = _lib.load_modules(self.repo)
@@ -763,9 +811,12 @@ class AdapterTests(RepoTestCase):
         self.assertTrue(agent.is_file())
         self.assertTrue((self.repo / "CLAUDE.md").read_text().strip() == "@AGENTS.md")
         self.assertIn("name: builder", agent.read_text())
-        shutil.rmtree(self.repo / "agents" / "skills" / "write-doc")
+        # A skill that lives under its role still lands flat in .claude/skills/.
+        self.assertTrue((self.repo / ".claude" / "skills" / "verify-work" / "SKILL.md").is_file())
+        shutil.rmtree(self.repo / "agents" / "roles" / "reviewer" / "skills" / "verify-work")
+        (self.repo / "agents" / "roles" / "reviewer" / "skills" / ".gitkeep").write_text("")
         self.ok("sync_agents")
-        self.assertFalse((self.repo / ".claude" / "skills" / "write-doc").exists())
+        self.assertFalse((self.repo / ".claude" / "skills" / "verify-work").exists())
         self.ok("sync_indexes")
         self.ok("check")
 
@@ -773,11 +824,11 @@ class AdapterTests(RepoTestCase):
         targets = _lib.load_targets(self.repo)
         if not targets.get("claude", {}).get("enabled"):
             self.skipTest("claude adapter disabled")
-        (self.repo / "agents" / "skills" / "write-doc" / "extra.md").write_text("x\n")
-        (self.repo / ".claude" / "skills" / "write-doc" / "extra.md").write_text("mine\n")
+        (self.repo / "agents" / "roles" / "reviewer" / "skills" / "verify-work" / "extra.md").write_text("x\n")
+        (self.repo / ".claude" / "skills" / "verify-work" / "extra.md").write_text("mine\n")
         r = self.sh("sync_agents")
         self.assertNotEqual(r.returncode, 0)
-        self.assertEqual((self.repo / ".claude" / "skills" / "write-doc" / "extra.md").read_text(), "mine\n")
+        self.assertEqual((self.repo / ".claude" / "skills" / "verify-work" / "extra.md").read_text(), "mine\n")
 
     def test_disabling_the_adapter_removes_generated_files(self) -> None:
         t = self.repo / "agents" / "adapters" / "targets.json"
@@ -812,7 +863,7 @@ class AdapterTests(RepoTestCase):
         self.assertIn("You are the **builder** role", role)
         self.ok("check", "--strict")
         self.ok("sync_agents", "--check")
-        charter = self.repo / "agents" / "roles" / "builder.md"
+        charter = self.repo / "agents" / "roles" / "builder" / "ROLE.md"
         charter.write_text(charter.read_text().rstrip() + "\n\nExtra rule.\n")
         self.assertIn("role-builder.mdc", self.fails("sync_agents", "--check"))
         self.ok("sync_agents")

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Generate tool-specific adapters from the tool-neutral harness in agents/.
 
-Source of truth:  agents/roles/*.md, agents/skills/*/, every AGENTS.md
+Source of truth:  agents/roles/<role>/ROLE.md, agents/skills/*/ (shared skills),
+                  agents/roles/<role>/skills/*/ (skills only that role uses), every AGENTS.md
 Generated for Claude Code (when enabled in agents/adapters/targets.json):
   .claude/agents/<role>.md        subagent definitions (name + description + charter)
-  .claude/skills/<name>/...       copies of the open-standard skill folders
+  .claude/skills/<name>/...       copies of the open-standard skill folders (flat, from both lanes)
   <dir>/CLAUDE.md                 one-line shim importing the sibling AGENTS.md
                                   (Claude Code reads CLAUDE.md instead of AGENTS.md
                                   when both exist, so each AGENTS.md needs a shim)
@@ -33,8 +34,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _lib import (  # noqa: E402
-    SKIP_DIRS, folder_owners, load_roles, load_targets, read_text, repo_root, sha256_bytes, write_text,
-    yaml_scalar,
+    SKIP_DIRS, folder_owners, load_roles, load_targets, read_text, repo_root, sha256_bytes, skill_folders,
+    write_text, yaml_scalar,
 )
 
 MANIFEST = "agents/adapters/manifest.json"
@@ -86,7 +87,7 @@ def _role_brief(role: str, fm: dict, body: str, owned: list[str]) -> list[str]:
     return [
         f"You are the **{role}** role for this repository.",
         "",
-        f"Before acting, read `AGENTS.md`, your charter `agents/roles/{role}.md`, and `agents/protocols/handoff.md`.",
+        f"Before acting, read `AGENTS.md`, your charter `agents/roles/{role}/ROLE.md`, and `agents/protocols/handoff.md`.",
         "",
         f"- Reads: {lst('reads')}",
         f"- Folders and files you exclusively own: {folders}",
@@ -97,7 +98,7 @@ def _role_brief(role: str, fm: dict, body: str, owned: list[str]) -> list[str]:
         "",
         body.strip(),
         "",
-        f"> Generated from `agents/roles/{role}.md` by `tools/sync_agents.py`. Do not edit.",
+        f"> Generated from `agents/roles/{role}/ROLE.md` by `tools/sync_agents.py`. Do not edit.",
         "",
     ]
 
@@ -127,13 +128,12 @@ def _claude_outputs(root: Path, cfg: dict) -> dict[str, bytes]:
     skills_dir = cfg.get("skills_dir", ".claude/skills")
     for role, fm, body, owned in _role_files(root):
         out[f"{agents_dir}/{role}.md"] = render_subagent(role, fm, body, owned).encode("utf-8")
-    skills_root = root / "agents" / "skills"
-    if skills_root.is_dir():
-        for sk in sorted(skills_root.iterdir()):
-            if sk.is_dir() and (sk / "SKILL.md").exists():
-                for f in sorted(sk.rglob("*")):
-                    if f.is_file() and "__pycache__" not in f.parts:
-                        out[f"{skills_dir}/{sk.name}/{f.relative_to(sk).as_posix()}"] = f.read_bytes()
+    # Shared skills and role-only skills both land flat in `.claude/skills/<name>/`.
+    for _owner, sk in skill_folders(root):
+        if (sk / "SKILL.md").exists():
+            for f in sorted(sk.rglob("*")):
+                if f.is_file() and "__pycache__" not in f.parts:
+                    out[f"{skills_dir}/{sk.name}/{f.relative_to(sk).as_posix()}"] = f.read_bytes()
     if cfg.get("claude_md_shims", True):
         for d in _agents_md_dirs(root):
             rel = (d / "CLAUDE.md").relative_to(root).as_posix()

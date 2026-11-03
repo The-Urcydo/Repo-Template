@@ -12,7 +12,7 @@ All tools are `python3 tools/<name>.py`, standard library only. Every tool suppo
 | Command | Changes | Notes |
 |---|---|---|
 | `check.py` | nothing | Health check. `--strict` makes warnings fail; `--json` machine output; `--stubs` lists placeholders (exit 0) |
-| `sync_indexes.py` | generated indexes | Rebuilds `docs/INDEX.md`, `work/ACTIVE.md`, `agents/ROSTER.md`, `docs/reference/repo-map.md`, `docs/reference/modules.md`. `--check` only reports drift |
+| `sync_indexes.py` | generated indexes | Rebuilds `docs/INDEX.md`, `work/ACTIVE.md`, `agents/ROSTER.md` (roles, skills, ownership), `docs/reference/repo-map.md`, `docs/reference/modules.md`. `--check` only reports drift |
 | `sync_agents.py` | `.claude/`, `CLAUDE.md` shims, optional `.cursor/rules/`, `.github/copilot-instructions.md` and `.gemini/settings.json`, `agents/adapters/manifest.json` | Generates the adapters enabled in `agents/adapters/targets.json` from `agents/`. `--check` only reports drift. Refuses to overwrite files it did not generate |
 | `new_item.py <slug> [--title T] [--light] [--owner ROLE] [--status S] [--worktree]` | `work/items/` | Id is `<date>-<slug>`; duplicates get `-2`, `-3`. Full item creates `handoff.md` and `brief.md`; `--worktree` creates the sibling git worktree first and writes the item inside it, so commit it on the item branch |
 | `item_file.py <id> <kind>` | `work/items/<id>/` | Kinds: `brief plan tasks review research design security-review`. Refuses to overwrite |
@@ -38,9 +38,9 @@ Tools that create or move things also regenerate the indexes, so `docs/INDEX.md`
 | `broken-link` `link-outside-repo` | error | A relative Markdown link does not resolve |
 | `module-coupling` | error | A core file links into an optional module (or one module links into another) |
 | `agents-md` `agents-md-size` | error | Missing root `AGENTS.md`, or over budget (root 100 lines, nested 60) |
-| `role` `ownership` `folder-readme` | error | Role charter incomplete, ownership claimed twice or by an unknown role, folder README missing |
+| `role` `ownership` `folder-readme` | error | Role charter incomplete, not at `agents/roles/<role>/ROLE.md` or not matching its folder, role folder missing `skills/`, `DEFAULT_OWNER` or `owner_role` naming an unknown role, or a folder README missing |
 | `workspace-readme` `workspace-boundary` `workspace-cycle` | error | A subfolder in `apps/` or `packages/` is missing a README `summary`, or violates `depends_on` rules (packages depending on apps, apps depending on apps, missing targets, or cycles) |
-| `skill` | error | Skill name, folder match or description invalid |
+| `skill` | error | Skill name, folder match or description invalid, or the same skill name used twice (shared and per-role skills share one flat namespace) |
 | `item` `item-id` `handoff` `self-review` | error | A work item breaks the handoff rules, or `verified_by` matches the builder (`built_by`) |
 | `human-queue` | error / warn | Malformed question, or one waiting more than 7 days (warn) |
 | `generated-drift` `adapter-drift` | error | A generated file differs from its source: run the sync tools |
