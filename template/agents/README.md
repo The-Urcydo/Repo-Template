@@ -15,7 +15,7 @@ The harness that tells any AI agent how to work in this repo. It is plain Markdo
 | `protocols/` | The rules between roles: handoff state machine, escalation, definition of done, review, parallel work |
 | `skills/` | Skills shared by several roles or by anyone, in the open Agent Skills format (`SKILL.md` per folder). A skill only one role uses lives in `roles/<role>/skills/` |
 | `adapters/` | Config for generating tool-specific files (Claude Code; optional Cursor, Copilot and Gemini) from the above |
-| `ROSTER.md` | Generated table of roles and what each owns |
+| `ROSTER.md` | Generated table of roles, their exclusive skills and what each owns |
 
 ## Dispatch table
 
@@ -37,4 +37,4 @@ Full rules for each transition: `protocols/handoff.md`.
 
 ## Working with non-Claude agents
 
-Any agent that can read files and run shell commands can use this harness: point it at `AGENTS.md`, tell it which role it plays, and have it read `roles/<role>/ROLE.md`. Claude Code additionally gets generated subagents and skills under `.claude/` (see `adapters/README.md`). Cursor, GitHub Copilot and Gemini CLI adapters can be switched on in `adapters/targets.json`; for any other tool's native format, add a target there and extend `tools/sync_agents.py`.
+Any agent that can read files and run shell commands can use this harness: point it at `AGENTS.md`, tell it which role it plays, and have it read `roles/<role>/ROLE.md` plus the skills listed for it in `ROSTER.md` (shared skills are listed separately). Claude Code additionally gets generated subagents and skills under `.claude/` (see `adapters/README.md`). Cursor, GitHub Copilot and Gemini CLI adapters can be switched on in `adapters/targets.json`; for any other tool's native format, add a target there and extend `tools/sync_agents.py`.

@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sync_agents  # noqa: E402
 import sync_indexes  # noqa: E402
 from _lib import (  # noqa: E402
-    ADR_STATUSES, DIATAXIS_DIRS, DOC_STATUSES, DOC_TYPES, ITEM_ID_RE, NEEDS_EVIDENCE, SKIP_DIRS,
+    ADR_STATUSES, DEFAULT_OWNER, DIATAXIS_DIRS, DOC_STATUSES, DOC_TYPES, ITEM_ID_RE, NEEDS_EVIDENCE, SKIP_DIRS,
     STALE_DAYS, STALE_REWARN_DAYS, STATUSES, FrontMatterError, folder_owners, git_last_change, iter_docs, iter_items,
     ROLE_FILE, iter_markdown, load_catalog, load_modules, load_roles, load_targets, md_links, module_of,
     module_present, parse_date, parse_front_matter, parse_queue, read_fm, read_text, repo_root,
@@ -232,8 +232,16 @@ def check_roles(root: Path, rep: Report) -> None:
             if entry.is_file() and entry.suffix == ".md" and entry.name.lower() != "readme.md":
                 rep.error("role", rel(root, entry),
                           f"roles live in agents/roles/<role>/{ROLE_FILE}: move this file to agents/roles/{entry.stem}/{ROLE_FILE}")
-            elif entry.is_dir() and not (entry / ROLE_FILE).is_file():
-                rep.error("role", rel(root, entry), f"role folder has no {ROLE_FILE}")
+            elif entry.is_dir():
+                if not (entry / ROLE_FILE).is_file():
+                    rep.error("role", rel(root, entry), f"role folder has no {ROLE_FILE}")
+                    continue
+                lane = entry / "skills"
+                if not lane.is_dir():
+                    rep.error("role", rel(root, entry),
+                              "role folder has no skills/ (keep it with skills/.gitkeep even when empty)")
+                elif not any(lane.iterdir()):
+                    rep.error("role", rel(root, lane), "role skills/ folder is empty; add skills/.gitkeep or a skill folder")
     if not roles:
         return
     seen_item: dict[str, str] = {}
@@ -260,6 +268,10 @@ def check_roles(root: Path, rep: Report) -> None:
     for folder, role in sorted(folder_owners(root).items()):
         if role not in roles:
             rep.error("ownership", f"{folder or '.'}/README.md", f"owner_role '{role}' is not a role in agents/roles/")
+    for status, owner in DEFAULT_OWNER.items():
+        if owner not in roles:
+            rep.error("ownership", "tools/_lib.py",
+                      f"DEFAULT_OWNER[{status!r}] = '{owner}' is not a role in agents/roles/")
 
 
 def check_top_level_readmes(root: Path, rep: Report) -> None:

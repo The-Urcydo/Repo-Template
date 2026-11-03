@@ -20,7 +20,7 @@
 - How agents work: `agents/README.md` (roles, dispatch), `agents/protocols/`.
 
 ## Your role
-The human or the item's `owner_role` names it; charters are in `agents/roles/`. If nobody named one, take the role that owns what the task touches (`agents/ROSTER.md` shows owners); for a plain "do this work" request, act as the orchestrator and turn it into a work item. A session that must wear several roles says so in the handoff and never verifies what it built.
+The human or the item's `owner_role` names it; charters are in `agents/roles/`. If nobody named one, take the role that owns what the task touches (`agents/ROSTER.md` shows owners and skills); for a plain "do this work" request, act as the orchestrator and turn it into a work item. A session that must wear several roles says so in the handoff and never verifies what it built.
 
 ## Hard rules
 1. Stay in your lane. Write only what your role owns: a folder's `README.md` `owner_role`, or your role's `item_files`. Need a change elsewhere? Hand it to the owner: in your item's handoff, or as a light item (`new_item.py <slug> --light --status planned --owner <role>`).

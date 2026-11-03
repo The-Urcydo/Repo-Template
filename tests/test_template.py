@@ -112,6 +112,14 @@ def test_every_role_is_a_bundle_with_a_skills_folder(full):
     assert not flat, f"flat role files left behind: {flat}"
 
 
+def test_roster_lists_role_and_shared_skills(full):
+    text = (full / "agents" / "ROSTER.md").read_text(encoding="utf-8")
+    assert "roles/reviewer/skills/verify-work/SKILL.md" in text, "role-exclusive skill missing from roster"
+    assert "skills/write-doc/SKILL.md" in text, "shared skill missing from roster"
+    assert "Shared skills (any role)" in text
+    assert "roles/scribe/skills/write-doc" not in text, "write-doc is shared, not scribe-only"
+
+
 def test_no_unrendered_template_syntax_leaks(full):
     bad = []
     for p in full.rglob("*"):

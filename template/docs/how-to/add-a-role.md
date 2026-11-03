@@ -18,3 +18,17 @@ Goal: a new role that agents can adopt, with clear ownership and no overlap with
 6. Harness changes need the human's approval. If the `evals` module is installed, add a golden task that exercises the new role and run it.
 
 If the role only makes sense with an optional module, put its role folder (`agents/roles/<role>`) in that module's paths in `tools/modules.json` and in the `_exclude` list of `copier.yml`, so cutting the module removes the whole bundle.
+
+## Removing a role
+
+For an optional module role such as `security`, cut the module: `python3 tools/remove_module.py <name> --apply`. That removes the role folder and the module's other paths together.
+
+For a lifecycle role, deleting the folder is not enough:
+
+1. Delete `agents/roles/<role>/`.
+2. Reassign or remove every `owner_role: <role>` in folder `README.md` files.
+3. Remove the role from `DEFAULT_OWNER` in `tools/_lib.py`, the dispatch table in `agents/README.md`, and any mention in `agents/protocols/handoff.md`.
+4. Remove references in tests, evals and docs.
+5. Run `python3 tools/sync_indexes.py && python3 tools/sync_agents.py && python3 tools/check.py`.
+
+`check.py` fails if a role folder has no `skills/` (keep `skills/.gitkeep` while it is empty) and if `DEFAULT_OWNER` names a role that does not exist.

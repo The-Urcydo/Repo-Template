@@ -18,7 +18,7 @@ These are benchmark results on particular repositories and models, so treat them
 
 ## What this repo does about it
 
-1. **Three tiers.** Tier 0 is the root `AGENTS.md`, always loaded, limited to 100 lines by `check.py`. Tier 1 is the indexes (`docs/INDEX.md`, `work/ACTIVE.md`, `agents/README.md`), loaded when needed. Tier 2 is the content itself, opened only when a task requires it. A group in `docs/INDEX.md` with more than 40 entries gets its own section index, so the root index stays small.
+1. **Three tiers.** Tier 0 is the root `AGENTS.md`, always loaded, limited to 100 lines by `check.py`. Tier 1 is the indexes (`docs/INDEX.md`, `work/ACTIVE.md`, `agents/README.md`, `agents/ROSTER.md`), loaded when needed. Tier 2 is the content itself, opened only when a task requires it. A group in `docs/INDEX.md` with more than 40 entries gets its own section index, so the root index stays small.
 2. **Only non-discoverable facts in `AGENTS.md`.** Build commands, hard rules, the definition of done. No directory trees (`check.py` warns), no restating what the code or `README.md` already says.
 3. **Summaries instead of reading.** Every doc has a one-sentence `summary`; agents can grep summaries instead of opening files.
 4. **Nested, scoped rules.** Folder-specific rules live in a short `AGENTS.md` in that folder (limit 60 lines), loaded when an agent works there, not in every session.

@@ -16,7 +16,7 @@ summary: File, folder, id, branch and commit naming rules used across the repo.
 | ADR | `NNNN-kebab-title.md`, four digits, from `0000` | `0007-use-postgresql.md` |
 | Human question id | `Q-NNNN` | `Q-0012` |
 | Git branch | `item/<item-id>` | `item/2026-11-01-add-login` |
-| Skill | folder equals `name`; lowercase, digits, single hyphens; unique across all skills | `agents/roles/scribe/skills/write-doc/` or `agents/skills/write-handoff/` |
+| Skill | folder equals `name`; lowercase, digits, single hyphens; unique across all skills | `agents/roles/reviewer/skills/verify-work/` or `agents/skills/write-handoff/` |
 | Role | lowercase single word; folder equals `role`; charter is `ROLE.md` | `agents/roles/builder/ROLE.md` |
 | Dates | ISO 8601 | `2026-11-01` |
 | Commit message | imperative mood, one logical change, mention the item id | `Add login form (2026-11-01-add-login)` |
