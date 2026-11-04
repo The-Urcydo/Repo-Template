@@ -3,11 +3,11 @@ title: Group docs by audience, then by type
 type: decision
 status: proposed
 summary: Docs live under audience folders (dev, user) that hold the four Diataxis type folders; decisions stay shared and each optional module folder maps to one audience.
-date: 2026-11-03
+date: 2026-11-04
 decision_makers: human
 supersedes: []
 ---
-# 0005: Group docs by audience, then by type
+# 0006: Group docs by audience, then by type
 
 ## Context and problem statement
 

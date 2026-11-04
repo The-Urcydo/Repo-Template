@@ -68,7 +68,7 @@ DOCS_FOLDER_AUDIENCE = {
     "operations": "ops", "release": "ops", "security": "security",
 }
 
-SKIP_DIRS = {".git", "node_modules", ".venv", "__pycache__", ".claude", ".cursor", ".idea", ".vscode"}
+SKIP_DIRS = {".git", "node_modules", ".venv", "__pycache__", ".claude", ".cursor", ".gemini", ".idea", ".vscode"}
 
 
 def repo_root() -> Path:
@@ -442,21 +442,45 @@ def git_last_change(root: Path, rel: str) -> str | None:
 
 
 # ------------------------------------------------------- roles / modules / items
+ROLE_FILE = "ROLE.md"
+
+
 def load_roles(root: Path) -> dict[str, dict[str, Any]]:
+    """Role charters: `agents/roles/<role>/ROLE.md`. The role name is the folder name."""
     roles: dict[str, dict[str, Any]] = {}
     d = root / "agents" / "roles"
     if not d.is_dir():
         return roles
-    for p in sorted(d.glob("*.md")):
-        if p.name.lower() == "readme.md":
+    for folder in sorted(p for p in d.iterdir() if p.is_dir()):
+        p = folder / ROLE_FILE
+        if not p.is_file():
             continue
         try:
             fm, body = parse_front_matter(read_text(p))
             err = None
         except FrontMatterError as exc:
             fm, body, err = None, "", str(exc)
-        roles[p.stem] = {"path": p, "fm": fm, "body": body, "error": err}
+        roles[folder.name] = {"path": p, "fm": fm, "body": body, "error": err}
     return roles
+
+
+def skill_folders(root: Path) -> list[tuple[str, Path]]:
+    """Every skill folder as (owner, path).
+
+    Shared skills live in `agents/skills/<name>/` and have owner "". A skill that only one role
+    uses lives in `agents/roles/<role>/skills/<name>/` and has that role as owner.
+    """
+    found: list[tuple[str, Path]] = []
+    shared = root / "agents" / "skills"
+    if shared.is_dir():
+        found += [("", p) for p in sorted(shared.iterdir()) if p.is_dir()]
+    roles = root / "agents" / "roles"
+    if roles.is_dir():
+        for folder in sorted(p for p in roles.iterdir() if p.is_dir()):
+            lane = folder / "skills"
+            if lane.is_dir():
+                found += [(folder.name, p) for p in sorted(lane.iterdir()) if p.is_dir()]
+    return found
 
 
 def read_fm(path: Path) -> dict[str, Any]:

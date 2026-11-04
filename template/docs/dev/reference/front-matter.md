@@ -38,16 +38,17 @@ Docs keys plus: `date` (required once `accepted`), `decision_makers`, `supersede
 | `next_action` | yes unless `done` | One sentence for the next role (or reason when `blocked` / `canceled`) |
 | `do_not` | no | List of things to avoid |
 | `evidence` | required from `in-review` on | List of commands run or links |
+| `built_by` `verified_by` | yes for `verified`/`done` | Roles recorded when `--by` is passed to `transition.py`; `built_by` is set once, and `verified_by` must not equal `built_by` |
 | `created` `updated` | yes | ISO dates |
 
-## Role (`agents/roles/<role>.md`)
+## Role (`agents/roles/<role>/ROLE.md`)
 
-Required: `role` (equals filename), `mission`, `reads`, `never`, `done_when`, `escalate_when`. Optional: `item_files`, `writes_files`.
+Required: `role` (equals the folder name), `mission`, `reads`, `never`, `done_when`, `escalate_when`. Optional: `item_files`, `writes_files`.
 
-## Skill (`agents/skills/<name>/SKILL.md`)
+## Skill (`agents/roles/<role>/skills/<name>/SKILL.md` or `agents/skills/<name>/SKILL.md`)
 
-Per the Agent Skills specification: `name` (1-64 chars, lowercase letters, digits and single hyphens, equals the folder), `description` (1-1024 chars, what it does and when to use it).
+Per the Agent Skills specification: `name` (1-64 chars, lowercase letters, digits and single hyphens, equals the folder), `description` (1-1024 chars, what it does and when to use it). A skill only one role uses lives under that role; a skill several roles use lives in `agents/skills/`. The name is unique across both places.
 
-## Folder README (top-level folders, and any folder that owns something)
+## Folder README (top-level folders, workspace components, and any folder that owns something)
 
-Required for top-level folders: `summary`, `owner_role`. Optional elsewhere. `owner_role` names the role that exclusively writes that folder; the nearest ancestor README wins. `status: placeholder` marks an unfilled folder.
+Required for top-level folders: `summary`, `owner_role`. Required for subfolders of `apps/` and `packages/`: `summary`. Optional elsewhere: `owner_role` (nearest ancestor README wins), `status: placeholder` (marks an unfilled folder), and `depends_on` (list of packages in `packages/` that a workspace app or package depends on; `check.py` verifies that neither apps nor packages depend on apps and that no cycles exist).

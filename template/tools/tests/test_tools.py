@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
 
 import _lib  # noqa: E402
+import eval_harness  # noqa: E402
 
 
 _SKIP_ANYWHERE = shutil.ignore_patterns(".git", "__pycache__", ".locks", "*.pyc", "node_modules", ".venv")
@@ -202,7 +203,7 @@ class HealthTests(RepoTestCase):
         self.ok("check")
 
     def test_role_change_requires_resync(self) -> None:
-        p = self.repo / "agents" / "roles" / "builder.md"
+        p = self.repo / "agents" / "roles" / "builder" / "ROLE.md"
         p.write_text(p.read_text().replace("Implement work items", "Build work items", 1))
         out = self.fails("check")
         self.assertTrue("generated-drift" in out or "adapter-drift" in out)
@@ -211,7 +212,7 @@ class HealthTests(RepoTestCase):
         self.ok("check")
 
     def test_duplicate_item_file_ownership_fails(self) -> None:
-        p = self.repo / "agents" / "roles" / "builder.md"
+        p = self.repo / "agents" / "roles" / "builder" / "ROLE.md"
         p.write_text(p.read_text().replace("item_files: []", "item_files: [brief.md]", 1))
         self.ok("sync_indexes")
         self.ok("sync_agents")
@@ -223,9 +224,57 @@ class HealthTests(RepoTestCase):
         self.assertIn("ownership", self.fails("check"))
 
     def test_skill_name_must_match_folder(self) -> None:
-        p = self.repo / "agents" / "skills" / "write-doc" / "SKILL.md"
-        p.write_text(p.read_text().replace("name: write-doc", "name: Write_Doc", 1))
+        p = self.repo / "agents" / "roles" / "reviewer" / "skills" / "verify-work" / "SKILL.md"
+        p.write_text(p.read_text().replace("name: verify-work", "name: Verify_Work", 1))
         self.assertIn("skill", self.fails("check"))
+
+    def test_skill_names_must_be_unique_across_shared_and_role_lanes(self) -> None:
+        # .claude/skills/ is flat: the same name in a role lane and in agents/skills/ would collide.
+        src = self.repo / "agents" / "roles" / "reviewer" / "skills" / "verify-work"
+        shutil.copytree(src, self.repo / "agents" / "skills" / "verify-work")
+        out = self.fails("check")
+        self.assertIn("skill", out)
+        self.assertIn("already used", out)
+
+    def test_skill_in_a_role_lane_needs_its_own_skill_md(self) -> None:
+        (self.repo / "agents" / "roles" / "researcher" / "skills" / "empty-skill").mkdir(parents=True)
+        self.assertIn("no SKILL.md", self.fails("check"))
+
+    def test_role_must_equal_its_folder_name(self) -> None:
+        p = self.repo / "agents" / "roles" / "builder" / "ROLE.md"
+        p.write_text(p.read_text().replace("role: builder", "role: constructor", 1))
+        self.assertIn("must equal the folder name", self.fails("check"))
+
+    def test_old_flat_role_file_is_rejected_with_the_new_location(self) -> None:
+        shutil.copy(self.repo / "agents" / "roles" / "builder" / "ROLE.md", self.repo / "agents" / "roles" / "legacy.md")
+        out = self.fails("check")
+        self.assertIn("agents/roles/legacy/ROLE.md", out)
+
+    def test_role_folder_without_a_charter_is_an_error(self) -> None:
+        (self.repo / "agents" / "roles" / "ghost").mkdir()
+        self.assertIn("has no ROLE.md", self.fails("check"))
+
+    def test_role_folders_without_skills_are_fine(self) -> None:
+        # builder, orchestrator, planner, researcher, scribe and security keep an empty skills/ folder (.gitkeep).
+        skills = self.repo / "agents" / "roles" / "researcher" / "skills"
+        if not skills.is_dir():
+            self.skipTest("researcher has no skills/ folder in this project")
+        self.assertEqual([p.name for p in skills.iterdir() if p.is_dir()], [])
+        self.assertTrue((skills / ".gitkeep").is_file())
+        self.ok("check")
+
+    def test_role_folder_without_a_skills_folder_is_an_error(self) -> None:
+        src = self.repo / "agents" / "roles" / "builder" / "ROLE.md"
+        dst = self.repo / "agents" / "roles" / "ghost" / "ROLE.md"
+        dst.parent.mkdir()
+        dst.write_text(src.read_text().replace("role: builder", "role: ghost", 1))
+        self.assertIn("has no skills/", self.fails("check"))
+
+    def test_default_owner_must_be_a_real_role(self) -> None:
+        shutil.rmtree(self.repo / "agents" / "roles" / "scribe")
+        out = self.fails("check")
+        self.assertIn("DEFAULT_OWNER", out)
+        self.assertIn("scribe", out)
 
     def test_core_linking_into_module_is_an_error(self) -> None:
         modules = _lib.load_modules(self.repo)
@@ -241,6 +290,39 @@ class HealthTests(RepoTestCase):
         p.write_text(p.read_text() + f"\nSee [module](../../../{target}).\n")
         self.assertIn("module-coupling", self.fails("check"))
 
+    def test_workspace_packages_and_boundary_checks(self) -> None:
+        apps = self.repo / "apps"
+        pkgs = self.repo / "packages"
+        apps.mkdir(exist_ok=True)
+        pkgs.mkdir(exist_ok=True)
+        (apps / "README.md").write_text("---\nsummary: Apps.\nowner_role: builder\n---\n# apps\n")
+        (pkgs / "README.md").write_text("---\nsummary: Packages.\nowner_role: builder\n---\n# packages\n")
+
+        # Missing README inside a package subfolder fails
+        (pkgs / "core").mkdir()
+        self.assertIn("workspace-readme", self.fails("check"))
+
+        # Valid package and app depending on package pass and appear in repo-map.md
+        (pkgs / "core" / "README.md").write_text("---\nsummary: Core primitives.\n---\n# core\n")
+        (apps / "web").mkdir()
+        (apps / "web" / "README.md").write_text("---\nsummary: Web client.\ndepends_on: [core]\n---\n# web\n")
+        self.ok("sync_indexes")
+        self.ok("sync_agents")
+        self.ok("check", "--strict")
+        self.assertIn("`apps/web/`", (self.repo / "docs" / "dev" / "reference" / "repo-map.md").read_text())
+
+        # Package depending on app fails with workspace-boundary
+        (pkgs / "core" / "README.md").write_text("---\nsummary: Core primitives.\ndepends_on: [apps/web]\n---\n# core\n")
+        self.ok("sync_indexes")
+        self.assertIn("workspace-boundary", self.fails("check"))
+
+        # Package dependency cycle fails with workspace-cycle
+        (pkgs / "auth").mkdir()
+        (pkgs / "core" / "README.md").write_text("---\nsummary: Core primitives.\ndepends_on: [auth]\n---\n# core\n")
+        (pkgs / "auth" / "README.md").write_text("---\nsummary: Auth package.\ndepends_on: [core]\n---\n# auth\n")
+        self.ok("sync_indexes")
+        self.assertIn("workspace-cycle", self.fails("check"))
+
 
 class WorkLifecycleTests(RepoTestCase):
     def test_full_lifecycle_and_guard_rails(self) -> None:
@@ -251,16 +333,16 @@ class WorkLifecycleTests(RepoTestCase):
 
         self.fails("transition", item, "done")  # draft -> done is illegal
         self.assertIn("--next", self.fails("transition", item, "planned"))
-        self.ok("transition", item, "planned", "--next", "builder: start")
-        self.ok("transition", item, "in-progress", "--next", "building")
+        self.ok("transition", item, "planned", "--next", "builder: start", "--by", "planner")
+        self.ok("transition", item, "in-progress", "--next", "building", "--by", "builder")
         self.assertIn("allowed from in-progress", self.fails("transition", item, "done", "--next", "x"))
-        self.assertIn("evidence", self.fails("transition", item, "in-review", "--next", "verify"))
-        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "python3 tools/check.py")
-        self.assertIn("review.md", self.fails("transition", item, "verified", "--next", "docs"))
+        self.assertIn("evidence", self.fails("transition", item, "in-review", "--next", "verify", "--by", "builder"))
+        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "python3 tools/check.py", "--by", "builder")
+        self.assertIn("review.md", self.fails("transition", item, "verified", "--next", "docs", "--by", "reviewer"))
         self.ok("item_file", item, "review")
         self.fails("item_file", item, "review")  # never overwrites
-        self.ok("transition", item, "verified", "--next", "update docs")
-        self.ok("transition", item, "done")
+        self.ok("transition", item, "verified", "--next", "update docs", "--by", "reviewer")
+        self.ok("transition", item, "done", "--by", "scribe")
         self.ok("check")
         self.ok("archive_item", item)
         self.assertFalse((self.repo / "work" / "items" / item).exists())
@@ -268,19 +350,61 @@ class WorkLifecycleTests(RepoTestCase):
         self.assertNotIn(item, (self.repo / "work" / "ACTIVE.md").read_text())
         self.ok("check")
 
+    def test_self_review_is_refused_by_transition_and_check(self) -> None:
+        item = self.new_item("self-review-guard")
+        self.ok("transition", item, "planned", "--next", "build", "--by", "planner")
+        self.ok("transition", item, "in-progress", "--next", "building", "--by", "builder")
+        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "ran check", "--by", "builder")
+        self.ok("item_file", item, "review")
+        self.assertIn("independent review required",
+                      self.fails("transition", item, "verified", "--next", "docs", "--by", "builder"))
+        self.ok("transition", item, "verified", "--next", "docs", "--by", "reviewer")
+        h = self.repo / "work" / "items" / item / "handoff.md"
+        self.assertEqual(_lib.read_fm(h).get("verified_by"), "reviewer")
+        self.ok("check", "--strict")
+        # Hand-editing verified_by to match built_by is caught by check.py
+        h.write_text(_lib.set_fm_value(h.read_text(), "verified_by", "builder"))
+        self.assertIn("self-review", self.fails("check"))
+
+    def test_status_change_requires_by(self) -> None:
+        item = self.new_item("needs-actor")
+        self.assertIn("--by", self.fails("transition", item, "planned", "--next", "build"))
+        self.ok("transition", item, "planned", "--next", "build", "--by", "planner")
+        self.assertIn("--by", self.fails("transition", item, "in-progress", "--next", "build"))
+
+    def test_built_by_is_not_overwritten_when_reviewer_sends_back(self) -> None:
+        item = self.new_item("provenance")
+        self.ok("transition", item, "planned", "--next", "build", "--by", "planner")
+        self.ok("transition", item, "in-progress", "--next", "build", "--by", "builder")
+        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "ran check", "--by", "builder")
+        self.ok("transition", item, "in-progress", "--next", "fix findings", "--owner", "builder", "--by", "reviewer")
+        h = self.repo / "work" / "items" / item / "handoff.md"
+        self.assertEqual(_lib.read_fm(h).get("built_by"), "builder")
+
+    def test_verified_and_done_need_built_by(self) -> None:
+        item = self.new_item("missing-builder")
+        self.ok("transition", item, "planned", "--next", "build", "--by", "planner")
+        self.ok("transition", item, "in-progress", "--next", "build", "--by", "builder")
+        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "ran check", "--by", "builder")
+        self.ok("item_file", item, "review")
+        self.ok("transition", item, "verified", "--next", "docs", "--by", "reviewer")
+        h = self.repo / "work" / "items" / item / "handoff.md"
+        h.write_text(h.read_text().replace("built_by: builder\n", "", 1))
+        self.assertIn("built_by", self.fails("check", "--strict"))
+
     def test_archive_refuses_unfinished_items(self) -> None:
         item = self.new_item("half-done")
         self.assertIn("only done or canceled items", self.fails("archive_item", item))
 
     def test_canceled_item_and_reviewer_reject_to_draft(self) -> None:
         item = self.new_item("bad-idea")
-        self.ok("transition", item, "planned", "--next", "build")
-        self.ok("transition", item, "in-progress", "--next", "building")
-        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "ran check")
+        self.ok("transition", item, "planned", "--next", "build", "--by", "planner")
+        self.ok("transition", item, "in-progress", "--next", "building", "--by", "builder")
+        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "ran check", "--by", "builder")
         # Reviewer rejects back to draft for re-planning
-        self.ok("transition", item, "draft", "--next", "re-plan approach")
+        self.ok("transition", item, "draft", "--next", "re-plan approach", "--by", "reviewer")
         # Orchestrator cancels and archives
-        self.ok("transition", item, "canceled", "--next", "dropped after review rejection")
+        self.ok("transition", item, "canceled", "--next", "dropped after review rejection", "--by", "orchestrator")
         self.ok("check", "--strict")
         self.ok("archive_item", item)
         self.assertFalse((self.repo / "work" / "items" / item).exists())
@@ -288,14 +412,14 @@ class WorkLifecycleTests(RepoTestCase):
 
     def test_verified_item_can_still_be_canceled(self) -> None:
         item = self.new_item("overtaken-by-events")
-        self.ok("transition", item, "planned", "--next", "build")
-        self.ok("transition", item, "in-progress", "--next", "building")
-        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "ran check")
+        self.ok("transition", item, "planned", "--next", "build", "--by", "planner")
+        self.ok("transition", item, "in-progress", "--next", "building", "--by", "builder")
+        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "ran check", "--by", "builder")
         self.ok("item_file", item, "review")
-        self.ok("transition", item, "verified", "--next", "update docs", "--evidence", "criterion 1 checked")
-        self.ok("transition", item, "canceled", "--next", "priorities changed before release")
+        self.ok("transition", item, "verified", "--next", "update docs", "--evidence", "criterion 1 checked", "--by", "reviewer")
+        self.ok("transition", item, "canceled", "--next", "priorities changed before release", "--by", "orchestrator")
         self.assertEqual(_lib.read_fm(_lib.find_item(self.repo, item).handoff)["status"], "canceled")
-        self.fails("transition", item, "in-progress", "--next", "reopen")  # canceled is final
+        self.fails("transition", item, "in-progress", "--next", "reopen", "--by", "builder")  # canceled is final
         self.ok("check", "--strict")
 
     def test_security_review_item_file(self) -> None:
@@ -308,21 +432,21 @@ class WorkLifecycleTests(RepoTestCase):
 
     def test_blocked_needs_a_reason_and_can_resume(self) -> None:
         item = self.new_item("waits")
-        self.ok("transition", item, "planned", "--next", "go")
+        self.ok("transition", item, "planned", "--next", "go", "--by", "planner")
         self.fails("transition", item, "blocked")
-        self.ok("transition", item, "blocked", "--next", "waiting on Q-0001")
-        self.ok("transition", item, "in-progress", "--next", "resumed")
+        self.ok("transition", item, "blocked", "--next", "waiting on Q-0001", "--by", "orchestrator")
+        self.ok("transition", item, "in-progress", "--next", "resumed", "--by", "builder")
 
     def test_light_item_has_one_file_and_still_needs_evidence(self) -> None:
         item = self.new_item("quick-fix", "--light")
         self.assertTrue((self.repo / "work" / "items" / f"{item}.md").is_file())
         self.fails("item_file", item, "review")
-        self.ok("transition", item, "planned", "--next", "go")
-        self.ok("transition", item, "in-progress", "--next", "go")
-        self.fails("transition", item, "in-review", "--next", "verify")
-        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "ran it")
-        self.ok("transition", item, "verified", "--next", "close")
-        self.ok("transition", item, "done")
+        self.ok("transition", item, "planned", "--next", "go", "--by", "planner")
+        self.ok("transition", item, "in-progress", "--next", "go", "--by", "builder")
+        self.fails("transition", item, "in-review", "--next", "verify", "--by", "builder")
+        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "ran it", "--by", "builder")
+        self.ok("transition", item, "verified", "--next", "close", "--by", "reviewer")
+        self.ok("transition", item, "done", "--by", "scribe")
         self.ok("check")
 
     def test_same_slug_twice_gets_unique_ids(self) -> None:
@@ -356,7 +480,7 @@ class WorkLifecycleTests(RepoTestCase):
         self.assertEqual((fm["status"], fm["owner_role"]), ("stale", "orchestrator"))
         self.assertNotEqual(fm["updated"], "2020-01-01")  # marking stale resets the re-warn clock
         self.ok("check", "--strict")  # already marked stale: check --strict must not warn again
-        self.ok("transition", item, "planned", "--next", "re-triaged")
+        self.ok("transition", item, "planned", "--next", "re-triaged", "--by", "orchestrator")
 
     def test_stale_items_rewarn_after_a_month(self) -> None:
         item = self.new_item("still-forgotten")
@@ -376,11 +500,11 @@ class WorkLifecycleTests(RepoTestCase):
 
     def test_sweep_archives_old_done_items(self) -> None:
         item = self.new_item("ancient", "--light")
-        self.ok("transition", item, "planned", "--next", "g")
-        self.ok("transition", item, "in-progress", "--next", "g")
-        self.ok("transition", item, "in-review", "--next", "g", "--evidence", "e")
-        self.ok("transition", item, "verified", "--next", "g")
-        self.ok("transition", item, "done")
+        self.ok("transition", item, "planned", "--next", "g", "--by", "planner")
+        self.ok("transition", item, "in-progress", "--next", "g", "--by", "builder")
+        self.ok("transition", item, "in-review", "--next", "g", "--evidence", "e", "--by", "builder")
+        self.ok("transition", item, "verified", "--next", "g", "--by", "reviewer")
+        self.ok("transition", item, "done", "--by", "scribe")
         f = self.repo / "work" / "items" / f"{item}.md"
         f.write_text(_lib.set_fm_value(f.read_text(), "updated", "2020-01-01"))
         self.ok("archive_item", "--sweep")
@@ -405,11 +529,11 @@ class WorkLifecycleTests(RepoTestCase):
         self.assertIn("nothing to change", self.fails("transition", item))
         self.assertIn("unknown role", self.fails("transition", item, "--next", "x", "--owner", "wizard"))
         quick = self.new_item("quick-one", "--light")
-        self.ok("transition", quick, "planned", "--next", "go")
-        self.ok("transition", quick, "in-progress", "--next", "going")
-        self.ok("transition", quick, "in-review", "--next", "look", "--evidence", "ran it")
-        self.ok("transition", quick, "verified", "--next", "close", "--evidence", "checked")
-        self.ok("transition", quick, "done")
+        self.ok("transition", quick, "planned", "--next", "go", "--by", "planner")
+        self.ok("transition", quick, "in-progress", "--next", "going", "--by", "builder")
+        self.ok("transition", quick, "in-review", "--next", "look", "--evidence", "ran it", "--by", "builder")
+        self.ok("transition", quick, "verified", "--next", "close", "--evidence", "checked", "--by", "reviewer")
+        self.ok("transition", quick, "done", "--by", "scribe")
         self.assertIn("final", self.fails("transition", quick, "--next", "too late"))
 
     def test_light_item_can_be_handed_straight_to_another_role(self) -> None:
@@ -417,6 +541,120 @@ class WorkLifecycleTests(RepoTestCase):
         fm = _lib.read_fm(_lib.find_item(self.repo, item).handoff)
         self.assertEqual((fm["status"], fm["owner_role"]), ("planned", "planner"))
         self.ok("check")
+
+
+class WorktreeTests(RepoTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        subprocess.run(["git", "-C", str(self.repo), "init", "-q"], check=True)
+        subprocess.run(["git", "-C", str(self.repo), "-c", "user.email=t@t", "-c", "user.name=t",
+                        "add", "-A"], check=True)
+        subprocess.run(["git", "-C", str(self.repo), "-c", "user.email=t@t", "-c", "user.name=t",
+                        "commit", "-qm", "init"], check=True)
+
+    def test_worktree_create_list_and_remove(self) -> None:
+        item = self.new_item("wt-feature", "--worktree")
+        wt_path = self.repo.parent / f"{self.repo.name}-{item}"
+        self.assertTrue(wt_path.is_dir())
+        self.assertTrue((wt_path / "work" / "items" / item / "handoff.md").is_file())
+        self.assertFalse((self.repo / "work" / "items" / item).exists())
+        self.assertIn(str(wt_path), self.ok("worktree", "list"))
+        # Refuses to remove while still in draft without --force
+        self.assertIn("only verified, done or canceled", self.fails("worktree", "remove", item))
+        self.ok("worktree", "remove", item, "--force")
+        self.assertFalse(wt_path.exists())
+        self.assertEqual(subprocess.run(
+            ["git", "-C", str(self.repo), "branch", "--list", f"item/{item}"],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip(), "")
+
+    def test_worktree_remove_finds_custom_path(self) -> None:
+        item = self.new_item("custom-path")
+        custom = self.repo.parent / f"custom-{item}"
+        self.ok("worktree", "create", item, "--path", str(custom))
+        self.assertTrue(custom.is_dir())
+        self.ok("worktree", "remove", item, "--force")
+        self.assertFalse(custom.exists())
+
+    def test_worktree_remove_keeps_unmerged_branch(self) -> None:
+        item = self.new_item("unmerged")
+        wt_path = self.ok("worktree", "create", item)
+        (Path(wt_path) / "scratch.txt").write_text("work\n", encoding="utf-8")
+        sh = ["git", "-C", wt_path]
+        subprocess.run(sh + ["-c", "user.email=t@t", "-c", "user.name=t", "add", "-A"], check=True)
+        subprocess.run(sh + ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "work"], check=True)
+        out = self.ok("worktree", "remove", item, "--force")
+        self.assertIn("kept because it is not merged", out)
+        self.assertTrue(subprocess.run(
+            ["git", "-C", str(self.repo), "branch", "--list", f"item/{item}"],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip())
+
+    def test_worktree_refuses_path_inside_repo_root(self) -> None:
+        item = self.new_item("inside-root")
+        self.assertIn("outside the repository root",
+                      self.fails("worktree", "create", item, "--path", str(self.repo / "sub")))
+
+
+class EvalHarnessTests(RepoTestCase):
+    def test_eval_harness_lists_and_verifies_golden_tasks(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        listing = self.ok("eval_harness", "--list")
+        for task_id in ("find-the-right-doc", "respect-ownership", "handoff-roundtrip", "escalation-discipline"):
+            self.assertIn(task_id, listing)
+        out = self.ok("eval_harness", "--verify-fixtures")
+        self.assertEqual(out.count("PASS"), 4, out)
+        self.assertNotIn("FAIL", out)
+
+    def test_eval_harness_fails_closed_on_unknown_task(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        passed, reason = eval_harness.grade_task(self.repo, "bogus-task", {})
+        self.assertFalse(passed)
+        self.assertIn("unknown eval task", reason)
+
+    def test_eval_harness_rejects_placeholder_adr_body(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        decisions = self.repo / "docs" / "decisions"
+        existing = {p.name for p in decisions.glob("0*.md")}
+        path = eval_harness.new_adr.create(self.repo, "Use SQLite", "proposed", None, "human")
+        path.write_text(_lib.set_fm_value(path.read_text(), "summary", '"Use SQLite for the prototype."'))
+        eval_harness.sync_indexes.write_outputs(self.repo)
+        passed, reason = eval_harness.grade_task(
+            self.repo, "find-the-right-doc", {"existing_adrs": existing, "docs_snap": {}},
+        )
+        self.assertFalse(passed)
+        self.assertIn("context", reason)
+
+    def test_eval_harness_rejects_unchanged_handoff_body(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            meta = eval_harness.seed_fixture(sandbox, "handoff-roundtrip")
+            eval_harness.transition.transition(
+                sandbox, meta["item_id"], "in-progress", "continue", "builder", [], by_role="builder",
+            )
+            passed, reason = eval_harness.grade_task(sandbox, "handoff-roundtrip", meta)
+        self.assertFalse(passed)
+        self.assertIn("body", reason)
+
+    def test_eval_harness_rejects_wrong_escalation_target(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            meta = eval_harness.seed_fixture(sandbox, "escalation-discipline")
+            eval_harness.run_reference_solution(sandbox, "escalation-discipline", meta)
+            backup = next(i for i in eval_harness.iter_items(sandbox) if "backup" in i.id)
+            eval_harness.transition.transition(
+                sandbox, backup.id, "planned", "do it anyway", "builder", [], by_role="orchestrator",
+            )
+            passed, reason = eval_harness.grade_task(sandbox, "escalation-discipline", meta)
+        self.assertFalse(passed)
+        self.assertIn("not blocked", reason)
 
 
 class QueueTests(RepoTestCase):
@@ -634,9 +872,10 @@ class ModuleTests(RepoTestCase):
 class AdapterTests(RepoTestCase):
     def setUp(self) -> None:
         super().setUp()
-        # Every test starts from "Cursor and Copilot off", whatever this project has enabled.
-        self.enable(cursor=False, copilot=False)
+        # Every test starts from "Cursor, Copilot and Gemini off", whatever this project has enabled.
+        self.enable(cursor=False, copilot=False, gemini=False)
         shutil.rmtree(self.repo / ".cursor", ignore_errors=True)
+        shutil.rmtree(self.repo / ".gemini", ignore_errors=True)
         (self.repo / ".github" / "copilot-instructions.md").unlink(missing_ok=True)
         self.ok("sync_agents")
         self.ok("sync_indexes")
@@ -649,9 +888,12 @@ class AdapterTests(RepoTestCase):
         self.assertTrue(agent.is_file())
         self.assertTrue((self.repo / "CLAUDE.md").read_text().strip() == "@AGENTS.md")
         self.assertIn("name: builder", agent.read_text())
-        shutil.rmtree(self.repo / "agents" / "skills" / "write-doc")
+        # A skill that lives under its role still lands flat in .claude/skills/.
+        self.assertTrue((self.repo / ".claude" / "skills" / "verify-work" / "SKILL.md").is_file())
+        shutil.rmtree(self.repo / "agents" / "roles" / "reviewer" / "skills" / "verify-work")
+        (self.repo / "agents" / "roles" / "reviewer" / "skills" / ".gitkeep").write_text("")
         self.ok("sync_agents")
-        self.assertFalse((self.repo / ".claude" / "skills" / "write-doc").exists())
+        self.assertFalse((self.repo / ".claude" / "skills" / "verify-work").exists())
         self.ok("sync_indexes")
         self.ok("check")
 
@@ -659,11 +901,11 @@ class AdapterTests(RepoTestCase):
         targets = _lib.load_targets(self.repo)
         if not targets.get("claude", {}).get("enabled"):
             self.skipTest("claude adapter disabled")
-        (self.repo / "agents" / "skills" / "write-doc" / "extra.md").write_text("x\n")
-        (self.repo / ".claude" / "skills" / "write-doc" / "extra.md").write_text("mine\n")
+        (self.repo / "agents" / "roles" / "reviewer" / "skills" / "verify-work" / "extra.md").write_text("x\n")
+        (self.repo / ".claude" / "skills" / "verify-work" / "extra.md").write_text("mine\n")
         r = self.sh("sync_agents")
         self.assertNotEqual(r.returncode, 0)
-        self.assertEqual((self.repo / ".claude" / "skills" / "write-doc" / "extra.md").read_text(), "mine\n")
+        self.assertEqual((self.repo / ".claude" / "skills" / "verify-work" / "extra.md").read_text(), "mine\n")
 
     def test_disabling_the_adapter_removes_generated_files(self) -> None:
         t = self.repo / "agents" / "adapters" / "targets.json"
@@ -698,7 +940,7 @@ class AdapterTests(RepoTestCase):
         self.assertIn("You are the **builder** role", role)
         self.ok("check", "--strict")
         self.ok("sync_agents", "--check")
-        charter = self.repo / "agents" / "roles" / "builder.md"
+        charter = self.repo / "agents" / "roles" / "builder" / "ROLE.md"
         charter.write_text(charter.read_text().rstrip() + "\n\nExtra rule.\n")
         self.assertIn("role-builder.mdc", self.fails("sync_agents", "--check"))
         self.ok("sync_agents")
@@ -721,6 +963,18 @@ class AdapterTests(RepoTestCase):
         self.assertNotIn("python3 tools/", text)
         self.ok("check", "--strict")
         self.ok("sync_agents", "--check")
+
+    def test_gemini_adapter_writes_settings_that_check_accepts(self) -> None:
+        self.enable(gemini=True)
+        self.ok("sync_agents")
+        cfg = json.loads((self.repo / ".gemini" / "settings.json").read_text())
+        self.assertEqual(cfg["context"]["fileName"], ["AGENTS.md", "GEMINI.md"])
+        self.ok("check", "--strict")
+        self.ok("sync_agents", "--check")
+        self.enable(gemini=False)
+        self.ok("sync_agents")
+        self.assertFalse((self.repo / ".gemini").exists())
+        self.ok("check", "--strict")
 
     def test_copilot_adapter_does_not_turn_the_github_module_on(self) -> None:
         if "github" in _lib.load_modules(self.repo):

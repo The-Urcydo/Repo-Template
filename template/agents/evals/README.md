@@ -22,6 +22,15 @@ A short scenario with a prompt, the behavior expected, behavior that must not ha
 
 ## How to run an eval
 
+Use `tools/eval_harness.py` to seed isolated throwaway sandboxes and grade the results automatically:
+
+```
+python3 tools/eval_harness.py --list
+python3 tools/eval_harness.py --verify-fixtures
+python3 tools/eval_harness.py --cmd "your-agent-cli --role {role} --prompt {prompt}"
+```
+
+Or run a task manually:
 1. Make a clean copy of the repo (a scratch branch or worktree).
 2. Start a fresh agent session. Give it the role and the task prompt only.
 3. Let it finish. Compare what it did with `Expected` and `Must not` in the task.

@@ -11,17 +11,19 @@ Plain `python3 tools/<name>.py`, no installs. Run any tool with `--help`. Comman
 
 | Tool | What it does |
 |---|---|
-| `check.py` | Health check: front matter, links, ownership, state machine, generated-file drift. Run before every handoff |
+| `check.py` | Health check: front matter, links, ownership, workspace boundaries, state machine, generated-file drift. Run before every handoff |
 | `sync_indexes.py` | Regenerates `docs/INDEX.md`, `work/ACTIVE.md`, `agents/ROSTER.md`, repo map, module registry |
-| `sync_agents.py` | Regenerates the enabled adapters (`.claude/` and `CLAUDE.md` shims; optional Cursor and Copilot files) from `agents/` |
-| `new_item.py` | Creates a work item (full or `--light`) |
+| `sync_agents.py` | Regenerates the enabled adapters (`.claude/` and `CLAUDE.md` shims; optional Cursor, Copilot and Gemini files) from `agents/` |
+| `new_item.py` | Creates a work item (full or `--light`, optionally with `--worktree`) |
 | `item_file.py` | Adds a role-owned file (plan, tasks, review, research, design, security-review) to an item from its template |
-| `transition.py` | Moves an item through the lifecycle, enforcing the rules |
+| `transition.py` | Moves an item through the lifecycle, enforcing evidence, `--by` attribution and independent-review rules |
 | `archive_item.py` | Archives `done` or `canceled` items; `--sweep` also flags idle ones as `stale` |
+| `worktree.py` | Creates, lists and removes isolated sibling git worktrees (`../<repo>-<item-id>`) for parallel work items |
 | `new_adr.py` | Creates the next numbered ADR (lock-protected) |
 | `new_doc.py` | Creates a doc from its template |
 | `question.py` | Adds to or answers the human decision queue |
 | `remove_module.py` | Cuts an optional module out cleanly |
+| `eval_harness.py` | Seeds throwaway sandboxes for golden tasks in `agents/evals/tasks/`, runs reference or agent commands, and grades post-conditions |
 | `modules.json` | Registry of optional modules and their paths |
 | `_lib.py` | Shared helpers (front matter, locks, ownership, state machine) |
 | `tests/` | Unit tests: `python3 -m unittest discover -s tools/tests` |

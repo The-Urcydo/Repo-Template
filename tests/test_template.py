@@ -33,16 +33,11 @@ def copier(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess:
     return subprocess.run([sys.executable, "-m", "copier", *args], cwd=cwd, capture_output=True, text=True, timeout=300)
 
 
-# Without --vcs-ref Copier generates from the latest git tag, not from the files being tested, so a
-# checkout that has a release tag would silently test the previous release. HEAD means "this tree".
-CURRENT_TREE = ("--vcs-ref", "HEAD")
-
-
 def generate(dest: Path, src: Path = TEMPLATE, *extra: str, **answers: str) -> Path:
     answers.setdefault("project_name", "Test Project")
     data = [x for k, v in answers.items() for x in ("--data", f"{k}={v}")]
-    ref = () if "--vcs-ref" in extra else CURRENT_TREE
-    r = copier("copy", "--defaults", "--trust", "-q", *ref, *data, *extra, str(src), str(dest))
+    vcs = [] if "--vcs-ref" in extra else ["--vcs-ref", "HEAD"]
+    r = copier("copy", "--defaults", "--trust", "-q", *data, *vcs, *extra, str(src), str(dest))
     assert r.returncode == 0, f"copier copy failed:\n{r.stdout}\n{r.stderr}"
     return dest
 
@@ -87,7 +82,7 @@ def test_profile_generates_a_healthy_repo(tmp_path, profile, layout):
     assert (p / "tools" / "tests" / "test_tools.py").exists(), layout
     # core is always present
     for core in ["AGENTS.md", "README.md", "docs/INDEX.md", "work/ACTIVE.md", "work/HUMAN.md", "agents/ROSTER.md",
-                 "tools/check.py", "docs/decisions/0000-use-madr-for-decision-records.md", "agents/roles/builder.md",
+                 "tools/check.py", "docs/decisions/0000-use-madr-for-decision-records.md", "agents/roles/builder/ROLE.md",
                  "docs/dev/how-to/README.md", "docs/dev/reference/repo-map.md", "docs/user/README.md"]:
         assert (p / core).exists(), core
     # docs are grouped by audience: the four type folders live under docs/dev/, never at the top of docs/
@@ -101,12 +96,33 @@ def test_custom_profile_picks_exactly_the_chosen_modules(tmp_path, modules):
     data = tmp_path / "answers.yml"
     data.write_text("custom_modules: [" + ", ".join(modules) + "]\n")
     dest = tmp_path / "p"
-    r = copier("copy", "--defaults", "--trust", "-q", *CURRENT_TREE, "--data", "project_name=C", "--data", "profile=custom",
+    r = copier("copy", "--defaults", "--trust", "-q", "--vcs-ref", "HEAD", "--data", "project_name=C", "--data", "profile=custom",
                "--data-file", str(data), str(TEMPLATE), str(dest))
     assert r.returncode == 0, r.stderr
     for module, path in MODULE_PATHS.items():
         assert (dest / path).exists() == (module in modules), module
+    # the security role is a whole bundle folder (charter + skills/): cutting the module removes all of it
+    assert (dest / "agents" / "roles" / "security").exists() == ("security" in modules)
     assert py(dest, "tools/check.py", "--strict").returncode == 0
+
+
+def test_every_role_is_a_bundle_with_a_skills_folder(full):
+    roles = full / "agents" / "roles"
+    bundles = sorted(p for p in roles.iterdir() if p.is_dir())
+    assert bundles, "no role folders"
+    for b in bundles:
+        assert (b / "ROLE.md").is_file(), f"{b.name} has no ROLE.md"
+        assert (b / "skills").is_dir(), f"{b.name} has no skills/ folder (keep an empty one with .gitkeep)"
+    flat = [p.name for p in roles.glob("*.md") if p.name.lower() != "readme.md"]
+    assert not flat, f"flat role files left behind: {flat}"
+
+
+def test_roster_lists_role_and_shared_skills(full):
+    text = (full / "agents" / "ROSTER.md").read_text(encoding="utf-8")
+    assert "roles/reviewer/skills/verify-work/SKILL.md" in text, "role-exclusive skill missing from roster"
+    assert "skills/write-doc/SKILL.md" in text, "shared skill missing from roster"
+    assert "Shared skills (any role)" in text
+    assert "roles/scribe/skills/write-doc" not in text, "write-doc is shared, not scribe-only"
 
 
 def test_no_unrendered_template_syntax_leaks(full):
@@ -133,7 +149,7 @@ def test_template_name_is_consistent():
 def test_root_only_copier_excludes_are_anchored():
     text = (TEMPLATE / "copier.yml").read_text(encoding="utf-8")
     for path in ("docs/product", "docs/operations", "docs/security", "SECURITY.md",
-                 "agents/roles/security.md", "work/_templates/security-review.md", "docs/release",
+                 "agents/roles/security", "work/_templates/security-review.md", "docs/release",
                  "infra", "agents/evals", ".github", "apps", "packages"):
         assert f'/{path}' in text, path
 
@@ -141,8 +157,19 @@ def test_root_only_copier_excludes_are_anchored():
 def test_agents_md_lists_every_generated_adapter_output():
     for rel in ("AGENTS.md.jinja", "agents/AGENTS.md"):
         text = (TEMPLATE / "template" / rel).read_text(encoding="utf-8")
-        for token in (".claude/", ".cursor/rules/", "CLAUDE.md", "copilot-instructions.md"):
+        for token in (".claude/", ".cursor/rules/", "CLAUDE.md", "copilot-instructions.md", ".gemini/settings.json"):
             assert token in text, f"{rel} does not mention {token}"
+
+
+def test_every_tool_is_documented_in_tools_readme_and_commands_ref():
+    tools_dir = TEMPLATE / "template" / "tools"
+    tools_readme = (tools_dir / "README.md").read_text(encoding="utf-8")
+    commands_doc = (TEMPLATE / "template" / "docs" / "dev" / "reference" / "commands.md").read_text(encoding="utf-8")
+    for p in sorted(tools_dir.glob("*.py")):
+        if p.name == "_lib.py":
+            continue
+        assert p.name in tools_readme, f"tools/README.md does not document {p.name}"
+        assert p.name in commands_doc, f"docs/dev/reference/commands.md does not document {p.name}"
 
 
 def test_template_ships_no_hardcoded_last_verified_date():
@@ -187,6 +214,8 @@ def test_every_documented_command_and_flag_exists(full):
             parts = [py(full, f"tools/{tool}.py", "--help").stdout]
             if tool == "question":
                 parts += [py(full, f"tools/{tool}.py", sub, "--help").stdout for sub in ("ask", "answer")]
+            elif tool == "worktree":
+                parts += [py(full, f"tools/{tool}.py", sub, "--help").stdout for sub in ("create", "remove", "list")]
             helps[tool] = "\n".join(parts)
         return helps[tool]
 
@@ -220,16 +249,22 @@ def test_tutorial_runs_end_to_end(full):
     path = run("tools/new_item.py", "hello-world", "--title", "Say hello")
     item = Path(path).parent.name
     assert "draft" in (full / "work/ACTIVE.md").read_text()
-    run("tools/transition.py", item, "planned", "--next", "Builder: create the greeting file and verify it exists")
-    run("tools/transition.py", item, "in-progress", "--next", "Creating the file")
-    run("tools/transition.py", item, "in-review", "--next", "Reviewer: verify criterion 1", "--evidence", "python3 tools/check.py")
+    run("tools/transition.py", item, "planned", "--next", "Builder: create the greeting file and verify it exists", "--by", "planner")
+    run("tools/transition.py", item, "in-progress", "--next", "Creating the file", "--by", "builder")
+    run("tools/transition.py", item, "in-review", "--next", "Reviewer: verify criterion 1", "--evidence", "python3 tools/check.py", "--by", "builder")
     refuses("tools/transition.py", item, "done")
-    refuses("tools/transition.py", item, "verified")  # no review.md yet
+    refuses("tools/transition.py", item, "verified", "--next", "x")  # no review.md yet
     run("tools/item_file.py", item, "review")
-    run("tools/transition.py", item, "verified", "--next", "Scribe: update docs and changelog", "--evidence", "criterion 1 checked")
-    run("tools/transition.py", item, "done")
+    run("tools/transition.py", item, "verified", "--next", "Scribe: update docs and changelog", "--evidence", "criterion 1 checked", "--by", "reviewer")
+    run("tools/transition.py", item, "done", "--by", "scribe")
     run("tools/archive_item.py", item)
     assert run("tools/check.py").startswith("ok")
+
+
+def test_eval_harness_verifies_all_golden_tasks(full):
+    r = py(full, "tools/eval_harness.py", "--verify-fixtures")
+    assert r.returncode == 0, f"{r.stdout}\n{r.stderr}"
+    assert r.stdout.count("PASS") == 4
 
 
 def test_shipped_unit_tests_pass(full):
@@ -364,5 +399,7 @@ def test_cursor_and_copilot_adapters_ship_disabled(full):
     targets = json.loads((full / "agents" / "adapters" / "targets.json").read_text(encoding="utf-8"))
     assert targets["cursor"]["enabled"] is False
     assert targets["copilot"]["enabled"] is False
+    assert targets["gemini"]["enabled"] is False
     assert not (full / ".cursor").exists()
     assert not (full / ".github" / "copilot-instructions.md").exists()
+    assert not (full / ".gemini").exists()

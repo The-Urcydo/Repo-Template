@@ -16,3 +16,4 @@ CLAUDE.md linguist-generated
 .claude/** linguist-generated
 .cursor/rules/** linguist-generated
 .github/copilot-instructions.md linguist-generated
+.gemini/settings.json linguist-generated

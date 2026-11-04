@@ -21,7 +21,7 @@ If you need a change in a path you do not own, write it in the handoff `next_act
 
 ## Independent review
 
-The role that built an item never verifies it. This is enforced mechanically where it can be: `transition.py` refuses `verified` and `done` without `review.md` in the item folder, and without evidence. It is enforced by protocol where it cannot be: a single model playing both roles should use a fresh session that has not seen the build. The point is a second mind that must be convinced, not a ceremony.
+The role that built an item never verifies it. This is enforced mechanically where it can be: every status change passes `--by <role>`, `transition.py` records `built_by` once and refuses `verified` or `done` from that role, and it refuses those states without `review.md` (full items) and evidence. It is enforced by protocol where it cannot be: a single model playing both roles should use a fresh session that has not seen the build. The point is a second mind that must be convinced, not a ceremony.
 
 ## Handoffs are the memory
 

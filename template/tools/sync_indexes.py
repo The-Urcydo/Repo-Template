@@ -5,10 +5,10 @@ Outputs (deterministic, so `--check` can detect drift):
   docs/INDEX.md              one line per doc, grouped by audience then type, from front-matter `summary`
   docs/<folder>/INDEX.md     only when one folder (docs/dev/reference, docs/decisions, ...) has more than
                              SPLIT_THRESHOLD docs; it then lists every doc of that folder
-  docs/dev/reference/repo-map.md top-level folders, from each folder README `summary`
+  docs/dev/reference/repo-map.md top-level folders and workspace components, from each folder README `summary`
   docs/dev/reference/modules.md  installed modules and how to cut them
   work/ACTIVE.md             board of in-flight work items, from handoff front matter
-  agents/ROSTER.md           the role table, from agents/roles/*.md + folder ownership
+  agents/ROSTER.md           roles, their skills, ownership and item files, from agents/roles/<role>/ROLE.md
 
 Usage: python3 tools/sync_indexes.py [--check]
 """
@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _lib import (  # noqa: E402
     DOCS_FOLDER_AUDIENCE, GENERATED_BANNER, SKIP_DIRS, TYPE_FOLDERS, TYPED_AUDIENCE_DIRS, FrontMatterError,
     doc_audience, doc_type_dir, folder_owners, iter_docs, iter_items, load_modules, load_roles,
-    parse_front_matter, read_fm, read_text, repo_root, write_text,
+    parse_front_matter, read_fm, read_text, repo_root, skill_folders, write_text,
 )
 
 SPLIT_THRESHOLD = 40
@@ -246,9 +246,30 @@ def build_repo_map(root: Path) -> str:
         summary = summary or FALLBACK_SUMMARY.get(d.name) or "(no README.md: add one with a `summary`)"
         mod = f" `[module: {mod_of[d.name]}]`" if d.name in mod_of else ""
         rows.append(f"| `{d.name}/` | {summary}{mod} |")
+    ws_rows = []
+    for folder in ("apps", "packages"):
+        base = root / folder
+        if not base.is_dir():
+            continue
+        for child in sorted(base.iterdir()):
+            if not child.is_dir() or child.name.startswith((".", "_")) or child.name in SKIP_DIRS:
+                continue
+            fm = read_fm(child / "README.md") if (child / "README.md").exists() else {}
+            summary = fm.get("summary") or "(no README.md: add one with a `summary`)"
+            raw_deps = fm.get("depends_on") or []
+            deps = [str(x).strip() for x in (raw_deps if isinstance(raw_deps, list) else [raw_deps]) if str(x).strip()]
+            dep_str = ", ".join(f"`{x}`" for x in deps) if deps else "—"
+            ws_rows.append(f"| `{folder}/{child.name}/` | {summary} | {dep_str} |")
+    ws_section = ""
+    if ws_rows:
+        ws_section = (
+            "\n## Workspace components\n\n"
+            "| Component | Purpose | Depends on |\n|---|---|---|\n"
+            + "\n".join(ws_rows) + "\n"
+        )
     return (
-        _front("Repo map", "reference", "Generated table of top-level folders and what each is for.", "scribe")
-        + "# Repo map\n\n| Folder | Purpose |\n|---|---|\n" + "\n".join(rows) + "\n"
+        _front("Repo map", "reference", "Generated table of top-level folders, workspace components, and what each is for.", "scribe")
+        + "# Repo map\n\n| Folder | Purpose |\n|---|---|\n" + "\n".join(rows) + "\n" + ws_section
     )
 
 
@@ -325,24 +346,38 @@ def build_roster(root: Path) -> str:
     owned: dict[str, list[str]] = {}
     for folder, role in sorted(owners.items()):
         owned.setdefault(role, []).append(f"`{folder}/`" if folder else "`/`")
+    role_skills: dict[str, list[str]] = {}
+    shared_skills: list[str] = []
+    for owner, skill in skill_folders(root):
+        if not (skill / "SKILL.md").is_file():
+            continue
+        if owner:
+            role_skills.setdefault(owner, []).append(skill.name)
+        else:
+            shared_skills.append(skill.name)
     lines = [
         _front("Agent roster", "reference",
-               "Generated table of agent roles, what each owns, and which work-item files each writes.",
+               "Generated table of agent roles, their exclusive skills, what each owns, and which work-item files each writes.",
                "architect"),
         "# Agent roster",
         "",
-        "Ownership comes from each folder README's `owner_role` (nearest ancestor wins) plus the role files in `roles/`.",
+        "Ownership comes from each folder README's `owner_role` (nearest ancestor wins) plus each role's `ROLE.md` in `roles/<role>/`.",
+        "Exclusive skills live under the role that uses them; shared skills are listed after the table.",
         "Dispatch rule: `protocols/handoff.md`.",
         "",
-        "| Role | Mission | Owns (exclusive writes) | Item files |",
-        "|---|---|---|---|",
+        "| Role | Mission | Owns (exclusive writes) | Item files | Exclusive skills |",
+        "|---|---|---|---|---|",
     ]
     for name, r in sorted(roles.items()):
         fm = r["fm"] or {}
         own = list(owned.get(name, []))
         own += [f"`{f}`" for f in (fm.get("writes_files") or [])]
         items = ", ".join(f"`{f}`" for f in (fm.get("item_files") or [])) or "—"
-        lines.append(f"| [`{name}`](roles/{name}.md) | {fm.get('mission', '(missing)')} | {', '.join(own) or '—'} | {items} |")
+        skills = ", ".join(f"[`{s}`](roles/{name}/skills/{s}/SKILL.md)" for s in role_skills.get(name, [])) or "—"
+        lines.append(f"| [`{name}`](roles/{name}/ROLE.md) | {fm.get('mission', '(missing)')} | {', '.join(own) or '—'} | {items} | {skills} |")
+    if shared_skills:
+        links = ", ".join(f"[`{s}`](skills/{s}/SKILL.md)" for s in shared_skills)
+        lines += ["", f"Shared skills (any role): {links}."]
     return "\n".join(lines) + "\n"
 
 

@@ -1,6 +1,6 @@
 # Security Review: __TITLE__
 
-Item `__ID__`. Written by the security role (`agents/roles/security.md`).
+Item `__ID__`. Written by the security role (`agents/roles/security/ROLE.md`).
 
 ## Verdict
 

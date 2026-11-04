@@ -9,10 +9,10 @@ A [Copier](https://copier.readthedocs.io) template for new repositories that one
 | Durable knowledge | `docs/` | Docs grouped by audience (`dev/`, `user/`), each in [Diátaxis](https://diataxis.fr) types (tutorials, how-to, reference, explanation), plus numbered decision records (ADRs) |
 | Volatile work | `work/` | Inbox, one folder per work item with a `handoff.md`, a generated board, and a queue of questions for the human |
 | Agent harness | `agents/` | Role charters, protocols, skills. **The source of truth** for any agent tool |
-| Tooling | `tools/` | Standard-library Python (3.9+): health check, index generators, work/ADR/doc helpers |
+| Tooling | `tools/` | Standard-library Python (3.9+): health check, index generators, work/ADR/doc/worktree/eval helpers |
 | Code | `src/`, `apps/` + `packages/`, `data/` + `notebooks/`, or none (`minimal`) | Placeholders for your stack or engine |
 
-Rules that make it work for agents: a short root `AGENTS.md` (≤100 lines, enforced), a `CLAUDE.md` shim beside each `AGENTS.md`, front matter on every doc, one declared owner per folder, evidence required before work counts as done, and `python3 tools/check.py` as the single "is the repo healthy?" command.
+Rules that make it work for agents: a short root `AGENTS.md` (≤100 lines, enforced), a `CLAUDE.md` shim beside each `AGENTS.md`, front matter on every doc, one declared owner per folder, evidence and independent role verification (`--by <role>`) required before work counts as done, workspace dependency boundaries (`depends_on`) enforced across `apps/` and `packages/`, and `python3 tools/check.py` as the single "is the repo healthy?" command.
 
 ## Create a project
 
@@ -49,7 +49,7 @@ Modules are folders that nothing in the core links to, so they can be removed at
 
 ## Use it with agents other than Claude
 
-`agents/` is tool-neutral. Claude Code reads `.claude/` and `CLAUDE.md`, which are *generated* from `agents/` by `python3 tools/sync_agents.py` (the sync refuses to overwrite files it did not generate). Optional adapters for Cursor (`.cursor/rules/`) and GitHub Copilot (`.github/copilot-instructions.md`) can be enabled in `agents/adapters/targets.json`; they are short pointers, not copies of `AGENTS.md`. Any other agent can read `AGENTS.md` and `agents/` directly. See `docs/dev/how-to/use-with-other-agents.md` in a generated project.
+`agents/` is tool-neutral. Claude Code reads `.claude/` and `CLAUDE.md`, which are *generated* from `agents/` by `python3 tools/sync_agents.py` (the sync refuses to overwrite files it did not generate). Optional adapters for Cursor (`.cursor/rules/`), GitHub Copilot (`.github/copilot-instructions.md`), and Gemini CLI (`.gemini/settings.json`) can be enabled in `agents/adapters/targets.json`; they are short pointers/configs, not copies of `AGENTS.md`. Any other agent can read `AGENTS.md` and `agents/` directly. See `docs/dev/how-to/use-with-other-agents.md` in a generated project.
 
 ## Pull in template improvements
 
@@ -58,13 +58,13 @@ cd path/to/project             # must be a clean git repo
 copier update --trust
 ```
 
-Local edits are merged, and modules you cut stay cut. See `docs/dev/how-to/update-from-template.md` in a generated project. Tag releases of this template (`v0.1.0`, …) so updates have a stable reference.
+Local edits are merged, and modules you cut stay cut. See `docs/dev/how-to/update-from-template.md` in a generated project. Tag releases of this template (`v0.2.0`, …) so updates have a stable reference.
 
 ## Releasing
 
 ```
-git tag -a v0.1.0 -m "v0.1.0"
-git push origin v0.1.0
+git tag -a v0.2.0 -m "v0.2.0"
+git push origin v0.2.0
 ```
 
 ## Developing this template
@@ -81,7 +81,8 @@ Layout of this repo: `copier.yml` (questions, exclusions, tasks) · `template/` 
 
 ## Known limits
 
-- Not exercised with real multi-agent runs yet; the `agents/evals` module exists so you can measure that on your own project.
+- The multi-agent workflows are exercised with fixtures and reference solutions, not yet with real parallel agent runs across separate sessions. Treat role handoffs as validated by the harness, not by production mileage.
+- Exercise the `agents/evals` golden tasks against your own agent CLI with `python3 tools/eval_harness.py --cmd "..."` (`--verify-fixtures` validates the sandbox seeding and grading logic offline).
 - The `.claude/` paths and file formats follow Claude Code's documentation as of November 2026 and may change; only `agents/` is yours to rely on.
 - Creating and updating a project needs Copier (so Python). Using a generated project needs only `python3`.
 

@@ -24,11 +24,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sync_agents  # noqa: E402
 import sync_indexes  # noqa: E402
 from _lib import (  # noqa: E402
-    ADR_STATUSES, AUDIENCES, DIATAXIS_DIRS, DOC_STATUSES, DOC_TYPES, ITEM_ID_RE, NEEDS_EVIDENCE, SKIP_DIRS,
-    STALE_DAYS, STALE_REWARN_DAYS, STATUSES, TYPE_FOLDERS, FrontMatterError, doc_type_dir, folder_owners,
+    ADR_STATUSES, AUDIENCES, DEFAULT_OWNER, DIATAXIS_DIRS, DOC_STATUSES, DOC_TYPES, ITEM_ID_RE, NEEDS_EVIDENCE, ROLE_FILE,
+    SKIP_DIRS, STALE_DAYS, STALE_REWARN_DAYS, STATUSES, TYPE_FOLDERS, FrontMatterError, doc_type_dir, folder_owners,
     git_last_change, iter_docs, iter_items, iter_markdown, load_catalog, load_modules, load_roles, load_targets,
     md_links, module_of, module_present, parse_date, parse_front_matter, parse_queue, read_fm, read_text,
-    repo_root, resolve_link, today,
+    repo_root, resolve_link, skill_folders, today,
 )
 
 ROOT_AGENTS_MAX_LINES = 100
@@ -233,12 +233,28 @@ def check_placeholders(root: Path, rep: Report) -> None:
 
 def check_roles(root: Path, rep: Report) -> None:
     roles = load_roles(root)
+    base = root / "agents" / "roles"
+    if base.is_dir():
+        for entry in sorted(base.iterdir()):
+            if entry.is_file() and entry.suffix == ".md" and entry.name.lower() != "readme.md":
+                rep.error("role", rel(root, entry),
+                          f"roles live in agents/roles/<role>/{ROLE_FILE}: move this file to agents/roles/{entry.stem}/{ROLE_FILE}")
+            elif entry.is_dir():
+                if not (entry / ROLE_FILE).is_file():
+                    rep.error("role", rel(root, entry), f"role folder has no {ROLE_FILE}")
+                    continue
+                lane = entry / "skills"
+                if not lane.is_dir():
+                    rep.error("role", rel(root, entry),
+                              "role folder has no skills/ (keep it with skills/.gitkeep even when empty)")
+                elif not any(lane.iterdir()):
+                    rep.error("role", rel(root, lane), "role skills/ folder is empty; add skills/.gitkeep or a skill folder")
     if not roles:
         return
     seen_item: dict[str, str] = {}
     seen_file: dict[str, str] = {}
     for name, r in roles.items():
-        p = f"agents/roles/{name}.md"
+        p = f"agents/roles/{name}/{ROLE_FILE}"
         if r["error"]:
             rep.error("role", p, r["error"])
             continue
@@ -250,7 +266,7 @@ def check_roles(root: Path, rep: Report) -> None:
             if not fm.get(k):
                 rep.error("role", p, f"missing '{k}'")
         if fm.get("role") != name:
-            rep.error("role", p, f"role '{fm.get('role')}' must equal the filename '{name}'")
+            rep.error("role", p, f"role '{fm.get('role')}' must equal the folder name '{name}'")
         for key, seen in (("item_files", seen_item), ("writes_files", seen_file)):
             for f in fm.get(key) or []:
                 if f in seen:
@@ -259,6 +275,10 @@ def check_roles(root: Path, rep: Report) -> None:
     for folder, role in sorted(folder_owners(root).items()):
         if role not in roles:
             rep.error("ownership", f"{folder or '.'}/README.md", f"owner_role '{role}' is not a role in agents/roles/")
+    for status, owner in DEFAULT_OWNER.items():
+        if owner not in roles:
+            rep.error("ownership", "tools/_lib.py",
+                      f"DEFAULT_OWNER[{status!r}] = '{owner}' is not a role in agents/roles/")
 
 
 def check_top_level_readmes(root: Path, rep: Report) -> None:
@@ -278,16 +298,97 @@ def check_top_level_readmes(root: Path, rep: Report) -> None:
             rep.info("placeholder", r, "unfilled placeholder: fill it or delete the folder")
 
 
+def check_workspace_packages(root: Path, rep: Report) -> None:
+    """Enforce README summaries and dependency boundaries in workspace folders (apps/*, packages/*)."""
+    apps_dir = root / "apps"
+    pkgs_dir = root / "packages"
+    apps: dict[str, dict] = {}
+    pkgs: dict[str, dict] = {}
+    for kind, base, store in (("app", apps_dir, apps), ("package", pkgs_dir, pkgs)):
+        if not base.is_dir():
+            continue
+        for d in sorted(base.iterdir()):
+            if not d.is_dir() or d.name.startswith((".", "_")) or d.name in SKIP_DIRS:
+                continue
+            readme = d / "README.md"
+            r = f"{base.name}/{d.name}/README.md"
+            if not readme.exists():
+                rep.error("workspace-readme", f"{base.name}/{d.name}/",
+                          f"workspace {kind} '{d.name}' needs a README.md with a summary")
+                continue
+            try:
+                fm, _ = parse_front_matter(read_text(readme))
+            except FrontMatterError as exc:
+                rep.error("front-matter", r, str(exc))
+                continue
+            fm = fm or {}
+            if not str(fm.get("summary") or "").strip():
+                rep.error("workspace-readme", r, "front matter is missing 'summary'")
+            if fm.get("status") == "placeholder":
+                rep.info("placeholder", r, "unfilled placeholder: fill it or delete the folder")
+            store[d.name] = {"readme": r, "fm": fm}
+
+    pkg_deps: dict[str, list[str]] = {}
+    for kind, store in (("app", apps), ("package", pkgs)):
+        for name, info in store.items():
+            r = info["readme"]
+            raw = info["fm"].get("depends_on") or []
+            deps = [str(x).strip() for x in (raw if isinstance(raw, list) else [raw]) if str(x).strip()]
+            norm_deps: list[str] = []
+            for dep in deps:
+                if dep.startswith("apps/") or dep in apps:
+                    target_app = dep.split("/", 1)[1] if dep.startswith("apps/") else dep
+                    msg = (f"package '{name}' depends on app '{target_app}'; packages must not depend on apps"
+                           if kind == "package"
+                           else f"app '{name}' depends on app '{target_app}'; apps may depend on packages, never on each other")
+                    rep.error("workspace-boundary", r, msg)
+                    continue
+                pkg_name = dep.split("/", 1)[1] if dep.startswith("packages/") else dep
+                if pkg_name == name and kind == "package":
+                    rep.error("workspace-cycle", r, f"package '{name}' cannot depend on itself")
+                    continue
+                if pkg_name not in pkgs:
+                    rep.error("workspace-boundary", r, f"depends_on package '{dep}' does not exist in packages/")
+                    continue
+                norm_deps.append(pkg_name)
+            if kind == "package":
+                pkg_deps[name] = norm_deps
+
+    # Detect cycles across packages/*
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def dfs(node: str, chain: list[str]) -> None:
+        visiting.add(node)
+        for nxt in pkg_deps.get(node, []):
+            if nxt in visiting:
+                cycle = " -> ".join(chain[chain.index(nxt):] + [nxt])
+                rep.error("workspace-cycle", pkgs[node]["readme"], f"package dependency cycle: {cycle}")
+            elif nxt not in visited and nxt in pkg_deps:
+                dfs(nxt, chain + [nxt])
+        visiting.remove(node)
+        visited.add(node)
+
+    for pkg_name in sorted(pkg_deps):
+        if pkg_name not in visited:
+            dfs(pkg_name, [pkg_name])
+
+
 def check_skills(root: Path, rep: Report) -> None:
-    base = root / "agents" / "skills"
-    if not base.is_dir():
-        return
-    for d in sorted(p for p in base.iterdir() if p.is_dir()):
+    # Two lanes: agents/skills/<name>/ (shared) and agents/roles/<role>/skills/<name>/ (one role).
+    # `.claude/skills/` is flat, so a name may appear only once across both.
+    seen: dict[str, str] = {}
+    for _owner, d in skill_folders(root):
         sk = d / "SKILL.md"
         r = rel(root, sk)
         if not sk.exists():
             rep.error("skill", rel(root, d), "skill folder has no SKILL.md")
             continue
+        if d.name in seen:
+            rep.error("skill", rel(root, d),
+                      f"skill name '{d.name}' is already used by {seen[d.name]}; names must be unique across agents/skills/ and every role's skills/")
+        else:
+            seen[d.name] = rel(root, d)
         text = read_text(sk)
         try:
             fm, _ = parse_front_matter(text)
@@ -336,6 +437,18 @@ def check_items(root: Path, rep: Report) -> None:
             continue
         if roles and str(fm.get("owner_role")) not in roles:
             rep.error("handoff", r, f"owner_role '{fm.get('owner_role')}' is not a role")
+        built_by = str(fm.get("built_by") or "").strip()
+        verified_by = str(fm.get("verified_by") or "").strip()
+        if roles and built_by and built_by not in roles:
+            rep.error("handoff", r, f"built_by '{built_by}' is not a role")
+        if roles and verified_by and verified_by not in roles:
+            rep.error("handoff", r, f"verified_by '{verified_by}' is not a role")
+        if status in ("verified", "done") and not built_by:
+            rep.error("handoff", r, f"status {status} needs built_by; move the item through in-progress with transition.py --by <builder>")
+        if status in ("verified", "done") and not verified_by:
+            rep.error("handoff", r, f"status {status} needs verified_by; mark it verified with transition.py --by <reviewer>")
+        if verified_by and built_by and verified_by == built_by:
+            rep.error("self-review", r, f"verified_by '{verified_by}' cannot be the same role that built the item")
         if status != "done" and not str(fm.get("next_action") or "").strip():
             rep.error("handoff", r, "next_action is empty: say what the next role should do")
         evidence = fm.get("evidence") or []
@@ -434,6 +547,7 @@ def run_all(root: Path) -> Report:
     check_placeholders(root, rep)
     check_roles(root, rep)
     check_top_level_readmes(root, rep)
+    check_workspace_packages(root, rep)
     check_skills(root, rep)
     check_items(root, rep)
     check_queue(root, rep)

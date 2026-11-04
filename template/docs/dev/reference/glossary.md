@@ -25,7 +25,8 @@ summary: Definitions of the terms this repo uses - work item, handoff, role, ski
 | **Owner (of a folder)** | The role named by `owner_role` in a folder's README; the only role that writes there |
 | **Placeholder** | A deliberately empty file or folder marked `status: placeholder`; fill it or delete it |
 | **Profile** | How much of the skeleton is generated: `full`, `standard`, `lean` or `custom` |
-| **Role** | A charter in `agents/roles/` defining what an agent in that job reads, writes and must never do |
-| **Skill** | A reusable procedure in the open Agent Skills format, loaded only when a task matches its description |
+| **Role** | A folder `agents/roles/<role>/` whose `ROLE.md` charter defines what an agent in that job reads, writes and must never do |
+| **Role bundle** | A role folder holding its `ROLE.md` charter and the skills exclusive to that role; shared skills stay in `agents/skills/` |
+| **Skill** | A reusable procedure in the open Agent Skills format, loaded only when a task matches its description. Lives under the one role that uses it, or in `agents/skills/` when several roles share it |
 | **Stale** | An item idle for 14 days; its handoff is untrusted until re-verified. `check.py` re-surfaces it after 30 days |
 | **Work item** | A unit of work tracked under `work/items/` with a status, an owner and a handoff |
