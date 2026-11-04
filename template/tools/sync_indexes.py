@@ -36,7 +36,7 @@ GROUP_TITLES = {
 }
 TAGGED = ("placeholder", "draft", "deprecated", "proposed", "superseded", "rejected")
 FALLBACK_SUMMARY = {
-    ".github": "CI workflow, PR template, CODEOWNERS.",
+    ".github": "CI workflow, Dependabot config, PR template, CODEOWNERS.",
 }
 
 

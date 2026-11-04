@@ -27,8 +27,8 @@
       "paths": ["agents/evals"]
     },
     "github": {
-      "summary": "CI workflow, pull-request template and CODEOWNERS.",
-      "paths": [".github/CODEOWNERS", ".github/pull_request_template.md", ".github/workflows/check.yml"],
+      "summary": "CI workflow, Dependabot config, pull-request template and CODEOWNERS.",
+      "paths": [".github/CODEOWNERS", ".github/dependabot.yml", ".github/pull_request_template.md", ".github/workflows/check.yml"],
       "removal_notes": "Without CI, run `python3 tools/check.py` and the unit tests yourself before merging."
     }
   }
