@@ -29,7 +29,7 @@
     "github": {
       "summary": "CI workflow, Dependabot config, pull-request template and CODEOWNERS.",
       "paths": [".github/CODEOWNERS", ".github/dependabot.yml", ".github/pull_request_template.md", ".github/workflows/check.yml"],
-      "removal_notes": "Without CI, run `python3 tools/check.py` and the unit tests yourself before merging."
+      "removal_notes": "Without CI, run `python3 tools/check.py` and the unit tests yourself before merging. Dependabot updates stop too."
     }
   }
 }
