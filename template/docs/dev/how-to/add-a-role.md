@@ -10,7 +10,7 @@ Goal: a new role that agents can adopt, with clear ownership and no overlap with
 
 ## Steps
 
-1. Create the folder `agents/roles/<role>/` with the charter `ROLE.md` in it. Copy an existing `ROLE.md` as a starting point. Required front matter: `role` (equals the folder name), `mission`, `reads`, `never`, `done_when`, `escalate_when`. Optional: `item_files` (files in a work item this role exclusively writes) and `writes_files` (root files it exclusively writes). Also create `agents/roles/<role>/skills/.gitkeep`: skills only this role uses go there (`docs/how-to/add-a-skill.md`).
+1. Create the folder `agents/roles/<role>/` with the charter `ROLE.md` in it. Copy an existing `ROLE.md` as a starting point. Required front matter: `role` (equals the folder name), `mission`, `reads`, `never`, `done_when`, `escalate_when`. Optional: `item_files` (files in a work item this role exclusively writes) and `writes_files` (root files it exclusively writes). Also create `agents/roles/<role>/skills/.gitkeep`: skills only this role uses go there (`docs/dev/how-to/add-a-skill.md`).
 2. Give it ownership. In the `README.md` of each folder the role owns, set `owner_role: <role>` in the front matter. The nearest ancestor README wins, so a role can own a subfolder of another role's area.
 3. Keep ownership exclusive. `check.py` fails if two roles claim the same item file or root file.
 4. If the role should be a step in the lifecycle, update the dispatch table in `agents/README.md` and `DEFAULT_OWNER` in `tools/_lib.py` together, plus `agents/protocols/handoff.md`.

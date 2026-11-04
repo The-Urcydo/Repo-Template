@@ -46,7 +46,7 @@ _message_after_copy: |
     git init && git add -A && git commit -m "Initial commit from Repo-Template"
     python3 tools/check.py            # should print "ok"
     python3 tools/check.py --stubs    # placeholders to fill or delete
-  Then read docs/how-to/bootstrap-from-template.md.
+  Then read docs/dev/how-to/bootstrap-from-template.md.
 
 project_name:
   type: str

@@ -181,17 +181,17 @@ class HealthTests(RepoTestCase):
         self.assertIn("agents-md-size", self.fails("check"))
 
     def test_broken_link_fails(self) -> None:
-        p = self.repo / "docs" / "explanation" / "design-rationale.md"
+        p = self.repo / "docs" / "dev" / "explanation" / "design-rationale.md"
         p.write_text(p.read_text() + "\nSee [nowhere](does-not-exist.md).\n")
         self.assertIn("broken-link", self.fails("check"))
 
     def test_missing_summary_fails(self) -> None:
-        p = self.repo / "docs" / "reference" / "glossary.md"
+        p = self.repo / "docs" / "dev" / "reference" / "glossary.md"
         p.write_text(p.read_text().replace("summary:", "sumary:", 1))
         self.assertIn("front-matter", self.fails("check"))
 
     def test_wrong_diataxis_folder_fails(self) -> None:
-        p = self.repo / "docs" / "reference" / "glossary.md"
+        p = self.repo / "docs" / "dev" / "reference" / "glossary.md"
         p.write_text(p.read_text().replace("type: reference", "type: how-to", 1))
         self.assertIn("diataxis", self.fails("check"))
 
@@ -286,8 +286,8 @@ class HealthTests(RepoTestCase):
                     target = path + "/README.md"
         if not target:
             self.skipTest("no docs module installed")
-        p = self.repo / "docs" / "explanation" / "design-rationale.md"
-        p.write_text(p.read_text() + f"\nSee [module](../../{target}).\n")
+        p = self.repo / "docs" / "dev" / "explanation" / "design-rationale.md"
+        p.write_text(p.read_text() + f"\nSee [module](../../../{target}).\n")
         self.assertIn("module-coupling", self.fails("check"))
 
     def test_workspace_packages_and_boundary_checks(self) -> None:
@@ -309,7 +309,7 @@ class HealthTests(RepoTestCase):
         self.ok("sync_indexes")
         self.ok("sync_agents")
         self.ok("check", "--strict")
-        self.assertIn("`apps/web/`", (self.repo / "docs" / "reference" / "repo-map.md").read_text())
+        self.assertIn("`apps/web/`", (self.repo / "docs" / "dev" / "reference" / "repo-map.md").read_text())
 
         # Package depending on app fails with workspace-boundary
         (pkgs / "core" / "README.md").write_text("---\nsummary: Core primitives.\ndepends_on: [apps/web]\n---\n# core\n")
@@ -814,11 +814,88 @@ class AdrTests(RepoTestCase):
 class DocTests(RepoTestCase):
     def test_new_doc_creates_valid_doc_and_updates_index(self) -> None:
         path = self.ok("new_doc", "how-to", "Deploy: to staging", "--summary", "How to deploy to staging.")
-        self.assertEqual(path, "docs/how-to/deploy-to-staging.md")
+        self.assertEqual(path, "docs/dev/how-to/deploy-to-staging.md")
         self.assertIn("deploy-to-staging.md", (self.repo / "docs" / "INDEX.md").read_text())
         self.ok("check")
         self.fails("new_doc", "how-to", "Deploy: to staging")  # exists
         self.fails("new_doc", "poem", "Nope")
+
+    # --- audience layout: docs/<dev|user>/<type>/, decisions shared, optional `audience:` key ---
+    def _doc(self, rel: str, doc_type: str, title: str, extra: str = "") -> Path:
+        p = self.repo / "docs" / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(f"---\ntitle: {title}\ntype: {doc_type}\nstatus: active\nsummary: {title} summary.\n{extra}---\n# {title}\n",
+                     encoding="utf-8")
+        return p
+
+    def _index_section(self, heading: str) -> str:
+        """Text of one `## ` section of docs/INDEX.md (up to the next `## `)."""
+        text = (self.repo / "docs" / "INDEX.md").read_text(encoding="utf-8")
+        parts = text.split("\n## ")
+        for part in parts[1:]:
+            if part.startswith(heading):
+                return part
+        self.fail(f"no '## {heading}' section in docs/INDEX.md")
+
+    def test_shipped_layout_has_dev_user_and_shared_decisions(self) -> None:
+        docs = self.repo / "docs"
+        for folder in ("tutorials", "how-to", "reference", "explanation"):
+            self.assertTrue((docs / "dev" / folder).is_dir(), folder)
+            self.assertFalse((docs / folder).exists(), f"docs/{folder}/ must not exist at the top level")
+        self.assertTrue((docs / "user" / "README.md").exists())
+        self.assertTrue((docs / "decisions").is_dir())
+        self.assertIn("No documents yet", self._index_section("End users"))
+
+    def test_new_doc_for_users_goes_to_docs_user_and_the_user_section(self) -> None:
+        path = self.ok("new_doc", "how-to", "Reset your password", "--audience", "user", "--summary", "How to reset a password.")
+        self.assertEqual(path, "docs/user/how-to/reset-your-password.md")
+        self.assertIn("reset-your-password.md", self._index_section("End users"))
+        self.assertNotIn("reset-your-password.md", self._index_section("Contributors"))
+        self.ok("check")
+
+    def test_new_doc_audience_rules(self) -> None:
+        self.assertIn("unknown audience", self.fails("new_doc", "how-to", "X", "--audience", "alien"))
+        modules = _lib.load_modules(self.repo)
+        if "operations" in modules:
+            self.assertIn("--audience applies", self.fails("new_doc", "runbook", "Restart", "--audience", "user"))
+            self.assertEqual(self.ok("new_doc", "runbook", "Restart the queue"), "docs/operations/runbooks/restart-the-queue.md")
+
+    def test_type_folder_directly_under_docs_is_a_layout_error(self) -> None:
+        self._doc("how-to/old-spot.md", "how-to", "Old spot")
+        out = self.fails("check")
+        self.assertIn("docs-layout", out)
+        self.assertIn("docs/dev/how-to/", out)
+
+    def test_type_must_match_folder_under_an_audience(self) -> None:
+        self._doc("user/reference/wrong.md", "how-to", "Wrong type")
+        self.assertIn("diataxis", self.fails("check"))
+
+    def test_audience_key_regroups_the_index_without_moving_the_file(self) -> None:
+        self._doc("dev/how-to/for-users.md", "how-to", "For users", "audience: user\n")
+        self.ok("sync_indexes")
+        self.assertIn("dev/how-to/for-users.md", self._index_section("End users"))
+        self.assertNotIn("for-users.md", self._index_section("Contributors"))
+        self.ok("check")
+
+    def test_unknown_audience_value_is_an_error(self) -> None:
+        self._doc("dev/how-to/bad-audience.md", "how-to", "Bad audience", "audience: wizards\n")
+        self.assertIn("doc-audience", self.fails("check"))
+
+    def test_a_big_folder_gets_its_own_index_and_loses_it_when_small_again(self) -> None:
+        import sync_indexes
+        for i in range(sync_indexes.SPLIT_THRESHOLD + 1):
+            self._doc(f"dev/how-to/bulk-{i:03d}.md", "how-to", f"Bulk {i:03d}")
+        self.ok("sync_indexes")
+        sub = self.repo / "docs" / "dev" / "how-to" / "INDEX.md"
+        self.assertTrue(sub.exists(), "a folder over the threshold needs its own index")
+        self.assertIn("see the section index", self._index_section("Contributors"))
+        self.assertIn("bulk-000.md", sub.read_text(encoding="utf-8"))
+        self.ok("check")
+        for p in (self.repo / "docs" / "dev" / "how-to").glob("bulk-*.md"):
+            p.unlink()
+        self.ok("sync_indexes")
+        self.assertFalse(sub.exists(), "the orphan section index must be removed")
+        self.ok("check")
 
 
 class ModuleTests(RepoTestCase):
@@ -981,7 +1058,7 @@ class AdapterTests(RepoTestCase):
         self.assertTrue((self.repo / ".github" / "copilot-instructions.md").is_file())
         self.assertNotIn("github", _lib.load_modules(self.repo))
         self.ok("sync_indexes", "--check")
-        self.assertNotIn("`.github/`", (self.repo / "docs" / "reference" / "repo-map.md").read_text())
+        self.assertNotIn("`.github/`", (self.repo / "docs" / "dev" / "reference" / "repo-map.md").read_text())
         self.ok("check", "--strict")
 
     def test_cutting_the_github_module_keeps_the_copilot_pointer(self) -> None:

@@ -13,7 +13,7 @@ Run once after generation. The goal: no placeholder left that nobody will fill, 
 3. Fill `README.md` description and, for each module you keep, its README (`docs/product/`, `docs/operations/`, ...).
 4. Decide on the modules you do not need: `python3 tools/remove_module.py` lists them; preview a cut with `python3 tools/remove_module.py <name>`; apply with `--apply`. Cutting is cheap and reversible through git.
 5. Write the first decision down: `python3 tools/new_adr.py "Choose the tech stack"` and fill it in.
-6. Replace the placeholders in the code folders your layout generated (`docs/reference/repo-map.md` lists them) with real structure when the first code lands, or leave them marked as placeholders until then. With the `minimal` layout there are none: give every folder you add a `README.md` with `summary` and `owner_role`.
+6. Replace the placeholders in the code folders your layout generated (`docs/dev/reference/repo-map.md` lists them) with real structure when the first code lands, or leave them marked as placeholders until then. With the `minimal` layout there are none: give every folder you add a `README.md` with `summary` and `owner_role`.
 7. `python3 tools/sync_indexes.py && python3 tools/sync_agents.py && python3 tools/check.py`, then commit.
 
-Do not delete the folder READMEs of folders you keep: they carry the `owner_role` and `summary` the tools rely on. Full guide: `docs/how-to/bootstrap-from-template.md`.
+Do not delete the folder READMEs of folders you keep: they carry the `owner_role` and `summary` the tools rely on. Full guide: `docs/dev/how-to/bootstrap-from-template.md`.

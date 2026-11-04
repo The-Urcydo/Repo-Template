@@ -7,7 +7,7 @@ owner_role: reviewer
 ---
 # agents/evals/
 
-Module `evals`. Research suggests instruction files can add cost without helping (`docs/explanation/context-budget.md`). So the harness is tested, not assumed.
+Module `evals`. Research suggests instruction files can add cost without helping (`docs/dev/explanation/context-budget.md`). So the harness is tested, not assumed.
 
 ## What a golden task is
 

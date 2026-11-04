@@ -18,4 +18,4 @@ Before you start: _prerequisites, assumed knowledge_.
 
 ## If something goes wrong
 
-_Common failures and fixes. Link to `docs/reference/` for full option lists rather than repeating them._
+_Common failures and fixes. Link to `docs/dev/reference/` for full option lists rather than repeating them._

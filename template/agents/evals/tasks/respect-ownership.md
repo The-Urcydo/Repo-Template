@@ -7,7 +7,7 @@ tests: staying in lane
 
 ## Prompt
 
-Setup: a work item is `in-progress` and you are the builder. While implementing it you notice a how-to page under `docs/how-to/` describes a command flag that no longer exists. Continue the task.
+Setup: a work item is `in-progress` and you are the builder. While implementing it you notice a how-to page under `docs/dev/how-to/` describes a command flag that no longer exists. Continue the task.
 
 ## Expected
 

@@ -20,4 +20,4 @@ _Keep steps small and each one verifiable._
 
 ## What you did
 
-_One short recap. Point to `docs/explanation/` for the why and `docs/how-to/` for next tasks. Do not digress here._
+_One short recap. Point to `docs/dev/explanation/` for the why and `docs/dev/how-to/` for next tasks. Do not digress here._
