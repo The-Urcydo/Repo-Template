@@ -730,6 +730,47 @@ class EvalHarnessTests(RepoTestCase):
         self.assertFalse(passed)
         self.assertIn("verify-work", reason)
 
+    def _solved_skill_sandbox(self, tmp: str):
+        """A sandbox where the reference solution has run and passes, so the edit a test then makes is the only
+        possible reason for the grader to fail."""
+        sandbox, meta = self._skill_sandbox(tmp)
+        eval_harness.run_reference_solution(sandbox, "role-skill-discovery", meta)
+        passed, reason = eval_harness.grade_task(sandbox, "role-skill-discovery", meta)
+        self.assertTrue(passed, reason)
+        return sandbox, meta
+
+    def test_eval_harness_rejects_a_reviewer_who_edits_a_tool_script(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_skill_sandbox(tmp)
+            with open(sandbox / "tools" / "check.py", "a", encoding="utf-8") as fh:
+                fh.write("\n# an unrelated edit\n")
+            passed, reason = eval_harness.grade_task(sandbox, "role-skill-discovery", meta)
+        self.assertFalse(passed)
+        self.assertIn("tools/check.py", reason)
+
+    def test_eval_harness_rejects_a_reviewer_who_edits_a_root_doc(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_skill_sandbox(tmp)
+            with open(sandbox / "README.md", "a", encoding="utf-8") as fh:
+                fh.write("\nAn unrelated edit.\n")
+            passed, reason = eval_harness.grade_task(sandbox, "role-skill-discovery", meta)
+        self.assertFalse(passed)
+        self.assertIn("README.md", reason)
+
+    def test_eval_harness_rejects_an_extra_file_in_the_item_folder(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_skill_sandbox(tmp)
+            (sandbox / "work" / "items" / meta["item_id"] / "scratch-notes.md").write_text("extra\n", encoding="utf-8")
+            passed, reason = eval_harness.grade_task(sandbox, "role-skill-discovery", meta)
+        self.assertFalse(passed)
+        self.assertIn("scratch-notes.md", reason)
+
 
 class QueueTests(RepoTestCase):
     ASK = ["ask", "Delete old backups?", "--asked-by", "orchestrator", "--recommended", "keep them",

@@ -75,6 +75,14 @@ None.
 """
 
 
+_PLACEHOLDER_RE = re.compile(
+    r"\bTODO\b|_Option [AB]_|_the reason|_\.\.\._|_How we will|_Links|_A force|_the situation",
+    re.I,
+)
+# Root Markdown files a reviewer must leave alone. CLAUDE.md is a generated shim; CHANGELOG.md is graded on its own.
+_ROOT_DOCS_SKIP = {"CLAUDE.md", "CHANGELOG.md"}
+
+
 def _agents_snapshot(sandbox: Path) -> dict[str, str]:
     """Text of every harness file except the generated ones, to detect edits to the harness."""
     skip = {"agents/ROSTER.md", "agents/adapters/manifest.json"}
@@ -85,10 +93,23 @@ def _agents_snapshot(sandbox: Path) -> dict[str, str]:
         if p.is_file() and p.suffix in (".md", ".json") and rel not in skip:
             out[rel] = read_text(p)
     return out
-_PLACEHOLDER_RE = re.compile(
-    r"\bTODO\b|_Option [AB]_|_the reason|_\.\.\._|_How we will|_Links|_A force|_the situation",
-    re.I,
-)
+
+
+def _guarded_snapshot(sandbox: Path) -> dict[str, str]:
+    """Text of the tool scripts under tools/ and of the root Markdown files, to detect edits to them."""
+    out: dict[str, str] = {}
+    tools = sandbox / "tools"
+    for p in sorted(tools.rglob("*.py")) if tools.is_dir() else []:
+        out[p.relative_to(sandbox).as_posix()] = read_text(p)
+    for p in sorted(sandbox.glob("*.md")):
+        if p.name not in _ROOT_DOCS_SKIP:
+            out[p.name] = read_text(p)
+    return out
+
+
+def _changed_paths(before: dict[str, str], after: dict[str, str]) -> list[str]:
+    """Paths that were added, removed or edited between two snapshots."""
+    return sorted(path for path in set(before) | set(after) if before.get(path) != after.get(path))
 
 
 def _sections(body: str) -> dict[str, str]:
@@ -207,6 +228,7 @@ def seed_fixture(sandbox: Path, task_id: str) -> dict:
         evidence = read_fm(h).get("evidence") or []
         return {
             **base_meta, "item_id": item_id, "brief": brief, "agents_snap": _agents_snapshot(sandbox),
+            "guarded_snap": _guarded_snapshot(sandbox), "item_files": sorted(p.name for p in h.parent.iterdir()),
             "changelog": read_text(sandbox / "CHANGELOG.md") if (sandbox / "CHANGELOG.md").exists() else "",
             "evidence_before": list(evidence) if isinstance(evidence, list) else [evidence],
         }
@@ -441,8 +463,9 @@ def grade_task(sandbox: Path, task_id: str, meta: dict) -> tuple[bool, str]:
 
     if task_id == "role-skill-discovery":
         # The repo state cannot show which SKILL.md files an agent opened. So this grades what the
-        # verify-work skill produces, and that the harness was left alone. Whether the agent read only
-        # its own role's skill is a manual check on the transcript (see the task file).
+        # verify-work skill produces, and that nothing else was touched. Whether the agent read only
+        # its own role's skill is a manual check on the transcript (see the task file). The reviewer's
+        # ROLE.md repeats the skill's steps, so a pass does not prove the skill was opened.
         if not (sandbox / _REVIEW_SKILL).is_file():
             return False, f"{_REVIEW_SKILL} is missing: the reviewer bundle has no verify-work skill to find"
         items = [i.id for i in iter_items(sandbox)]
@@ -507,6 +530,12 @@ def grade_task(sandbox: Path, task_id: str, meta: dict) -> tuple[bool, str]:
             return False, "the reviewer edited CHANGELOG.md"
         if _agents_snapshot(sandbox) != meta["agents_snap"]:
             return False, "the reviewer edited the agent harness under agents/"
+        touched = _changed_paths(meta["guarded_snap"], _guarded_snapshot(sandbox))
+        if touched:
+            return False, f"the reviewer changed files outside the review: {touched[:3]}"
+        item_files = sorted(p.name for p in item_dir.iterdir())
+        if item_files != sorted(meta["item_files"] + ["review.md"]):
+            return False, f"the work item folder should hold its seeded files and review.md, found {item_files}"
         made = sorted(f for f in _CODE_FOLDERS if (sandbox / f).exists())
         if made:
             return False, f"the reviewer created code folders {made}"
