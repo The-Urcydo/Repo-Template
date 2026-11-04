@@ -82,8 +82,13 @@ def test_profile_generates_a_healthy_repo(tmp_path, profile, layout):
     assert (p / "tools" / "tests" / "test_tools.py").exists(), layout
     # core is always present
     for core in ["AGENTS.md", "README.md", "docs/INDEX.md", "work/ACTIVE.md", "work/HUMAN.md", "agents/ROSTER.md",
-                 "tools/check.py", "docs/decisions/0000-use-madr-for-decision-records.md", "agents/roles/builder/ROLE.md"]:
+                 "tools/check.py", "docs/decisions/0000-use-madr-for-decision-records.md", "agents/roles/builder/ROLE.md",
+                 "docs/dev/how-to/README.md", "docs/dev/reference/repo-map.md", "docs/user/README.md"]:
         assert (p / core).exists(), core
+    # docs are grouped by audience: the four type folders live under docs/dev/, never at the top of docs/
+    for type_folder in ("tutorials", "how-to", "reference", "explanation"):
+        assert (p / "docs" / "dev" / type_folder).is_dir(), type_folder
+        assert not (p / "docs" / type_folder).exists(), f"docs/{type_folder}/ must not exist at the top level"
 
 
 @pytest.mark.parametrize("modules", [[], ["evals"], ["infra", "github"], ["product", "security"]])
@@ -136,7 +141,7 @@ def test_no_unrendered_template_syntax_leaks(full):
 
 def test_template_name_is_consistent():
     for rel in ("README.md", "copier.yml", "template/CHANGELOG.md", "template/README.md.jinja",
-                "template/docs/how-to/bootstrap-from-template.md"):
+                "template/docs/dev/how-to/bootstrap-from-template.md"):
         text = (TEMPLATE / rel).read_text(encoding="utf-8")
         assert "agent-repo-skeleton" not in text, rel
 
@@ -159,12 +164,12 @@ def test_agents_md_lists_every_generated_adapter_output():
 def test_every_tool_is_documented_in_tools_readme_and_commands_ref():
     tools_dir = TEMPLATE / "template" / "tools"
     tools_readme = (tools_dir / "README.md").read_text(encoding="utf-8")
-    commands_doc = (TEMPLATE / "template" / "docs" / "reference" / "commands.md").read_text(encoding="utf-8")
+    commands_doc = (TEMPLATE / "template" / "docs" / "dev" / "reference" / "commands.md").read_text(encoding="utf-8")
     for p in sorted(tools_dir.glob("*.py")):
         if p.name == "_lib.py":
             continue
         assert p.name in tools_readme, f"tools/README.md does not document {p.name}"
-        assert p.name in commands_doc, f"docs/reference/commands.md does not document {p.name}"
+        assert p.name in commands_doc, f"docs/dev/reference/commands.md does not document {p.name}"
 
 
 def test_template_ships_no_hardcoded_last_verified_date():
@@ -300,7 +305,7 @@ def test_copier_update_merges_improvements_and_respects_cuts(tmp_path):
     git(proj, "init", "-q")
     git(proj, "add", "-A")
     git(proj, "commit", "-qm", "init")
-    note = proj / "docs/reference/naming-conventions.md"
+    note = proj / "docs/dev/reference/naming-conventions.md"
     note.write_text(note.read_text() + "\nLocal convention: tabs are banned.\n")
     git(proj, "commit", "-qam", "local edit")
     r = py(proj, "tools/remove_module.py", "evals", "--apply")
@@ -310,9 +315,9 @@ def test_copier_update_merges_improvements_and_respects_cuts(tmp_path):
     assert "profile: custom" in (proj / ".copier-answers.yml").read_text()
 
     # 3. the template improves: a new how-to, a new glossary row, and a changed module file
-    (tpl / "template/docs/how-to/new-guide.md").write_text(
+    (tpl / "template/docs/dev/how-to/new-guide.md").write_text(
         "---\ntitle: A new guide\ntype: how-to\nstatus: active\nsummary: Added in template v0.2.0.\n---\n# A new guide\n")
-    g = tpl / "template/docs/reference/glossary.md"
+    g = tpl / "template/docs/dev/reference/glossary.md"
     g.write_text(g.read_text() + "| **Zebra** | A new term added upstream |\n")
     ev = tpl / "template/agents/evals/README.md"
     ev.write_text(ev.read_text() + "\nUpstream change to the evals module.\n")
@@ -324,8 +329,8 @@ def test_copier_update_merges_improvements_and_respects_cuts(tmp_path):
     r = copier("update", "--defaults", "--trust", "-q", "--vcs-ref", "v0.2.0", cwd=proj)
     assert r.returncode == 0, f"{r.stdout}\n{r.stderr}"
     assert "_commit: v0.2.0" in (proj / ".copier-answers.yml").read_text()
-    assert (proj / "docs/how-to/new-guide.md").exists(), "template improvement not delivered"
-    assert "Zebra" in (proj / "docs/reference/glossary.md").read_text()
+    assert (proj / "docs/dev/how-to/new-guide.md").exists(), "template improvement not delivered"
+    assert "Zebra" in (proj / "docs/dev/reference/glossary.md").read_text()
     assert "tabs are banned" in note.read_text(), "local edit was lost"
     assert not (proj / "agents/evals").exists(), "cut module was resurrected by the update"
     assert "new-guide.md" in (proj / "docs/INDEX.md").read_text(), "tasks did not regenerate the index"

@@ -41,4 +41,4 @@ Chosen option: "Layered by volatility", because it gives agents an unambiguous p
 
 ## More information
 
-Rationale in prose: `docs/explanation/design-rationale.md`.
+Rationale in prose: `docs/dev/explanation/design-rationale.md`.

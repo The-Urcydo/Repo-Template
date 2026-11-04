@@ -6,7 +6,7 @@ description: Records a significant technical or process decision as a numbered A
 
 **Role:** architect (owns `docs/decisions/`). If the human asked you directly for the ADR, you are the architect for this task. Otherwise hand the decision over: a light item with `--status planned --owner architect`, or the handoff of the item it came from.
 
-Follow `docs/how-to/write-an-adr.md`; it is the single source for the steps. The rules that matter most:
+Follow `docs/dev/how-to/write-an-adr.md`; it is the single source for the steps. The rules that matter most:
 
 - Create the file with `python3 tools/new_adr.py "Title"`. The number is allocated under a lock; never pick one by hand.
 - Accepted ADRs are binding. To reverse one, supersede it: `new_adr.py "Title" --supersedes NNNN`. Never edit an accepted outcome.

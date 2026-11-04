@@ -5,7 +5,7 @@ status: active
 summary: Accurate, complete lookup material - commands, schemas, conventions, glossary - with no opinions or instructions.
 owner_role: scribe
 ---
-# docs/reference/
+# docs/dev/reference/
 
 Information-oriented. Facts a reader looks up and trusts. Structure mirrors the thing described (a command table mirrors the tools). No tutorials or arguments here. Pages describing code should list it under `related_code` so staleness is detectable.
 

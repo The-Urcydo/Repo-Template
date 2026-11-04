@@ -88,4 +88,4 @@ The item moves to `work/archive/<year>/`, disappears from the board, and the che
 
 ## What you did
 
-You used the same six commands every agent uses. To understand why they work this way, read `docs/explanation/ownership-and-handoffs.md`. For the rules in full, see `agents/protocols/handoff.md`. To make real work, see `docs/how-to/bootstrap-from-template.md`.
+You used the same six commands every agent uses. To understand why they work this way, read `docs/dev/explanation/ownership-and-handoffs.md`. For the rules in full, see `agents/protocols/handoff.md`. To make real work, see `docs/dev/how-to/bootstrap-from-template.md`.

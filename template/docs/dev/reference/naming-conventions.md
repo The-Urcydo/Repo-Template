@@ -9,7 +9,7 @@ summary: File, folder, id, branch and commit naming rules used across the repo.
 | Thing | Convention | Example |
 |---|---|---|
 | Files and folders | lowercase kebab-case | `how-to/cut-a-module.md` |
-| Folder README | `README.md`, exact case | `docs/tutorials/README.md` |
+| Folder README | `README.md`, exact case | `docs/dev/tutorials/README.md` |
 | Work item id | `YYYY-MM-DD-kebab-slug` | `2026-11-01-add-login` |
 | Work item folder | the id | `work/items/2026-11-01-add-login/` |
 | Light item | the id plus `.md` | `work/items/2026-11-01-fix-typo.md` |
