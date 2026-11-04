@@ -1,0 +1,41 @@
+name: owner-approval
+
+# The owner approves every change to the agent harness. This repo has no branch protection (its plan
+# does not offer it), so this check cannot block a merge: it makes an unapproved harness change
+# show as a red X on the pull request. The owner adds the `owner-approved` label; agents never do.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  harness:
+    name: harness changes need the owner-approved label
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+      - name: Require the label when harness files change
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          set -eu
+          protected='^(AGENTS\.md|CLAUDE\.md|template/AGENTS\.md\.jinja|template/agents/.*|\.github/CODEOWNERS|\.github/workflows/owner-approval\.yml)$'
+          changed=$(git diff --name-only "origin/${BASE_REF}" HEAD)
+          hits=$(printf '%s\n' "$changed" | grep -E "$protected" || true)
+          if [ -z "$hits" ]; then
+            echo "No harness files changed."
+            exit 0
+          fi
+          echo "Harness files changed:"
+          printf '%s\n' "$hits"
+          if printf '%s' "$LABELS" | jq -e 'index("owner-approved")' >/dev/null; then
+            echo "The owner-approved label is present."
+            exit 0
+          fi
+          echo "::error::These files need the owner's approval. The owner adds the 'owner-approved' label after reviewing them."
+          exit 1

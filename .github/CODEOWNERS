@@ -1,0 +1,10 @@
+# The owner reviews every change to the agent harness: it changes how every agent behaves.
+# GitHub enforces this file only through branch protection ("Require review from Code Owners"),
+# which this private repo's plan does not offer. Until then .github/workflows/owner-approval.yml
+# shows a red check on these paths without the `owner-approved` label.
+/AGENTS.md                              @shinkir6u
+/CLAUDE.md                              @shinkir6u
+/template/AGENTS.md.jinja               @shinkir6u
+/template/agents/                       @shinkir6u
+/.github/CODEOWNERS                     @shinkir6u
+/.github/workflows/owner-approval.yml   @shinkir6u
