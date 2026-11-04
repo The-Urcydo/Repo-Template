@@ -25,7 +25,10 @@ jobs:
         run: |
           set -eu
           protected='^(AGENTS\.md|CLAUDE\.md|template/AGENTS\.md\.jinja|template/agents/.*|\.github/CODEOWNERS|\.github/workflows/owner-approval\.yml)$'
-          changed=$(git diff --name-only "origin/${BASE_REF}" HEAD)
+          # --no-renames lists the old path of a moved file too, so moving a file out of a protected
+          # path is caught. -z keeps git from quoting non-ASCII names ("\303\251"), which a
+          # `^template/agents/` match would otherwise miss.
+          changed=$(git diff --name-only --no-renames -z "origin/${BASE_REF}" HEAD | tr '\0' '\n')
           hits=$(printf '%s\n' "$changed" | grep -E "$protected" || true)
           if [ -z "$hits" ]; then
             echo "No harness files changed."
