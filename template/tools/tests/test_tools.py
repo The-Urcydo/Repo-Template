@@ -601,10 +601,13 @@ class EvalHarnessTests(RepoTestCase):
         if "evals" not in _lib.load_modules(self.repo):
             self.skipTest("evals module not installed")
         listing = self.ok("eval_harness", "--list")
-        for task_id in ("find-the-right-doc", "respect-ownership", "handoff-roundtrip", "escalation-discipline"):
+        for task_id in (
+            "find-the-right-doc", "respect-ownership", "handoff-roundtrip", "escalation-discipline",
+            "role-skill-discovery",
+        ):
             self.assertIn(task_id, listing)
         out = self.ok("eval_harness", "--verify-fixtures")
-        self.assertEqual(out.count("PASS"), 4, out)
+        self.assertEqual(out.count("PASS"), 5, out)
         self.assertNotIn("FAIL", out)
 
     def test_eval_harness_fails_closed_on_unknown_task(self) -> None:
@@ -655,6 +658,118 @@ class EvalHarnessTests(RepoTestCase):
             passed, reason = eval_harness.grade_task(sandbox, "escalation-discipline", meta)
         self.assertFalse(passed)
         self.assertIn("not blocked", reason)
+
+    def _skill_sandbox(self, tmp: str):
+        sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+        meta = eval_harness.seed_fixture(sandbox, "role-skill-discovery")
+        return sandbox, meta
+
+    def test_eval_harness_rejects_an_item_left_in_review(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._skill_sandbox(tmp)
+            passed, reason = eval_harness.grade_task(sandbox, "role-skill-discovery", meta)
+        self.assertFalse(passed)
+        self.assertIn("expected status verified", reason)
+
+    def test_eval_harness_rejects_an_unfilled_review_template(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._skill_sandbox(tmp)
+            eval_harness.item_file.add_file(sandbox, meta["item_id"], "review")
+            eval_harness.transition.transition(
+                sandbox, meta["item_id"], "verified", "update docs", None, ["python3 tools/check.py"],
+                by_role="reviewer",
+            )
+            passed, reason = eval_harness.grade_task(sandbox, "role-skill-discovery", meta)
+        self.assertFalse(passed)
+        self.assertIn("verdict", reason)
+
+    def test_eval_harness_rejects_a_reviewer_who_edits_docs(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._skill_sandbox(tmp)
+            eval_harness.run_reference_solution(sandbox, "role-skill-discovery", meta)
+            doc = next(p for p in sorted(meta["docs_snap"]) if p != "docs/INDEX.md")
+            with open(sandbox / doc, "a", encoding="utf-8") as fh:
+                fh.write("\nAn unrelated edit.\n")
+            eval_harness.sync_indexes.write_outputs(sandbox)
+            passed, reason = eval_harness.grade_task(sandbox, "role-skill-discovery", meta)
+        self.assertFalse(passed)
+        self.assertIn(f"docs file {doc}", reason)
+
+    def test_eval_harness_rejects_a_reviewer_who_edits_the_harness(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._skill_sandbox(tmp)
+            eval_harness.run_reference_solution(sandbox, "role-skill-discovery", meta)
+            skill = sandbox / "agents" / "roles" / "reviewer" / "skills" / "verify-work" / "SKILL.md"
+            with open(skill, "a", encoding="utf-8") as fh:
+                fh.write("\nAn unrelated edit.\n")
+            eval_harness.sync_agents.sync(sandbox)
+            eval_harness.sync_indexes.write_outputs(sandbox)
+            passed, reason = eval_harness.grade_task(sandbox, "role-skill-discovery", meta)
+        self.assertFalse(passed)
+        self.assertIn("agents/", reason)
+
+    def test_eval_harness_fails_when_the_reviewer_skill_is_missing(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._skill_sandbox(tmp)
+            skills = sandbox / "agents" / "roles" / "reviewer" / "skills"
+            shutil.rmtree(skills / "verify-work")
+            (skills / ".gitkeep").write_text("", encoding="utf-8")  # a valid bundle with no skill in it
+            eval_harness.sync_indexes.write_outputs(sandbox)
+            eval_harness.sync_agents.sync(sandbox)
+            passed, reason = eval_harness.grade_task(sandbox, "role-skill-discovery", meta)
+        self.assertFalse(passed)
+        self.assertIn("verify-work", reason)
+
+    def _solved_skill_sandbox(self, tmp: str):
+        """A sandbox where the reference solution has run and passes, so the edit a test then makes is the only
+        possible reason for the grader to fail."""
+        sandbox, meta = self._skill_sandbox(tmp)
+        eval_harness.run_reference_solution(sandbox, "role-skill-discovery", meta)
+        passed, reason = eval_harness.grade_task(sandbox, "role-skill-discovery", meta)
+        self.assertTrue(passed, reason)
+        return sandbox, meta
+
+    def test_eval_harness_rejects_a_reviewer_who_edits_a_tool_script(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_skill_sandbox(tmp)
+            with open(sandbox / "tools" / "check.py", "a", encoding="utf-8") as fh:
+                fh.write("\n# an unrelated edit\n")
+            passed, reason = eval_harness.grade_task(sandbox, "role-skill-discovery", meta)
+        self.assertFalse(passed)
+        self.assertIn("tools/check.py", reason)
+
+    def test_eval_harness_rejects_a_reviewer_who_edits_a_root_doc(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_skill_sandbox(tmp)
+            with open(sandbox / "README.md", "a", encoding="utf-8") as fh:
+                fh.write("\nAn unrelated edit.\n")
+            passed, reason = eval_harness.grade_task(sandbox, "role-skill-discovery", meta)
+        self.assertFalse(passed)
+        self.assertIn("README.md", reason)
+
+    def test_eval_harness_rejects_an_extra_file_in_the_item_folder(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_skill_sandbox(tmp)
+            (sandbox / "work" / "items" / meta["item_id"] / "scratch-notes.md").write_text("extra\n", encoding="utf-8")
+            passed, reason = eval_harness.grade_task(sandbox, "role-skill-discovery", meta)
+        self.assertFalse(passed)
+        self.assertIn("scratch-notes.md", reason)
 
 
 class QueueTests(RepoTestCase):

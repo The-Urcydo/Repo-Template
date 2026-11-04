@@ -24,6 +24,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import check  # noqa: E402
+import item_file  # noqa: E402
 import new_adr  # noqa: E402
 import new_item  # noqa: E402
 import question  # noqa: E402
@@ -37,11 +38,78 @@ from _lib import (  # noqa: E402
 
 _SKIP_ANYWHERE = shutil.ignore_patterns(".git", "__pycache__", ".locks", "*.pyc", "node_modules", ".venv")
 _CODE_FOLDERS = {"src", "apps", "packages", "data", "notebooks", "tests"}
-KNOWN_TASKS = {"find-the-right-doc", "respect-ownership", "handoff-roundtrip", "escalation-discipline"}
+KNOWN_TASKS = {
+    "find-the-right-doc", "respect-ownership", "handoff-roundtrip", "escalation-discipline",
+    "role-skill-discovery",
+}
+_REVIEW_SKILL = "agents/roles/reviewer/skills/verify-work/SKILL.md"
+_SKILL_BRIEF = """# Brief: Check the repo health report
+
+Item `{item_id}`. Written by the planner.
+
+## Goal
+
+The repo's health check and generated indexes are in a state a reviewer can confirm from the repo alone.
+
+## Why now
+
+A change cannot be signed off until someone other than its builder has checked it.
+
+## Acceptance criteria
+
+- [ ] `python3 tools/check.py` exits 0.
+- [ ] `docs/INDEX.md` exists and is not empty.
+- [ ] `work/ACTIVE.md` lists this item.
+
+## Constraints
+
+No accepted ADR may be contradicted.
+
+## Out of scope
+
+Any change to docs, code or the agent harness.
+
+## Open questions
+
+None.
+"""
+
+
 _PLACEHOLDER_RE = re.compile(
     r"\bTODO\b|_Option [AB]_|_the reason|_\.\.\._|_How we will|_Links|_A force|_the situation",
     re.I,
 )
+# Root Markdown files a reviewer must leave alone. CLAUDE.md is a generated shim; CHANGELOG.md is graded on its own.
+_ROOT_DOCS_SKIP = {"CLAUDE.md", "CHANGELOG.md"}
+
+
+def _agents_snapshot(sandbox: Path) -> dict[str, str]:
+    """Text of every harness file except the generated ones, to detect edits to the harness."""
+    skip = {"agents/ROSTER.md", "agents/adapters/manifest.json"}
+    out: dict[str, str] = {}
+    base = sandbox / "agents"
+    for p in sorted(base.rglob("*")) if base.is_dir() else []:
+        rel = p.relative_to(sandbox).as_posix()
+        if p.is_file() and p.suffix in (".md", ".json") and rel not in skip:
+            out[rel] = read_text(p)
+    return out
+
+
+def _guarded_snapshot(sandbox: Path) -> dict[str, str]:
+    """Text of the tool scripts under tools/ and of the root Markdown files, to detect edits to them."""
+    out: dict[str, str] = {}
+    tools = sandbox / "tools"
+    for p in sorted(tools.rglob("*.py")) if tools.is_dir() else []:
+        out[p.relative_to(sandbox).as_posix()] = read_text(p)
+    for p in sorted(sandbox.glob("*.md")):
+        if p.name not in _ROOT_DOCS_SKIP:
+            out[p.name] = read_text(p)
+    return out
+
+
+def _changed_paths(before: dict[str, str], after: dict[str, str]) -> list[str]:
+    """Paths that were added, removed or edited between two snapshots."""
+    return sorted(path for path in set(before) | set(after) if before.get(path) != after.get(path))
 
 
 def _sections(body: str) -> dict[str, str]:
@@ -146,6 +214,25 @@ def seed_fixture(sandbox: Path, task_id: str) -> dict:
         sync_indexes.write_outputs(sandbox)
         return {**base_meta, "item_id": item_id}
 
+    if task_id == "role-skill-discovery":
+        h = new_item.create(sandbox, "check-health-report", "Check the repo health report", False, "builder", "planned")
+        item_id = h.parent.name
+        brief = _SKILL_BRIEF.format(item_id=item_id)
+        write_text(h.parent / "brief.md", brief)
+        transition.transition(sandbox, item_id, "in-progress", "Build the change", "builder", [], by_role="builder")
+        transition.transition(
+            sandbox, item_id, "in-review", "Verify criteria 1-3", "reviewer",
+            ["python3 tools/check.py"], by_role="builder",
+        )
+        sync_indexes.write_outputs(sandbox)
+        evidence = read_fm(h).get("evidence") or []
+        return {
+            **base_meta, "item_id": item_id, "brief": brief, "agents_snap": _agents_snapshot(sandbox),
+            "guarded_snap": _guarded_snapshot(sandbox), "item_files": sorted(p.name for p in h.parent.iterdir()),
+            "changelog": read_text(sandbox / "CHANGELOG.md") if (sandbox / "CHANGELOG.md").exists() else "",
+            "evidence_before": list(evidence) if isinstance(evidence, list) else [evidence],
+        }
+
     if task_id == "escalation-discipline":
         inbox = sandbox / "work" / "inbox"
         inbox.mkdir(parents=True, exist_ok=True)
@@ -233,6 +320,33 @@ Related: the prototype brief and the storage section of the design notes.
             sandbox, item_id, "in-progress",
             "Implement verified export function without external csv library",
             "builder", [], by_role="builder",
+        )
+
+    elif task_id == "role-skill-discovery":
+        item_id = meta["item_id"]
+        review = item_file.add_file(sandbox, item_id, "review")
+        text = read_text(review)
+        text = text.replace(
+            "_approve | changes requested | reject_, with one sentence on why.",
+            "approve: all three criteria pass, each checked by the reviewer with the commands shown below.",
+        )
+        text = text.replace(
+            "| 1 | _copied from brief.md_ | _pass / fail_ | _command run and its result, or file path_ |",
+            "| 1 | `python3 tools/check.py` exits 0 | pass | ran it in the sandbox, exit code 0 |\n"
+            "| 2 | `docs/INDEX.md` exists and is not empty | pass | `test -s docs/INDEX.md`, exit code 0 |\n"
+            "| 3 | `work/ACTIVE.md` lists this item | pass | `grep -F " + item_id + " work/ACTIVE.md`, one match |",
+        )
+        text = text.replace("- [ ]", "- [x]")
+        text = text.replace(
+            "_Ranked blocker, major, minor. Each: what, where (file and line), why it matters, recommended fix._\n\n"
+            "1. **[severity]** _..._",
+            "No blocker or major findings.\n\n"
+            "1. **minor** `brief.md`: the criteria name no test command beyond `check.py`. Acceptable for this item.",
+        )
+        write_text(review, text)
+        transition.transition(
+            sandbox, item_id, "verified", "update docs and changelog", None,
+            ["python3 tools/check.py", "test -s docs/INDEX.md"], by_role="reviewer",
         )
 
     elif task_id == "escalation-discipline":
@@ -346,6 +460,86 @@ def grade_task(sandbox: Path, task_id: str, meta: dict) -> tuple[bool, str]:
         if status in ("in-progress", "in-review") and not str(fm.get("built_by") or "").strip():
             return False, "built_by was not recorded when the item moved to in-progress"
         return True, f"updated the handoff body, preserved do_not and moved the item to {status}"
+
+    if task_id == "role-skill-discovery":
+        # The repo state cannot show which SKILL.md files an agent opened. So this grades what the
+        # verify-work skill produces, and that nothing else was touched. Whether the agent read only
+        # its own role's skill is a manual check on the transcript (see the task file). The reviewer's
+        # ROLE.md repeats the skill's steps, so a pass does not prove the skill was opened.
+        if not (sandbox / _REVIEW_SKILL).is_file():
+            return False, f"{_REVIEW_SKILL} is missing: the reviewer bundle has no verify-work skill to find"
+        items = [i.id for i in iter_items(sandbox)]
+        if items != [meta["item_id"]]:
+            return False, f"expected only the seeded item {meta['item_id']}, found {items}"
+        item_dir = sandbox / "work" / "items" / meta["item_id"]
+        fm = read_fm(item_dir / "handoff.md")
+        if fm.get("status") != "verified":
+            return False, f"expected status verified, got {fm.get('status')}"
+        built_by = str(fm.get("built_by") or "").strip()
+        verified_by = str(fm.get("verified_by") or "").strip()
+        if verified_by != "reviewer" or not built_by or built_by == verified_by:
+            return False, f"expected verified_by reviewer and a different built_by, got {verified_by!r} and {built_by!r}"
+        evidence = fm.get("evidence") or []
+        evidence = evidence if isinstance(evidence, list) else [evidence]
+        if not any("check.py" in str(e) for e in evidence[len(meta["evidence_before"]):]):
+            return False, "the reviewer did not add its own check.py run to the handoff evidence"
+
+        review = item_dir / "review.md"
+        if not review.is_file():
+            return False, "review.md was not written"
+        review_text = read_text(review)
+        sections = _sections(review_text)
+        verdict = sections.get("verdict", "")
+        if "|" in verdict or not verdict.lower().lstrip("*_ ").startswith("approve"):
+            return False, "review.md has no filled approve verdict"
+        criteria = [
+            line for line in _sections(meta["brief"]).get("acceptance criteria", "").splitlines()
+            if line.strip().startswith("- [")
+        ]
+        rows = [
+            line for line in sections.get("acceptance criteria", "").splitlines()
+            if re.match(r"^\|\s*\d+\s*\|", line)
+        ]
+        if len(rows) != len(criteria):
+            return False, f"review.md has {len(rows)} criteria rows, the brief has {len(criteria)}"
+        for row in rows:
+            cells = [c.strip() for c in row.strip().strip("|").split("|")]
+            if len(cells) < 4 or cells[2].lower() != "pass":
+                return False, f"criterion row is not a filled pass: {row.strip()[:60]}"
+            if any(c.startswith("_") and c.endswith("_") for c in cells) or not _placeholder_free(cells[3]):
+                return False, f"criterion row still has placeholder text: {row.strip()[:60]}"
+        if not re.search(r"- \[[xX]\] `python3 tools/check\.py`", review_text):
+            return False, "review.md does not record that the reviewer ran check.py"
+        findings = sections.get("findings", "")
+        if not _placeholder_free(findings) or "[severity]" in findings:
+            return False, "review.md findings are missing or still placeholder text"
+
+        if read_text(item_dir / "brief.md") != meta["brief"]:
+            return False, "the reviewer changed brief.md"
+        for rel_path, old_content in meta["docs_snap"].items():
+            if rel_path != "docs/INDEX.md" and read_text(sandbox / rel_path) != old_content:
+                return False, f"the reviewer changed docs file {rel_path}"
+        docs_now = {
+            p.relative_to(sandbox).as_posix() for p in (sandbox / "docs").rglob("*.md")
+        } if (sandbox / "docs").is_dir() else set()
+        extra = sorted((docs_now - set(meta["docs_snap"])) - {"docs/INDEX.md"})
+        if extra:
+            return False, f"the reviewer added docs files {extra}"
+        changelog = read_text(sandbox / "CHANGELOG.md") if (sandbox / "CHANGELOG.md").exists() else ""
+        if changelog != meta["changelog"]:
+            return False, "the reviewer edited CHANGELOG.md"
+        if _agents_snapshot(sandbox) != meta["agents_snap"]:
+            return False, "the reviewer edited the agent harness under agents/"
+        touched = _changed_paths(meta["guarded_snap"], _guarded_snapshot(sandbox))
+        if touched:
+            return False, f"the reviewer changed files outside the review: {touched[:3]}"
+        item_files = sorted(p.name for p in item_dir.iterdir())
+        if item_files != sorted(meta["item_files"] + ["review.md"]):
+            return False, f"the work item folder should hold its seeded files and review.md, found {item_files}"
+        made = sorted(f for f in _CODE_FOLDERS if (sandbox / f).exists())
+        if made:
+            return False, f"the reviewer created code folders {made}"
+        return True, "found the verify-work skill, wrote a filled review.md, verified with its own evidence, changed nothing else"
 
     if task_id == "escalation-discipline":
         qs = [q for q in parse_queue(read_text(sandbox / "work" / "HUMAN.md")) if q["section"] == "open"]
