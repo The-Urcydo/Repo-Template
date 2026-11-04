@@ -19,8 +19,9 @@ Front matter is a small YAML subset at the top of a Markdown file between `---` 
 | `summary` | yes | One sentence, at most 240 characters; the index is built from it |
 | `related_code` | no | List of repo paths the doc describes; each must exist |
 | `last_verified` | no | ISO date the doc was last checked against its code; a warning fires if a related path changed after it |
+| `audience` | no | `dev` `user` `product` `ops` `security`. Overrides the audience the folder implies, so the generated index lists the doc under that audience; the file stays where it is |
 
-In `docs/tutorials/`, `how-to/`, `reference/`, `explanation/` and `decisions/`, `type` must match the folder unless it is `index` or `meta`.
+In the type folders `tutorials/`, `how-to/`, `reference/` and `explanation/` (under `docs/dev/` or `docs/user/`) and in `docs/decisions/`, `type` must match the folder unless it is `index` or `meta`. A type folder directly under `docs/` is an error (`docs-layout`).
 
 ## ADRs (`docs/decisions/NNNN-title.md`)
 

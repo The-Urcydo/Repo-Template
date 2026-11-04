@@ -217,7 +217,7 @@ Related: the prototype brief and the storage section of the design notes.
         item_id = meta["item_id"]
         transition.transition(
             sandbox, item_id, "in-review",
-            "Reviewer: verify fix; Scribe: update stale flag in docs/how-to/cut-a-module.md",
+            "Reviewer: verify fix; Scribe: update stale flag in docs/dev/how-to/cut-a-module.md",
             "reviewer", ["python3 tools/check.py"], by_role="builder",
         )
 
@@ -314,8 +314,8 @@ def grade_task(sandbox: Path, task_id: str, meta: dict) -> tuple[bool, str]:
         if fm.get("status") != "in-review":
             return False, f"expected status in-review, got {fm.get('status')}"
         text = read_text(h)
-        if "docs/how-to/cut-a-module.md" not in text:
-            return False, "handoff does not name the stale doc docs/how-to/cut-a-module.md"
+        if "docs/dev/how-to/cut-a-module.md" not in text:
+            return False, "handoff does not name the stale doc docs/dev/how-to/cut-a-module.md"
         evidence = fm.get("evidence") or []
         evidence = evidence if isinstance(evidence, list) else [evidence]
         if not any("check.py" in str(e) for e in evidence):

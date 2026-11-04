@@ -45,6 +45,6 @@ The charter file is `ROLE.md`. It mirrors `SKILL.md` and avoids `README.md`, whi
 
 ## More information
 
-`agents/AGENTS.md` (the rule), `agents/README.md`, `docs/how-to/add-a-role.md` (including "Removing a role"), `docs/how-to/add-a-skill.md`. Related: ADR 0002 (tool-neutral `agents/`) and ADR 0004 (cuttable modules); this decision changes neither.
+`agents/AGENTS.md` (the rule), `agents/README.md`, `docs/dev/how-to/add-a-role.md` (including "Removing a role"), `docs/dev/how-to/add-a-skill.md`. Related: ADR 0002 (tool-neutral `agents/`) and ADR 0004 (cuttable modules); this decision changes neither.
 
 Revisit the folder rule when a skill changes lanes twice, or when the repo passes roughly 15-20 skills. At that point, consider an explicit `audience:`/`roles:` field in `SKILL.md` or a generated skill matrix instead of relying on folder placement alone.

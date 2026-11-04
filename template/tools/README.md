@@ -7,7 +7,7 @@ owner_role: builder
 ---
 # tools/
 
-Plain `python3 tools/<name>.py`, no installs. Run any tool with `--help`. Command reference: `docs/reference/commands.md`.
+Plain `python3 tools/<name>.py`, no installs. Run any tool with `--help`. Command reference: `docs/dev/reference/commands.md`.
 
 | Tool | What it does |
 |---|---|

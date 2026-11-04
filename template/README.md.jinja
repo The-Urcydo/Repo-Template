@@ -13,13 +13,13 @@
 
 The repo is split by how fast things change, so each folder has one lifecycle and one owner:
 
-- `docs/` holds what is true now: tutorials, how-to guides, reference, explanation, and decisions (ADRs).
+- `docs/` holds what is true now, grouped by reader: `dev/` for contributors and `user/` for end users (each with tutorials, how-to guides, reference and explanation), plus `decisions/` (ADRs) for everyone.
 - `work/` holds what is happening now: work items, the human decision queue, research notes. Expected to be pruned.
 - `agents/` holds how the work gets done: roles, protocols, and skills. Tool-neutral, so any agent can follow them.
 - `tools/` holds small standard-library scripts that keep all of the above consistent.
 - {% if layout == 'workspace' %}The code lives in `apps/` and `packages/`, tested in `tests/`.{% elif layout == 'data-ml' %}The code, datasets and notebooks live in `src/`, `data/` and `notebooks/`, tested in `tests/`.{% elif layout == 'minimal' %}Add your project or engine folders at the root, each with a `README.md` (`summary` and `owner_role`).{% else %}The code lives in `src/`, tested in `tests/`.{% endif %}
 
-Full folder map: [docs/reference/repo-map.md](docs/reference/repo-map.md). Why it is built this way: [docs/explanation/design-rationale.md](docs/explanation/design-rationale.md).
+Full folder map: [docs/dev/reference/repo-map.md](docs/dev/reference/repo-map.md). Why it is built this way: [docs/dev/explanation/design-rationale.md](docs/dev/explanation/design-rationale.md).
 
 ## Everyday commands
 
@@ -33,4 +33,4 @@ python3 tools/remove_module.py            # list optional modules you can cut
 ## Built from a template
 
 This repo was generated from `Repo-Template` with Copier. Pull template improvements with
-`copier update --trust` (clean git tree required). See [docs/how-to/update-from-template.md](docs/how-to/update-from-template.md).
+`copier update --trust` (clean git tree required). See [docs/dev/how-to/update-from-template.md](docs/dev/how-to/update-from-template.md).

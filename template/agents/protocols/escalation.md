@@ -16,7 +16,7 @@ The human is the scarcest resource. Ask rarely, ask well, never block everything
 - **A scope or goal change**: the work would now do something the brief did not ask for.
 - **Ambiguous in a way that changes the outcome**, and you cannot resolve it from the repo.
 - **A conflict**: two accepted ADRs disagree, or the request contradicts one.
-- **An ADR the human must accept**: a significant, costly or irreversible decision. Ask through the queue (see `docs/how-to/write-an-adr.md`).
+- **An ADR the human must accept**: a significant, costly or irreversible decision. Ask through the queue (see `docs/dev/how-to/write-an-adr.md`).
 
 Do **not** ask about reversible, low-cost choices inside your role. Decide, record it in the handoff ("Decisions made"), and move on.
 

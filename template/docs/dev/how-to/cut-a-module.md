@@ -25,4 +25,4 @@ Goal: remove a part of the repo you do not need without leaving dangling referen
 - Cut the wrong module: `git restore` the paths, or `git revert` the commit, and re-run `python3 tools/sync_indexes.py`. Also restore `.copier-answers.yml`.
 - `module-coupling` errors from `check.py` mean a core file links into a module. Replace the link with a backticked path (core must not depend on optional modules).
 
-Which modules exist and their paths: `python3 tools/remove_module.py`, or the generated `docs/reference/modules.md`.
+Which modules exist and their paths: `python3 tools/remove_module.py`, or the generated `docs/dev/reference/modules.md`.
