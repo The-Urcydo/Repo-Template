@@ -24,6 +24,7 @@ Goal: a procedure agents load only when a task matches it, so it costs almost no
 |---|---|---|
 | `write-doc` | `agents/skills/` | any role that owns a docs folder uses it |
 | `write-handoff` | `agents/skills/` | any role holding an item uses it |
+| `merge-work` | `agents/skills/` | whoever holds the owner's merge grant uses it; owner-invoked (`disable-model-invocation: true`) because merging changes the shared branch |
 | `verify-work` | `agents/roles/reviewer/skills/` | only the reviewer verifies work |
 | `record-decision` | `agents/roles/architect/skills/` | only the architect records ADRs |
 

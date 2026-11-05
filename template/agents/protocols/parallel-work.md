@@ -33,6 +33,6 @@ Many agents at once is the normal case. Collisions are prevented by structure, n
 
 ## Merging
 
-- Merge only items that are `verified`.
+- Merging needs the owner's grant. Follow `agents/skills/merge-work/SKILL.md`: it checks that the item is `verified`, audits the branch, syncs with main and runs the checks before it merges.
 - After merging, regenerate: `python3 tools/sync_indexes.py && python3 tools/sync_agents.py`, then `python3 tools/check.py`. Generated files conflict often and are never merged by hand; regenerate them instead.
 - Remove the sibling worktree when the item is `verified`, `done` or `canceled`: `python3 tools/worktree.py remove <item-id>`. The tool finds the worktree by its `item/<item-id>` branch, so it also works after `create --path`. It deletes the branch only when it is already merged; otherwise it prints the exact command to remove it after merging.
