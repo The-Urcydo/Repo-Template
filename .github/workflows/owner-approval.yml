@@ -1,0 +1,85 @@
+name: owner-approval
+
+# The owner approves every change to the agent harness, with a pull request review from one of the
+# OWNERS below (hand-used accounts). Agent accounts cannot submit a review as another account, and a
+# newer commit makes an earlier approval stale. This workflow posts the commit status
+# `owner-approval/review`; agents merge only when it is green (see AGENTS.md). Until branch
+# protection requires that status it cannot block a merge by itself. The job itself always passes when
+# it could post the status, so a later approving review replaces a red status instead of leaving an old
+# red run behind.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_review:
+    types: [submitted, dismissed]
+
+permissions:
+  contents: read
+  pull-requests: read
+  statuses: write
+
+# One run per pull request at a time. The newest run reads every earlier review, so it has the final say.
+concurrency:
+  group: owner-approval-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: post the owner-approval/review status
+    runs-on: ubuntu-latest
+    steps:
+      # Pinned to a full commit SHA like test.yml; Dependabot keeps it current.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require an owner's approving review when harness files change
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # GitHub logins, space separated, compared without regard to case. Keep in step with CODEOWNERS.
+          OWNERS: nguyenquocduyloc NguyenLoc231
+        run: |
+          set -euo pipefail
+          protected='^(AGENTS\.md|CLAUDE\.md|template/AGENTS\.md\.jinja|template/agents/.*|\.github/CODEOWNERS|\.github/workflows/owner-approval\.yml)$'
+          post() {
+            gh api "repos/${REPO}/statuses/${HEAD_SHA}" -f state="$1" -f context="owner-approval/review" \
+              -f description="$2" -f target_url="${RUN_URL}" >/dev/null
+          }
+          # Three dots: only what this pull request changed since it left the base. --no-renames lists the
+          # old path of a moved file too; -z keeps git from quoting non-ASCII names, which the match would miss.
+          changed=$(git diff --name-only --no-renames -z "origin/${BASE}...${HEAD_SHA}" | tr '\0' '\n')
+          hits=$(printf '%s\n' "$changed" | grep -E "$protected" || true)
+          if [ -z "$hits" ]; then
+            echo "No harness files changed."
+            post success "No harness files changed"
+            exit 0
+          fi
+          echo "Harness files changed:"
+          printf '%s\n' "$hits"
+          # Per owner, the latest review that is an approval, a change request or a dismissal (comments do
+          # not count); it must be an approval of exactly the latest commit.
+          approved=$(gh api --paginate "repos/${REPO}/pulls/${PR}/reviews" \
+            --jq '.[] | {login: .user.login, state: .state, sha: .commit_id, at: .submitted_at}' \
+            | jq -s -r --arg head "${HEAD_SHA}" --arg owners "${OWNERS}" '
+                ($owners | split(" ") | map(ascii_downcase)) as $o
+                | [ .[]
+                    | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED" or .state == "DISMISSED")
+                    | select((.login | ascii_downcase) as $l | any($o[]; . == $l)) ]
+                | group_by(.login | ascii_downcase)
+                | map(sort_by(.at) | last)
+                | map(select(.state == "APPROVED" and .sha == $head))
+                | map(.login) | join(", ")')
+          if [ -n "$approved" ]; then
+            echo "Approved on ${HEAD_SHA} by: ${approved}"
+            post success "Approved by ${approved} on the latest commit"
+            exit 0
+          fi
+          echo "::warning::No approving review from an owner (${OWNERS}) on ${HEAD_SHA}."
+          post failure "Needs an approving review from an owner on the latest commit"
