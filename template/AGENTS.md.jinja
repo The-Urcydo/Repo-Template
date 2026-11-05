@@ -22,6 +22,13 @@
 ## Your role
 The human or the item's `owner_role` names it; charters are in `agents/roles/`. If nobody named one, take the role that owns what the task touches (`agents/ROSTER.md` shows owners and skills); for a plain "do this work" request, act as the orchestrator and turn it into a work item. A session that must wear several roles says so in the handoff and never verifies what it built.
 
+## Ask, don't assume
+The human's words outrank your inference. If a directive can be read two ways that lead to different work, or you would have to invent a requirement to proceed, stop and ask before acting on that part. This outranks any "ask rarely" or "decide and move on" line elsewhere.
+- Ask once, with every open point, each with your best reading as the suggested answer. Keep working on the clear parts.
+- Ask in chat while the human is in the session; otherwise use `question.py`, default "that part is not done".
+- Writing "I assume", "probably means" or "I interpreted" is the signal to ask instead.
+- Choices that are yours (inside your role, unspoken by the human) stay yours: decide and record them. Rules: `agents/protocols/escalation.md`.
+
 ## Hard rules
 1. Stay in your lane. Write only what your role owns: a folder's `README.md` `owner_role`, or your role's `item_files`. Need a change elsewhere? Hand it to the owner: in your item's handoff, or as a light item (`new_item.py <slug> --light --status planned --owner <role>`).
 2. Accepted ADRs in `docs/decisions/` are binding. To change one, write a new ADR that supersedes it. Never work around one.
