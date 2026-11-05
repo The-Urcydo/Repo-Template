@@ -154,6 +154,36 @@ def test_root_only_copier_excludes_are_anchored():
         assert f'/{path}' in text, path
 
 
+def test_workflows_pin_actions_and_declare_permissions():
+    paths = sorted((TEMPLATE / ".github" / "workflows").glob("*.yml"))
+    paths += sorted((TEMPLATE / "template" / ".github" / "workflows").glob("*.yml"))
+    assert paths, "no workflows found"
+    for p in paths:
+        text = p.read_text(encoding="utf-8")
+        assert re.search(r"^permissions:\s*$", text, re.M), p
+        assert re.search(r"^\s+contents:\s*read\s*$", text, re.M), p
+        uses = re.findall(r"^\s*-?\s*uses:\s*(\S+)", text, re.M)
+        assert uses, p
+        for target in uses:
+            assert re.fullmatch(r"[^@\s]+@[0-9a-f]{40}", target), f"{p}: {target} is not pinned to a full SHA"
+
+
+def test_dependabot_configs_are_valid_and_grouped(full):
+    yaml = pytest.importorskip("yaml")
+    for p in (TEMPLATE / ".github" / "dependabot.yml", full / ".github" / "dependabot.yml"):
+        data = yaml.safe_load(p.read_text(encoding="utf-8"))
+        assert data["version"] == 2, p
+        actions = [u for u in data["updates"] if u["package-ecosystem"] == "github-actions"]
+        assert actions, p
+        assert actions[0]["schedule"]["interval"] == "weekly", p
+        assert actions[0]["groups"], p
+
+
+def test_github_module_registers_dependabot():
+    modules = json.loads((TEMPLATE / "template" / "tools" / "modules.json").read_text(encoding="utf-8"))
+    assert ".github/dependabot.yml" in modules["modules"]["github"]["paths"]
+
+
 def test_agents_md_lists_every_generated_adapter_output():
     for rel in ("AGENTS.md.jinja", "agents/AGENTS.md"):
         text = (TEMPLATE / "template" / rel).read_text(encoding="utf-8")

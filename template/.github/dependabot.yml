@@ -1,0 +1,11 @@
+# Keeps the SHA-pinned actions in .github/workflows/ current. One grouped pull request a week.
+# Add an entry per package ecosystem your project uses (npm, pip, cargo, ...).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
