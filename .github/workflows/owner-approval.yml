@@ -2,10 +2,11 @@ name: owner-approval
 
 # The owner approves every change to the agent harness, with a pull request review from one of the
 # OWNERS below (hand-used accounts). Agent accounts cannot submit a review as another account, and a
-# newer commit makes an earlier approval stale. This repo has no branch protection (its plan does not
-# offer it), so this cannot block a merge: it posts the commit status `owner-approval/review` and
-# leaves the decision to the owner. The job itself always passes when it could post the status, so a
-# later approving review replaces a red status instead of leaving an old red run behind.
+# newer commit makes an earlier approval stale. This workflow posts the commit status
+# `owner-approval/review`; agents merge only when it is green (see AGENTS.md). Until branch
+# protection requires that status it cannot block a merge by itself. The job itself always passes when
+# it could post the status, so a later approving review replaces a red status instead of leaving an old
+# red run behind.
 on:
   pull_request:
     types: [opened, synchronize, reopened]
@@ -17,15 +18,22 @@ permissions:
   pull-requests: read
   statuses: write
 
+# One run per pull request at a time. The newest run reads every earlier review, so it has the final say.
+concurrency:
+  group: owner-approval-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   review:
     name: post the owner-approval/review status
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # Pinned to a full commit SHA like test.yml; Dependabot keeps it current.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
+          persist-credentials: false
       - name: Require an owner's approving review when harness files change
         shell: bash
         env:

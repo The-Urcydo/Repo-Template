@@ -1,10 +1,10 @@
 # The owner reviews every change to the agent harness: it changes how every agent behaves.
 # Owner accounts (the person reviews by hand with these): nguyenquocduyloc, NguyenLoc231.
 # shiniroku and shinkir6u are agent-operated accounts. They are not owners of the harness.
-# GitHub enforces this file only through branch protection ("Require review from Code Owners"),
-# which this private repo's plan does not offer. Until then .github/workflows/owner-approval.yml
-# posts the commit status `owner-approval/review`: red until one of the owners above has approved
-# the latest commit of a pull request that touches these paths. Keep its OWNERS list in step.
+# GitHub enforces this file only where branch protection or a ruleset requires review from Code Owners.
+# Until one is set up, .github/workflows/owner-approval.yml posts the commit status
+# `owner-approval/review`: red until one of the owners above has approved the latest commit of a pull
+# request that touches these paths. Keep its OWNERS list in step.
 /AGENTS.md                              @nguyenquocduyloc @NguyenLoc231
 /CLAUDE.md                              @nguyenquocduyloc @NguyenLoc231
 /template/AGENTS.md.jinja               @nguyenquocduyloc @NguyenLoc231

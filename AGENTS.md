@@ -15,10 +15,16 @@ The human owner decides. Agents propose in pull requests.
 - Why it is built this way: the ADRs in `template/docs/decisions/` and `README.md`.
 
 ## Hard rules
-1. Never push to `main`, never force-push, never merge. The owner merges, after saying so in-session.
+1. Never push to `main`, never force-push. Merge a PR only when an owner account has approved its latest commit (an APPROVED review from `nguyenquocduyloc` or `NguyenLoc231`) and the status `owner-approval/review` is green on it. Use a merge commit (no squash, no rebase). If either is missing, leave the merge to the owner.
 2. One topic per PR, branched from `main`, not stacked. The description lists what changed, the evidence (commands and results) and the decisions only the owner can make.
-3. These need the owner's explicit approval: `template/agents/`, `template/AGENTS.md.jinja`, this file, `CLAUDE.md`, `.github/CODEOWNERS` and `.github/workflows/owner-approval.yml`. Approval is an APPROVED review on the PR's latest commit from an owner account (`nguyenquocduyloc`, `NguyenLoc231`; see `.github/CODEOWNERS`). `shiniroku` and `shinkir6u` are agent accounts: an agent never approves, and a push after the approval makes it stale, so do not push to a PR the owner has approved without saying so on the PR. Until then the status `owner-approval/review` is red. It cannot block a merge: the repo has no branch protection.
-4. Any other PR gets an independent review first: a reviewer that did not write it runs the tests and checks the PR against its description. Then the owner merges.
+3. Changes to the agent harness need the owner's explicit approval: `template/agents/`, `template/AGENTS.md.jinja`, this file, `CLAUDE.md`, `.github/CODEOWNERS` and `.github/workflows/owner-approval.yml`.
+   - Approval is as defined in rule 1. `.github/CODEOWNERS` lists the owner accounts.
+   - `shiniroku` and `shinkir6u` are agent accounts. An agent never approves.
+   - A push after the approval makes it stale: say so on the PR before you push to an approved PR.
+   - `owner-approval/review` stays red until an owner has approved the latest commit. Until branch protection requires it, it is a check, not a lock.
+4. Any other PR gets an independent review first: a reviewer that did not write it runs the tests and checks the PR against its description. Then the owner approves it (rule 1) and it can be merged.
 5. Everything under `template/` ships to every generated project: keep this repo's own notes out of it. ADRs there ship too: take the next number from `main` and check open PRs for the same number first.
 6. New workflows set `permissions` and pin actions to commit SHAs.
-7. Do not trust a check that ends in a counting pipe (`grep -c`, `wc -l`): if the first command fails it still prints 0. Use a command with an exit code.
+
+## Gotchas
+- Do not trust a check that ends in a counting pipe (`grep -c`, `wc -l`): if the first command fails it still prints 0. Use a command with an exit code.
