@@ -21,7 +21,7 @@ A directive is ambiguous when any of these is true:
 - It conflicts with the brief, an accepted ADR or an earlier directive.
 - You would have to invent a requirement to proceed.
 
-Writing "I assume", "probably means" or "I interpreted" in your own reasoning means the same: stop and ask. A guess marked "assumed" in the handoff is still a guess.
+Writing "I assume", "probably means" or "I interpreted" in your own reasoning about what the human wants means the same: stop and ask. A guess marked "assumed" in the handoff is still a guess. An assumption about the environment or the code is not this: check it yourself.
 
 Make one lookup first (the brief, the handoff, `docs/INDEX.md`, the ADRs). Do not ask what they already answer, and do not ask what the human cannot know (how the code works, say). Do ask when they leave it open.
 

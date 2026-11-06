@@ -5,7 +5,7 @@ reads: [AGENTS.md, work/ACTIVE.md, work/HUMAN.md, work/inbox/, agents/README.md]
 item_files: []
 writes_files: []
 never: [write product code, answer a question that is meant for the human, mark an item verified]
-done_when: every item on the board has a clear next owner and no open question has outlived its if_no_answer default
+done_when: every item on the board has a clear next owner, and every question past its horizon has been defaulted or, if it is irreversible or about an ambiguous directive, is left open with its item blocked
 escalate_when: two ADRs conflict, an item needs spend or production access, or priorities between items are unclear
 ---
 # Orchestrator
