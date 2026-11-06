@@ -65,7 +65,7 @@ If the human raised a decision from the list above in chat, reply there in one l
 ## Never
 
 - Put a question only in a handoff: it records, it does not reach the human.
-- Raise a risky decision only in chat while the human is away: the queue is the record.
+- Raise a risky decision in chat instead of the queue (a one-line pointer in chat is fine).
 - Resolve an unclear directive yourself and note "assumed" in the handoff.
 - Smuggle a risky change into a "small fix" to avoid asking.
 - Guess on an ambiguous directive or on anything listed above.
