@@ -19,11 +19,11 @@ The skill is the procedure; the gate is the repo's own protection (required chec
    - hand-edited generated files;
    - deletions you did not intend (`git diff --diff-filter=D --name-only origin/main...HEAD`);
    - secrets or scratch files;
-   - conflict markers (`git grep -n -e '<<<<<<<' -e '>>>>>>>'`).
+   - conflict markers (`git grep -n -E '^(<<<<<<<|>>>>>>>)( |$)'`, anchored so docs that mention markers do not match).
 
    Fix on the branch, then restart at step 3.
 5. **Main.** `git fetch origin main`. If main moved, merge it into the branch (no rebase, no force-push). Regenerate generated files instead of merging them by hand: `python3 tools/sync_indexes.py && python3 tools/sync_agents.py`. A conflict that needs judgment: stop (step 7).
-6. **Tools and CI.** Run `python3 tools/check.py` and the project's tests on the result. CI must be green on the branch's current head commit; a run from before the head or main moved does not count, so wait for a new one. Without CI, this step is the gate; say so in the handoff.
+6. **Tools and CI.** Run `python3 tools/check.py --strict` (as CI does) and the project's tests on the result. CI must be green on the branch's current head commit; a run from before the head or main moved does not count, so wait for a new one. Without CI, this step is the gate; say so in the handoff.
 7. **Stop and ask** when any step fails or is unclear, and do not merge meanwhile. Queue the question and point to it in one line in chat: `python3 tools/question.py ask "Merge <branch>?" --asked-by <role> --recommended "<your pick>" --if-no-answer "nothing is merged" --cost "<low|medium|high>: <what a wrong merge costs>" --item <item-id>`. If it is the owner's own words that are unclear, ask in chat first (`agents/protocols/escalation.md`).
 8. **Merge** with a merge commit (no squash, no rebase) unless the project's rules say otherwise. Never force-push, amend a commit already on main, skip hooks or bypass branch protection.
-9. **After.** Do the post-merge steps in `agents/protocols/parallel-work.md` (Merging). Write the merge commit's SHA into the handoff evidence, leave the status to the role the dispatch table names, and tell the owner in one line, with the undo: `git revert -m 1 <merge-sha>`.
+9. **After.** Do the post-merge steps in `agents/protocols/parallel-work.md` (Merging). Give the merge commit's SHA to the owner and put it in the handoff evidence with your next change, not by committing to the default branch. Leave the status to the role the dispatch table names, and tell the owner in one line, with the undo: `git revert -m 1 <merge-sha>` (after a squash or rebase merge: `git revert <sha>`).

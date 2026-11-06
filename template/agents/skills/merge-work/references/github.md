@@ -8,7 +8,7 @@ Read this when the project is on GitHub. Nothing here is required elsewhere. `gh
 - Head commit and mergeability: `gh api repos/<o>/<r>/pulls/<n> --jq '.head.sha, .mergeable_state'`. `clean` can merge; `behind`, `blocked`, `dirty` and `unstable` cannot yet.
 - Checks on that head commit: `gh api repos/<o>/<r>/commits/<sha>/check-runs --jq '.check_runs[] | [.name, .status, .conclusion] | @tsv'`, and commit statuses: `gh api repos/<o>/<r>/commits/<sha>/status --jq .state`. The `<sha>` must be the PR's current head.
 - Record the owner's grant on the PR: `gh api repos/<o>/<r>/issues/<n>/comments -F body=@file`
-- Merge commit: `gh api -X PUT repos/<o>/<r>/pulls/<n>/merge -f merge_method=merge`
+- Merge commit: `gh api -X PUT repos/<o>/<r>/pulls/<n>/merge -f merge_method=merge -f sha=<head sha>`. With `sha` set to the head you checked, GitHub refuses the merge if the branch moved after your checks.
 
 ## Make the gate real (for the owner)
 
