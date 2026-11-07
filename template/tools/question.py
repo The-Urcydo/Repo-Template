@@ -8,8 +8,9 @@ Usage:
   python3 tools/question.py answer Q-0001 "the decision" [--by NAME]
   python3 tools/question.py list
 
-Use this ONLY for decisions that are irreversible, risky, spend money, change scope, or are
-genuinely ambiguous (agents/protocols/escalation.md). Everything else: decide and note it.
+Use this for decisions that are irreversible, risky, spend money or change scope, and for a
+directive of the human that is ambiguous while the human is not in the session
+(agents/protocols/escalation.md). A choice of your own that nobody spoke about: decide and note it.
 """
 from __future__ import annotations
 

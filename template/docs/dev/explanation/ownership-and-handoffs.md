@@ -33,4 +33,4 @@ A session ends and the next one starts with nothing. The `handoff.md` front matt
 
 ## Asking the human
 
-The human is the scarcest resource, so questions go to one queue (`work/HUMAN.md`), each with a recommendation, a default and the cost of guessing wrong. The human clears the queue in one sitting; agents move on to other items meanwhile and apply the default if a reversible question waits too long. Irreversible decisions never auto-default. Rules: `agents/protocols/escalation.md`.
+The human is the scarcest resource, so risky decisions go to one queue (`work/HUMAN.md`), each with a recommendation, a default and the cost of guessing wrong. The human clears the queue in one sitting; agents move on to other items meanwhile and apply the default if a reversible question waits too long. Irreversible decisions never auto-default. What the human meant is a different matter: their words outrank an agent's inference, so an unclear directive is always asked (in chat while the human is in the session, in the queue otherwise) and never defaults to the agent's reading. Rules: `agents/protocols/escalation.md`.
