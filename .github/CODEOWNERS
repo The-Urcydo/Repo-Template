@@ -13,4 +13,5 @@
 /template/AGENTS.md.jinja               @nguyenquocduyloc @NguyenLoc231
 /template/agents/                       @nguyenquocduyloc @NguyenLoc231
 /.github/CODEOWNERS                     @nguyenquocduyloc @NguyenLoc231
-/.github/workflows/owner-approval.yml   @nguyenquocduyloc @NguyenLoc231
+/.github/workflows/                     @nguyenquocduyloc @NguyenLoc231
+/.github/dependabot.yml                 @nguyenquocduyloc @NguyenLoc231

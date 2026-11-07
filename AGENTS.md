@@ -17,7 +17,7 @@ The human owner decides. Agents propose in pull requests.
 ## Hard rules
 1. Never push to `main`, never force-push. Merge a PR only when an owner account has approved its latest commit (an APPROVED review from `nguyenquocduyloc` or `NguyenLoc231`) and the status `owner-approval/review` is green on it. Use a merge commit (no squash, no rebase). If either is missing, leave the merge to the owner.
 2. One topic per PR, branched from `main`, not stacked. The description lists what changed, the evidence (commands and results) and the decisions only the owner can make.
-3. Changes to the agent harness need the owner's explicit approval: `template/agents/`, `template/AGENTS.md.jinja`, this file, `CLAUDE.md`, `.github/CODEOWNERS` and `.github/workflows/owner-approval.yml`.
+3. Changes to the agent harness need the owner's explicit approval: `template/agents/`, `template/AGENTS.md.jinja`, this file, `CLAUDE.md`, `.github/CODEOWNERS`, `.github/workflows/` (all workflows, `owner-approval.yml` included) and `.github/dependabot.yml`.
    - Approval is as defined in rule 1. `.github/CODEOWNERS` lists the owner accounts.
    - `shiniroku` and `shinkir6u` are agent accounts. An agent never approves.
    - A push after the approval makes it stale: say so on the PR before you push to an approved PR.

@@ -1,7 +1,7 @@
 name: owner-approval
 
-# The owner approves every change to the agent harness, with a pull request review from one of the
-# OWNERS below (hand-used accounts). Agent accounts cannot submit a review as another account, and a
+# The owner approves every change to the agent harness and to the CI files (.github/workflows/ and
+# .github/dependabot.yml), with a pull request review from one of the OWNERS below (hand-used accounts). Agent accounts cannot submit a review as another account, and a
 # newer commit makes an earlier approval stale. This workflow posts the commit status
 # `owner-approval/review`; agents merge only when it is green (see AGENTS.md). Until branch
 # protection requires that status it cannot block a merge by itself. The job itself always passes when
@@ -47,7 +47,7 @@ jobs:
           OWNERS: nguyenquocduyloc NguyenLoc231
         run: |
           set -euo pipefail
-          protected='^(AGENTS\.md|CLAUDE\.md|template/AGENTS\.md\.jinja|template/agents/.*|\.github/CODEOWNERS|\.github/workflows/owner-approval\.yml)$'
+          protected='^(AGENTS\.md|CLAUDE\.md|template/AGENTS\.md\.jinja|template/agents/.*|\.github/CODEOWNERS|\.github/workflows/.*|\.github/dependabot\.yml)$'
           post() {
             gh api "repos/${REPO}/statuses/${HEAD_SHA}" -f state="$1" -f context="owner-approval/review" \
               -f description="$2" -f target_url="${RUN_URL}" >/dev/null
