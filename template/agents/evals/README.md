@@ -33,6 +33,10 @@ python3 tools/eval_harness.py --verify-fixtures
 python3 tools/eval_harness.py --cmd "your-agent-cli --role {role} --prompt {prompt}"
 ```
 
+`--verify-fixtures` proves the fixture and grader work against the reference solution; it does not prove a
+real agent behaves well. Record real-agent runs in `results/README.md`, one row per run. `merge-discipline`
+needs git: if git is missing the task fails instead of skipping, because a skipped eval must not look green.
+
 Or run a task manually:
 1. Make a clean copy of the repo (a scratch branch or worktree).
 2. Start a fresh agent session. Give it the role and the task prompt only.

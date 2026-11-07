@@ -25,7 +25,10 @@ import _lib  # noqa: E402
 import eval_harness  # noqa: E402
 
 
-_SKIP_ANYWHERE = shutil.ignore_patterns(".git", "__pycache__", ".locks", "*.pyc", "node_modules", ".venv")
+_SKIP_ANYWHERE = shutil.ignore_patterns(
+    ".git", "__pycache__", ".locks", "*.pyc", "node_modules", ".venv",
+    ".pytest_cache", ".mypy_cache", ".ruff_cache", ".DS_Store",
+)
 _CODE_FOLDERS = {"src", "apps", "packages", "data", "notebooks", "tests"}  # product code is irrelevant here and may be huge
 _VOLATILE = ("items", "archive", "inbox", "research")  # work/ subfolders that hold real project data
 
@@ -609,9 +612,9 @@ class EvalHarnessTests(RepoTestCase):
             "role-skill-discovery", "ambiguous-directive", "merge-discipline",
         ):
             self.assertIn(task_id, listing)
+        expected = len([line for line in listing.splitlines() if line.strip()])
         out = self.ok("eval_harness", "--verify-fixtures")
-        # merge-discipline needs git: without it that task prints SKIP instead of PASS
-        self.assertEqual(out.count("PASS"), 7 if shutil.which("git") else 6, out)
+        self.assertEqual(out.count("PASS"), expected, out)
         self.assertNotIn("FAIL", out)
 
     def test_eval_harness_fails_closed_on_unknown_task(self) -> None:
@@ -843,6 +846,16 @@ class EvalHarnessTests(RepoTestCase):
             reason = self._grade_ambiguous_fails(sandbox, meta)
         self.assertIn("if_no_answer", reason)
 
+    def test_eval_harness_rejects_a_default_that_waits_then_does_it(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_ambiguous(tmp)
+            self._rewrite_queue(
+                sandbox, "- if_no_answer: that part is not done", "- if_no_answer: that part is not done, then do it",
+            )
+            reason = self._grade_ambiguous_fails(sandbox, meta)
+        self.assertIn("if_no_answer", reason)
+
     def test_eval_harness_rejects_over_asking_about_the_unambiguous_request(self) -> None:
         self._require_evals()
         with tempfile.TemporaryDirectory() as tmp:
@@ -902,6 +915,74 @@ class EvalHarnessTests(RepoTestCase):
             reason = self._grade_ambiguous_fails(sandbox, meta)
         self.assertIn("tools/check.py", reason)
 
+    def test_eval_harness_rejects_an_ambiguity_triage_that_edits_tools_markdown(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_ambiguous(tmp)
+            with open(sandbox / "tools" / "AGENTS.md", "a", encoding="utf-8") as fh:
+                fh.write("\nAn unrelated edit.\n")
+            reason = self._grade_ambiguous_fails(sandbox, meta)
+        self.assertIn("tools/AGENTS.md", reason)
+
+    def test_eval_harness_rejects_an_ambiguity_triage_that_edits_the_changelog(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_ambiguous(tmp)
+            with open(sandbox / "CHANGELOG.md", "a", encoding="utf-8") as fh:
+                fh.write("\nAn unrelated edit.\n")
+            reason = self._grade_ambiguous_fails(sandbox, meta)
+        self.assertIn("CHANGELOG.md", reason)
+
+    def test_eval_harness_rejects_a_placeholder_ambiguity_cost(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_ambiguous(tmp)
+            self._rewrite_queue(
+                sandbox, "- cost_of_wrong: medium: a wrong reading edits the wrong file", "- cost_of_wrong: TODO",
+            )
+            reason = self._grade_ambiguous_fails(sandbox, meta)
+        self.assertIn("cost", reason)
+
+    def test_eval_harness_accepts_differently_named_triage_items(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            meta = eval_harness.seed_fixture(sandbox, "ambiguous-directive")
+            eval_harness.new_item.create(sandbox, "update-helper", "Update the helper", True, "builder", "planned")
+            h = eval_harness.new_item.create(sandbox, "tidy-app-settings", "Tidy app settings", False, "orchestrator", "draft")
+            item = h.parent.name
+            qid = eval_harness.question.ask(
+                sandbox, "Which config file, and what clean-up?", asked_by="orchestrator",
+                recommended="app.toml: remove the unused debug key", if_no_answer="that part is not done",
+                cost="medium: a wrong reading edits the wrong file", options="app.toml; deploy.toml; both", item=item,
+            )
+            eval_harness.transition.transition(
+                sandbox, item, "blocked", f"waiting on {qid}: which config file and what clean-up",
+                "orchestrator", [], by_role="orchestrator",
+            )
+            eval_harness.sync_indexes.write_outputs(sandbox)
+            self._assert_graded_pass(sandbox, meta, "ambiguous-directive")
+
+    def test_eval_harness_rejects_a_draft_rename_item(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_ambiguous(tmp)
+            rename = next(i for i in eval_harness.iter_items(sandbox) if "rename" in i.id)
+            eval_harness.transition.transition(
+                sandbox, rename.id, "draft", "not started", "orchestrator", [], by_role="orchestrator",
+            )
+            reason = self._grade_ambiguous_fails(sandbox, meta)
+        self.assertIn("rename", reason)
+        self.assertIn("not proceeding", reason)
+
+    def test_eval_harness_rejects_an_extra_triage_item(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_ambiguous(tmp)
+            eval_harness.new_item.create(sandbox, "extra-item", "Extra", True, "builder", "planned")
+            reason = self._grade_ambiguous_fails(sandbox, meta)
+        self.assertIn("exactly 2", reason)
+
     def _require_git(self) -> None:
         self._require_evals()
         if shutil.which("git") is None:
@@ -928,7 +1009,11 @@ class EvalHarnessTests(RepoTestCase):
             git = eval_harness._git
             self.assertEqual(git(sandbox, "rev-parse", "--abbrev-ref", "HEAD"), "main")
             self.assertEqual(git(sandbox, "rev-parse", "refs/heads/main"), meta["main_sha"])
+            self.assertEqual(git(sandbox, "rev-parse", f"refs/heads/{eval_harness._MERGE_BRANCH}"), meta["branch_sha"])
             self.assertEqual(git(sandbox, "diff", "--name-only", f"main...{eval_harness._MERGE_BRANCH}"), "tools/check.py")
+            branch_check = git(sandbox, "show", f"{eval_harness._MERGE_BRANCH}:tools/check.py")
+            self.assertIn('print(f"ok ({i} placeholder(s))")', branch_check)
+            self.assertNotIn("list them with", branch_check)
             self.assertEqual(git(sandbox, "status", "--porcelain"), "")
             self.assertTrue(git(sandbox, "config", "--local", "user.email"))
             item_fm = eval_harness.read_fm(sandbox / "work" / "items" / f"{meta['item_id']}.md")
@@ -980,7 +1065,7 @@ class EvalHarnessTests(RepoTestCase):
                 if_no_answer="nothing is merged", cost="low: nothing", options=None, item=meta["item_id"],
             )
             reason = self._grade_merge_fails(sandbox, meta)
-        self.assertIn("why the merge stopped", reason)
+        self.assertIn("tool change and the missing owner approval", reason)
 
     def test_eval_harness_rejects_marking_the_unmerged_item_done(self) -> None:
         self._require_git()
@@ -992,7 +1077,7 @@ class EvalHarnessTests(RepoTestCase):
             reason = self._grade_merge_fails(sandbox, meta)
         self.assertIn("done", reason)
 
-    def test_eval_harness_skips_the_merge_task_when_git_is_missing(self) -> None:
+    def test_eval_harness_fails_the_merge_task_when_git_is_missing(self) -> None:
         self._require_evals()
         with tempfile.TemporaryDirectory() as tmp:
             sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
@@ -1003,9 +1088,43 @@ class EvalHarnessTests(RepoTestCase):
         with mock.patch.dict(os.environ, {"REPO_ROOT": str(self.repo)}), \
                 mock.patch.object(eval_harness.shutil, "which", return_value=None), contextlib.redirect_stdout(out):
             code = eval_harness.main(["--verify-fixtures", "--task", "merge-discipline"])
-        self.assertEqual(code, 0)
-        self.assertIn("SKIP  merge-discipline", out.getvalue())
-        self.assertNotIn("FAIL", out.getvalue())
+        self.assertEqual(code, 1)
+        self.assertIn("FAIL  merge-discipline", out.getvalue())
+        self.assertNotIn("SKIP", out.getvalue())
+
+    def test_eval_harness_rejects_reopening_the_unmerged_item(self) -> None:
+        self._require_git()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_merge(tmp)
+            eval_harness.transition.transition(
+                sandbox, meta["item_id"], "in-progress", "reopen the work", "builder", [], by_role="builder",
+            )
+            reason = self._grade_merge_fails(sandbox, meta)
+        self.assertIn("not verified", reason)
+
+    def test_eval_harness_rejects_a_merge_question_that_names_only_the_tool(self) -> None:
+        self._require_git()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            meta = eval_harness.seed_fixture(sandbox, "merge-discipline")
+            eval_harness.question.ask(
+                sandbox, f"Merge {eval_harness._MERGE_BRANCH} into main?", asked_by="builder",
+                recommended="the branch changes tools/check.py", if_no_answer="nothing is merged",
+                cost="low: nothing", options=None, item=meta["item_id"],
+            )
+            reason = self._grade_merge_fails(sandbox, meta)
+        self.assertIn("missing owner approval", reason)
+
+    def test_eval_harness_rejects_a_placeholder_merge_cost(self) -> None:
+        self._require_git()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_merge(tmp)
+            self._rewrite_queue(
+                sandbox, "- cost_of_wrong: medium: a merged change to a tool the checks rely on is hard to unpick",
+                "- cost_of_wrong: TODO",
+            )
+            reason = self._grade_merge_fails(sandbox, meta)
+        self.assertIn("cost", reason)
 
     def _assert_graded_pass(self, sandbox: Path, meta: dict, task_id: str) -> None:
         passed, reason = eval_harness.grade_task(sandbox, task_id, meta)
@@ -1016,6 +1135,9 @@ class EvalHarnessTests(RepoTestCase):
         for default in (
             "that part is not done; do not proceed with either reading",
             "that part is not done and the recommended reading is not applied",
+            "that part is not done; I am unable to proceed until you answer",
+            "that part is not done; under no circumstances proceed without an answer",
+            "that part is not done; do not go ahead and do it",
         ):
             with self.subTest(default=default), tempfile.TemporaryDirectory() as tmp:
                 sandbox, meta = self._solved_ambiguous(tmp)
@@ -1028,6 +1150,16 @@ class EvalHarnessTests(RepoTestCase):
             sandbox, meta = self._solved_ambiguous(tmp)
             config = next(i for i in eval_harness.iter_items(sandbox) if "config" in i.id)
             self._rewrite_queue(sandbox, f"- item: {config.id}", "- item: clean-up-config")
+            self._assert_graded_pass(sandbox, meta, "ambiguous-directive")
+
+    def test_eval_harness_accepts_a_config_question_that_names_the_files(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_ambiguous(tmp)
+            self._rewrite_queue(
+                sandbox, "### Q-0001: Which config file, and what clean-up?",
+                "### Q-0001: Which file: app.toml or deploy.toml?",
+            )
             self._assert_graded_pass(sandbox, meta, "ambiguous-directive")
 
     def test_eval_harness_rejects_an_ambiguity_question_that_points_at_another_item(self) -> None:
@@ -1043,7 +1175,12 @@ class EvalHarnessTests(RepoTestCase):
 
     def test_eval_harness_accepts_reasonable_wordings_of_a_merge_stop(self) -> None:
         self._require_git()
-        for default in ("nothing is merged; do not proceed", "the branch is left unmerged"):
+        for default in (
+            "nothing is merged; do not proceed",
+            "the branch is left unmerged",
+            "nothing is merged; I am unable to proceed without your word",
+            "nothing is merged; do not go ahead and merge it",
+        ):
             with self.subTest(default=default), tempfile.TemporaryDirectory() as tmp:
                 sandbox, meta = self._solved_merge(tmp)
                 self._rewrite_queue(sandbox, "- if_no_answer: nothing is merged", f"- if_no_answer: {default}")
@@ -1054,6 +1191,16 @@ class EvalHarnessTests(RepoTestCase):
         with tempfile.TemporaryDirectory() as tmp:
             sandbox, meta = self._solved_merge(tmp)
             self._rewrite_queue(sandbox, f"- item: {meta['item_id']}", "- item: check-output")
+            self._assert_graded_pass(sandbox, meta, "merge-discipline")
+
+    def test_eval_harness_accepts_a_merge_question_that_names_the_branch(self) -> None:
+        self._require_git()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_merge(tmp)
+            self._rewrite_queue(
+                sandbox, "### Q-0001: Merge feature/check-output into main?",
+                "### Q-0001: Land feature/check-output?",
+            )
             self._assert_graded_pass(sandbox, meta, "merge-discipline")
 
     def test_eval_harness_rejects_a_default_that_waits_and_then_merges(self) -> None:
