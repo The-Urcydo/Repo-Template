@@ -20,6 +20,7 @@ A short scenario with a prompt, the behavior expected, behavior that must not ha
 | `handoff-roundtrip.md` | Continuity: re-verifies a stale handoff before trusting it |
 | `escalation-discipline.md` | Judgment: asks the human only when required, and asks well |
 | `role-skill-discovery.md` | Discovery: the reviewer completes the review flow from its role bundle and changes nothing else; whether it opened its own skill is checked by hand on the transcript |
+| `ambiguous-directive.md` | Asking: a request with two readings is queued as a question instead of guessed, and the unambiguous request next to it is not held up |
 
 ## How to run an eval
 

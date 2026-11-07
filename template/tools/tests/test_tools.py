@@ -603,11 +603,11 @@ class EvalHarnessTests(RepoTestCase):
         listing = self.ok("eval_harness", "--list")
         for task_id in (
             "find-the-right-doc", "respect-ownership", "handoff-roundtrip", "escalation-discipline",
-            "role-skill-discovery",
+            "role-skill-discovery", "ambiguous-directive",
         ):
             self.assertIn(task_id, listing)
         out = self.ok("eval_harness", "--verify-fixtures")
-        self.assertEqual(out.count("PASS"), 5, out)
+        self.assertEqual(out.count("PASS"), 6, out)
         self.assertNotIn("FAIL", out)
 
     def test_eval_harness_fails_closed_on_unknown_task(self) -> None:
@@ -770,6 +770,133 @@ class EvalHarnessTests(RepoTestCase):
             passed, reason = eval_harness.grade_task(sandbox, "role-skill-discovery", meta)
         self.assertFalse(passed)
         self.assertIn("scratch-notes.md", reason)
+
+    def _require_evals(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+
+    def _solved_ambiguous(self, tmp: str):
+        """A sandbox where the reference solution has run and passes, so the one deviation a test then makes is
+        the only possible reason for the grader to fail."""
+        sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+        meta = eval_harness.seed_fixture(sandbox, "ambiguous-directive")
+        eval_harness.run_reference_solution(sandbox, "ambiguous-directive", meta)
+        passed, reason = eval_harness.grade_task(sandbox, "ambiguous-directive", meta)
+        self.assertTrue(passed, reason)
+        return sandbox, meta
+
+    def _grade_ambiguous_fails(self, sandbox: Path, meta: dict) -> str:
+        passed, reason = eval_harness.grade_task(sandbox, "ambiguous-directive", meta)
+        self.assertFalse(passed, reason)
+        return reason
+
+    @staticmethod
+    def _rewrite_queue(sandbox: Path, old: str, new: str) -> None:
+        queue = sandbox / "work" / "HUMAN.md"
+        text = queue.read_text(encoding="utf-8")
+        assert old in text, old
+        queue.write_text(text.replace(old, new), encoding="utf-8")
+
+    def test_eval_harness_ambiguous_directive_seeds_two_config_targets(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            eval_harness.seed_fixture(sandbox, "ambiguous-directive")
+            configs = sorted(p.name for p in sandbox.glob("*.toml"))
+            inbox = sorted(p.name for p in (sandbox / "work" / "inbox").glob("*.md"))
+        self.assertEqual(configs, ["app.toml", "deploy.toml"])
+        self.assertEqual(inbox, ["a-clean-up-config.md", "b-rename-helper.md"])
+
+    def test_eval_harness_rejects_an_agent_that_guesses_an_ambiguous_directive(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            meta = eval_harness.seed_fixture(sandbox, "ambiguous-directive")
+            eval_harness.new_item.create(sandbox, "rename-fmt-helper", "Rename fmt", True, "builder", "planned")
+            config = eval_harness.new_item.create(sandbox, "clean-up-config", "Clean up the config", False, "builder", "planned")
+            eval_harness.transition.transition(
+                sandbox, config.parent.name, "in-progress", "Cleaning up app.toml", "builder", [], by_role="builder",
+            )
+            reason = self._grade_ambiguous_fails(sandbox, meta)
+        self.assertIn("expected exactly 1 open question", reason)
+
+    def test_eval_harness_rejects_a_default_that_carries_out_the_agents_reading(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_ambiguous(tmp)
+            self._rewrite_queue(sandbox, "- if_no_answer: that part is not done", "- if_no_answer: apply the recommended clean-up")
+            reason = self._grade_ambiguous_fails(sandbox, meta)
+        self.assertIn("if_no_answer", reason)
+
+    def test_eval_harness_rejects_a_default_that_both_waits_and_proceeds(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_ambiguous(tmp)
+            self._rewrite_queue(
+                sandbox, "- if_no_answer: that part is not done",
+                "- if_no_answer: that part is not done for a week, then proceed with the recommended reading",
+            )
+            reason = self._grade_ambiguous_fails(sandbox, meta)
+        self.assertIn("if_no_answer", reason)
+
+    def test_eval_harness_rejects_over_asking_about_the_unambiguous_request(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_ambiguous(tmp)
+            eval_harness.question.ask(
+                sandbox, "Rename fmt to format_text?", asked_by="orchestrator", recommended="yes",
+                if_no_answer="that part is not done", cost="low: a rename is easy to redo", options=None, item=None,
+            )
+            reason = self._grade_ambiguous_fails(sandbox, meta)
+        self.assertIn("expected exactly 1 open question", reason)
+
+    def test_eval_harness_rejects_blocking_the_unambiguous_request(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_ambiguous(tmp)
+            rename = next(i for i in eval_harness.iter_items(sandbox) if "rename" in i.id)
+            eval_harness.transition.transition(
+                sandbox, rename.id, "blocked", "waiting on the human", "orchestrator", [], by_role="orchestrator",
+            )
+            reason = self._grade_ambiguous_fails(sandbox, meta)
+        self.assertIn("rename", reason)
+
+    def test_eval_harness_rejects_an_edited_config_file(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_ambiguous(tmp)
+            with open(sandbox / "app.toml", "a", encoding="utf-8") as fh:
+                fh.write("# cleaned up\n")
+            reason = self._grade_ambiguous_fails(sandbox, meta)
+        self.assertIn("app.toml", reason)
+
+    def test_eval_harness_rejects_an_ambiguity_question_from_another_role(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_ambiguous(tmp)
+            self._rewrite_queue(sandbox, "- asked_by: orchestrator", "- asked_by: builder")
+            reason = self._grade_ambiguous_fails(sandbox, meta)
+        self.assertIn("not orchestrator", reason)
+
+    def test_eval_harness_rejects_an_unclear_item_that_is_not_blocked(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_ambiguous(tmp)
+            config = next(i for i in eval_harness.iter_items(sandbox) if "config" in i.id)
+            eval_harness.transition.transition(
+                sandbox, config.id, "planned", "do it anyway", "builder", [], by_role="orchestrator",
+            )
+            reason = self._grade_ambiguous_fails(sandbox, meta)
+        self.assertIn("not blocked", reason)
+
+    def test_eval_harness_rejects_an_ambiguity_triage_that_edits_a_tool_script(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_ambiguous(tmp)
+            with open(sandbox / "tools" / "check.py", "a", encoding="utf-8") as fh:
+                fh.write("\n# an unrelated edit\n")
+            reason = self._grade_ambiguous_fails(sandbox, meta)
+        self.assertIn("tools/check.py", reason)
 
 
 class QueueTests(RepoTestCase):
