@@ -2,10 +2,10 @@
 # below because they change how every agent behaves.
 # Owner accounts (the person reviews by hand with these): nguyenquocduyloc, NguyenLoc231.
 # shiniroku and shinkir6u are agent-operated accounts. They are not owners.
-# GitHub enforces this file only where branch protection or a ruleset requires review from Code Owners.
-# Until one is set up, .github/workflows/owner-approval.yml posts the commit status
-# `owner-approval/review`: red until one of the owners above has approved the latest commit of a pull
-# request that touches the harness paths. Keep its OWNERS list in step.
+# The ruleset `protect-main` requires review from Code Owners, so GitHub enforces this file on every pull
+# request to the default branch. .github/workflows/owner-approval.yml also posts the commit status
+# `owner-approval/review`, which the ruleset requires too: red until one of the owners above has approved
+# the latest commit of a pull request that touches the harness paths. Keep its OWNERS list in step.
 # The last matching pattern wins, so the catch-all comes first.
 *                                       @nguyenquocduyloc @NguyenLoc231
 /AGENTS.md                              @nguyenquocduyloc @NguyenLoc231
