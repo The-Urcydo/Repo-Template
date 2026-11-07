@@ -803,7 +803,7 @@ class EvalHarnessTests(RepoTestCase):
             sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
             eval_harness.seed_fixture(sandbox, "ambiguous-directive")
             configs = sorted(p.name for p in sandbox.glob("*.toml"))
-            inbox = sorted(p.name for p in (sandbox / "work" / "inbox").glob("*.md"))
+            inbox = sorted(p.name for p in (sandbox / "work" / "inbox").glob("*.md") if p.name != "README.md")
         self.assertEqual(configs, ["app.toml", "deploy.toml"])
         self.assertEqual(inbox, ["a-clean-up-config.md", "b-rename-helper.md"])
 
