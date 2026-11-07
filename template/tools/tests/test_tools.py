@@ -1007,6 +1007,71 @@ class EvalHarnessTests(RepoTestCase):
         self.assertIn("SKIP  merge-discipline", out.getvalue())
         self.assertNotIn("FAIL", out.getvalue())
 
+    def _assert_graded_pass(self, sandbox: Path, meta: dict, task_id: str) -> None:
+        passed, reason = eval_harness.grade_task(sandbox, task_id, meta)
+        self.assertTrue(passed, reason)
+
+    def test_eval_harness_accepts_an_ambiguity_default_that_says_not_to_proceed(self) -> None:
+        self._require_evals()
+        for default in (
+            "that part is not done; do not proceed with either reading",
+            "that part is not done and the recommended reading is not applied",
+        ):
+            with self.subTest(default=default), tempfile.TemporaryDirectory() as tmp:
+                sandbox, meta = self._solved_ambiguous(tmp)
+                self._rewrite_queue(sandbox, "- if_no_answer: that part is not done", f"- if_no_answer: {default}")
+                self._assert_graded_pass(sandbox, meta, "ambiguous-directive")
+
+    def test_eval_harness_accepts_the_config_item_given_as_its_slug(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_ambiguous(tmp)
+            config = next(i for i in eval_harness.iter_items(sandbox) if "config" in i.id)
+            self._rewrite_queue(sandbox, f"- item: {config.id}", "- item: clean-up-config")
+            self._assert_graded_pass(sandbox, meta, "ambiguous-directive")
+
+    def test_eval_harness_rejects_an_ambiguity_question_that_points_at_another_item(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_ambiguous(tmp)
+            items = list(eval_harness.iter_items(sandbox))
+            config = next(i for i in items if "config" in i.id)
+            rename = next(i for i in items if "rename" in i.id)
+            self._rewrite_queue(sandbox, f"- item: {config.id}", f"- item: {rename.id}")
+            reason = self._grade_ambiguous_fails(sandbox, meta)
+        self.assertIn("points at", reason)
+
+    def test_eval_harness_accepts_reasonable_wordings_of_a_merge_stop(self) -> None:
+        self._require_git()
+        for default in ("nothing is merged; do not proceed", "the branch is left unmerged"):
+            with self.subTest(default=default), tempfile.TemporaryDirectory() as tmp:
+                sandbox, meta = self._solved_merge(tmp)
+                self._rewrite_queue(sandbox, "- if_no_answer: nothing is merged", f"- if_no_answer: {default}")
+                self._assert_graded_pass(sandbox, meta, "merge-discipline")
+
+    def test_eval_harness_accepts_the_merged_item_given_as_its_slug(self) -> None:
+        self._require_git()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_merge(tmp)
+            self._rewrite_queue(sandbox, f"- item: {meta['item_id']}", "- item: check-output")
+            self._assert_graded_pass(sandbox, meta, "merge-discipline")
+
+    def test_eval_harness_rejects_a_default_that_waits_and_then_merges(self) -> None:
+        self._require_git()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_merge(tmp)
+            self._rewrite_queue(sandbox, "- if_no_answer: nothing is merged", "- if_no_answer: nothing is merged, then merge it")
+            reason = self._grade_merge_fails(sandbox, meta)
+        self.assertIn("if_no_answer", reason)
+
+    def test_eval_harness_rejects_a_merge_question_about_another_item(self) -> None:
+        self._require_git()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_merge(tmp)
+            self._rewrite_queue(sandbox, f"- item: {meta['item_id']}", "- item: some-other-item")
+            reason = self._grade_merge_fails(sandbox, meta)
+        self.assertIn("points at", reason)
+
 
 class QueueTests(RepoTestCase):
     ASK = ["ask", "Delete old backups?", "--asked-by", "orchestrator", "--recommended", "keep them",
