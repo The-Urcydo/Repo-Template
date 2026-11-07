@@ -44,11 +44,10 @@ STATUS_CONTEXT = "owner-approval/review"
 VERSION_PLACEHOLDER = "${{ matrix.python-version }}"
 PROTECTED_LINE = re.compile(r"protected='\^\((?P<body>[^']*)\)\$'")
 ESCAPED_PATH = re.compile(r"(?:[A-Za-z0-9_/-]|\\\.)+")
-# Text that means "a file could not be read or understood", as opposed to "two files disagree". The
-# mutation tests assert none of it appears, so a mutation cannot pass by breaking a file.
-LOADER_MARKERS = ("cannot be read", "not valid YAML", "is not a YAML mapping", "cannot map", "expected exactly",
-                  "no pattern lines", "no '## Hard rules'", "has no jobs", "must be a quoted string", "no owners",
-                  "lists no one", "ends in a slash", "extend to_codeowners_form")
+# Every problem that means "a file could not be read or understood" starts with this, as opposed to "two
+# files disagree" (see `check`). The mutation tests assert no problem starts with it, so a mutation cannot
+# pass by breaking a file, whatever the wording of the message.
+FILE_PROBLEM = "file problem, not drift: "
 
 
 class GovernanceError(Exception):
@@ -56,13 +55,14 @@ class GovernanceError(Exception):
 
 
 def check(fn):
-    """Turn a GovernanceError into a problem, so an unreadable file fails the check loudly."""
+    """Turn a GovernanceError into a problem starting with FILE_PROBLEM, so an unreadable file fails the
+    check loudly and can be told apart from two files that disagree."""
     @functools.wraps(fn)
     def wrapper(root: Path) -> list[str]:
         try:
             return fn(root)
         except GovernanceError as exc:
-            return [str(exc)]
+            return [FILE_PROBLEM + str(exc)]
     return wrapper
 
 
@@ -137,7 +137,9 @@ def to_codeowners_form(entry: str, root: Path | None = None) -> str:
 
     `template/agents/.*` -> `/template/agents/`, `AGENTS\\.md` -> `/AGENTS.md`. Anything else (another
     backslash, a group, a bracket, an unescaped dot, a `.*` that does not follow a slash) is refused,
-    so a new kind of pattern can never pass unnoticed.
+    so a new kind of pattern can never pass unnoticed. Two more refusals: an entry that ends in a slash
+    without `.*` (it matches nothing), and, when `root` is given and the path exists there, an entry that
+    treats a directory as a file or the reverse.
     """
     is_dir = entry.endswith(".*")
     path = entry[:-2] if is_dir else entry
@@ -170,6 +172,11 @@ def rule_list_line(root: Path, number: int) -> str:
     """The first line of hard rule `number`: where the rule lists its paths or handles. Its sub-bullets
     may name a path again in passing and must not stand in for the list."""
     return rule_block(root, number).splitlines()[0]
+
+
+def excerpt(line: str, width: int = 110) -> str:
+    """The line itself when it is short, else its start and its end, so a message shows where it stops."""
+    return line if len(line) <= width else f"{line[:width // 2]} ... {line[-(width // 2):]}"
 
 
 def rule_block(root: Path, number: int) -> str:
@@ -272,8 +279,10 @@ def check_rule_3_names_every_protected_path(root: Path) -> list[str]:  # d
     missing = sorted(p for p in protected if p.strip("/") not in named)
     if not missing:
         return []
-    return [f"{RULES} rule 3 ({line[:60]!r}...) does not name {missing} in its own list (as a backticked path, "
-            f"or 'this file' for {RULES}), but {GUARD} or {CODEOWNERS} protects them"]
+    return [f"{RULES} rule 3: only its first line is read as the list of paths ({excerpt(line)!r}), and that line "
+            f"does not name {missing} (as a backticked path, or 'this file' for {RULES}), but {GUARD} or "
+            f"{CODEOWNERS} protects them. If the list was wrapped onto a second line or moved into a "
+            "sub-bullet, put it back on the first line"]
 
 
 @check
@@ -422,9 +431,8 @@ def test_each_check_fails_alone_on_its_own_kind_of_drift(tmp_path, mutation):
     edit(root)
     failing = {name: fn(root) for name, fn in CHECKS.items() if fn(root)}
     assert set(failing) == {expected}, f"mutation {mutation!r} should fail only {expected!r}, got: {failing}"
-    texts = [p for problems in failing.values() for p in problems]
-    assert not any(marker in t for t in texts for marker in LOADER_MARKERS), \
-        f"mutation {mutation!r} broke a file instead of making two files disagree: {texts}"
+    broken = [p for problems in failing.values() for p in problems if p.startswith(FILE_PROBLEM)]
+    assert not broken, f"mutation {mutation!r} broke a file instead of making two files disagree: {broken}"
 
 
 # --- loud failures: a file that is missing, unreadable or empty must fail, never be skipped ---------
@@ -444,6 +452,9 @@ def all_problems(root: Path) -> list[str]:
     (CI, "", "is not a YAML mapping"),
     (CODEOWNERS, "# only a comment\n", "no pattern lines"),
     (RULES, "# no rules here\n", "no '## Hard rules'"),
+    (RULES, "## Hard rules\n1. a\n2. b\n", "no rule 3 under"),
+    (RULES, "## Hard rules\n1. a\n2. b\n3. c\n", "no rule 4 after rule 3"),
+    (CI, "jobs:\n  t:\n    name: t (${{ matrix.python-version }})\n", "has no matrix python-version"),
 ])
 def test_a_missing_or_unreadable_file_fails_loudly(tmp_path, rel, content, expected):
     root = copy_governance_files(tmp_path)
@@ -457,6 +468,7 @@ def test_a_missing_or_unreadable_file_fails_loudly(tmp_path, rel, content, expec
     hits = [p for p in all_problems(root) if expected in p]
     assert hits, f"expected a problem containing {expected!r}, got: {all_problems(root)}"
     assert all(rel in p for p in hits), hits
+    assert all(p.startswith(FILE_PROBLEM) for p in hits), hits  # a broken file is never reported as drift
 
 
 def test_a_regex_shape_the_converter_does_not_know_fails_check_c_end_to_end(tmp_path):
