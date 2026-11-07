@@ -294,7 +294,7 @@ def test_tutorial_runs_end_to_end(full):
 def test_eval_harness_verifies_all_golden_tasks(full):
     r = py(full, "tools/eval_harness.py", "--verify-fixtures")
     assert r.returncode == 0, f"{r.stdout}\n{r.stderr}"
-    assert r.stdout.count("PASS") == 6
+    assert r.stdout.count("PASS") == 7
 
 
 def test_shipped_unit_tests_pass(full):

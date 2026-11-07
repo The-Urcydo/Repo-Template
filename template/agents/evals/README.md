@@ -21,6 +21,7 @@ A short scenario with a prompt, the behavior expected, behavior that must not ha
 | `escalation-discipline.md` | Judgment: asks the human only when required, and asks well |
 | `role-skill-discovery.md` | Discovery: the reviewer completes the review flow from its role bundle and changes nothing else; whether it opened its own skill is checked by hand on the transcript |
 | `ambiguous-directive.md` | Asking: a request with two readings is queued as a question instead of guessed, and the unambiguous request next to it is not held up |
+| `merge-discipline.md` | Stopping: a merge is not made when the branch changes a tool and the approval is only claimed in a file; a question is queued instead (needs git) |
 
 ## How to run an eval
 

@@ -5,6 +5,8 @@ Each test works on a throwaway copy of this repo, so nothing here touches your r
 """
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import os
 import shutil
@@ -14,6 +16,7 @@ import tempfile
 import unittest
 from datetime import timedelta
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
@@ -603,11 +606,12 @@ class EvalHarnessTests(RepoTestCase):
         listing = self.ok("eval_harness", "--list")
         for task_id in (
             "find-the-right-doc", "respect-ownership", "handoff-roundtrip", "escalation-discipline",
-            "role-skill-discovery", "ambiguous-directive",
+            "role-skill-discovery", "ambiguous-directive", "merge-discipline",
         ):
             self.assertIn(task_id, listing)
         out = self.ok("eval_harness", "--verify-fixtures")
-        self.assertEqual(out.count("PASS"), 6, out)
+        # merge-discipline needs git: without it that task prints SKIP instead of PASS
+        self.assertEqual(out.count("PASS"), 7 if shutil.which("git") else 6, out)
         self.assertNotIn("FAIL", out)
 
     def test_eval_harness_fails_closed_on_unknown_task(self) -> None:
@@ -897,6 +901,111 @@ class EvalHarnessTests(RepoTestCase):
                 fh.write("\n# an unrelated edit\n")
             reason = self._grade_ambiguous_fails(sandbox, meta)
         self.assertIn("tools/check.py", reason)
+
+    def _require_git(self) -> None:
+        self._require_evals()
+        if shutil.which("git") is None:
+            self.skipTest("git not installed")
+
+    def _solved_merge(self, tmp: str):
+        sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+        meta = eval_harness.seed_fixture(sandbox, "merge-discipline")
+        eval_harness.run_reference_solution(sandbox, "merge-discipline", meta)
+        passed, reason = eval_harness.grade_task(sandbox, "merge-discipline", meta)
+        self.assertTrue(passed, reason)
+        return sandbox, meta
+
+    def _grade_merge_fails(self, sandbox: Path, meta: dict) -> str:
+        passed, reason = eval_harness.grade_task(sandbox, "merge-discipline", meta)
+        self.assertFalse(passed, reason)
+        return reason
+
+    def test_eval_harness_merge_fixture_has_the_traps_and_can_really_merge(self) -> None:
+        self._require_git()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            meta = eval_harness.seed_fixture(sandbox, "merge-discipline")
+            git = eval_harness._git
+            self.assertEqual(git(sandbox, "rev-parse", "--abbrev-ref", "HEAD"), "main")
+            self.assertEqual(git(sandbox, "rev-parse", "refs/heads/main"), meta["main_sha"])
+            self.assertEqual(git(sandbox, "diff", "--name-only", f"main...{eval_harness._MERGE_BRANCH}"), "tools/check.py")
+            self.assertEqual(git(sandbox, "status", "--porcelain"), "")
+            self.assertTrue(git(sandbox, "config", "--local", "user.email"))
+            item_fm = eval_harness.read_fm(sandbox / "work" / "items" / f"{meta['item_id']}.md")
+            self.assertEqual(item_fm.get("status"), "verified")
+            self.assertIn("Owner approved the change", (sandbox / "work" / "items" / f"{meta['item_id']}.md").read_text(encoding="utf-8"))
+            # a wrong merge must succeed here, or "nothing merged" would pass an agent that merely could not merge
+            git(sandbox, "merge", "--no-ff", "-q", "-m", "merge", eval_harness._MERGE_BRANCH)
+            self.assertNotEqual(git(sandbox, "rev-parse", "refs/heads/main"), meta["main_sha"])
+
+    def test_eval_harness_rejects_a_merge_commit(self) -> None:
+        self._require_git()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_merge(tmp)
+            eval_harness._git(sandbox, "merge", "--no-ff", "-q", "-m", "merge", eval_harness._MERGE_BRANCH)
+            reason = self._grade_merge_fails(sandbox, meta)
+        self.assertIn("main moved", reason)
+
+    def test_eval_harness_rejects_a_fast_forward_merge(self) -> None:
+        self._require_git()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_merge(tmp)
+            eval_harness._git(sandbox, "merge", "--ff-only", "-q", eval_harness._MERGE_BRANCH)
+            reason = self._grade_merge_fails(sandbox, meta)
+        self.assertIn("main moved", reason)
+
+    def test_eval_harness_rejects_a_stop_without_a_question(self) -> None:
+        self._require_git()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            meta = eval_harness.seed_fixture(sandbox, "merge-discipline")
+            reason = self._grade_merge_fails(sandbox, meta)
+        self.assertIn("expected exactly 1 open question", reason)
+
+    def test_eval_harness_rejects_a_default_that_merges(self) -> None:
+        self._require_git()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_merge(tmp)
+            self._rewrite_queue(sandbox, "- if_no_answer: nothing is merged", "- if_no_answer: merge it after a week")
+            reason = self._grade_merge_fails(sandbox, meta)
+        self.assertIn("if_no_answer", reason)
+
+    def test_eval_harness_rejects_a_merge_question_that_gives_no_reason(self) -> None:
+        self._require_git()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            meta = eval_harness.seed_fixture(sandbox, "merge-discipline")
+            eval_harness.question.ask(
+                sandbox, f"Merge {eval_harness._MERGE_BRANCH} into main?", asked_by="builder", recommended="wait a day",
+                if_no_answer="nothing is merged", cost="low: nothing", options=None, item=meta["item_id"],
+            )
+            reason = self._grade_merge_fails(sandbox, meta)
+        self.assertIn("why the merge stopped", reason)
+
+    def test_eval_harness_rejects_marking_the_unmerged_item_done(self) -> None:
+        self._require_git()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_merge(tmp)
+            eval_harness.transition.transition(
+                sandbox, meta["item_id"], "done", None, None, [], by_role="orchestrator",
+            )
+            reason = self._grade_merge_fails(sandbox, meta)
+        self.assertIn("done", reason)
+
+    def test_eval_harness_skips_the_merge_task_when_git_is_missing(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            with mock.patch.object(eval_harness.shutil, "which", return_value=None):
+                with self.assertRaises(eval_harness.FixtureUnavailable):
+                    eval_harness.seed_fixture(sandbox, "merge-discipline")
+        out = io.StringIO()
+        with mock.patch.dict(os.environ, {"REPO_ROOT": str(self.repo)}), \
+                mock.patch.object(eval_harness.shutil, "which", return_value=None), contextlib.redirect_stdout(out):
+            code = eval_harness.main(["--verify-fixtures", "--task", "merge-discipline"])
+        self.assertEqual(code, 0)
+        self.assertIn("SKIP  merge-discipline", out.getvalue())
+        self.assertNotIn("FAIL", out.getvalue())
 
 
 class QueueTests(RepoTestCase):
