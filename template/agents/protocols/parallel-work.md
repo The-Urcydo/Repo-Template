@@ -17,6 +17,8 @@ Many agents at once is the normal case. Collisions are prevented by structure, n
    python3 tools/worktree.py create <item-id>
    ```
    Or create the item and its worktree in one step with `python3 tools/new_item.py <slug> --worktree`. The item is written inside the new worktree, so it stays off the main checkout until you commit and merge the item branch. Agents never share a working directory.
+
+   Worktrees land beside the clone, so keep the project in a folder of its own, for example `projects/my-app/my-app`: its worktrees (`projects/my-app/my-app-<item-id>`) then stay in `projects/my-app/` and do not mix into the folder that holds your other projects. The tools print a warning when the clone's folder also holds other git repos. To place one elsewhere, run `python3 tools/worktree.py create <item-id> --path DIR`.
 3. **Locked shared tools.** Creating items, allocating ADR numbers, and editing the human queue go through `tools/`, which take a file lock under `work/.locks/` so two agents cannot allocate the same number or corrupt a file.
 
 ## What can run in parallel
