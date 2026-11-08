@@ -1,4 +1,6 @@
-# Keeps the SHA-pinned actions in .github/workflows/ current. One grouped pull request a week.
+# Keeps the SHA-pinned actions in .github/workflows/ and the dev tools in requirements-dev.txt current.
+# Actions: one grouped pull request a week. pip: minor and patch updates share one weekly pull request;
+# each major update gets its own, so a major that drops Python 3.9 does not hold back the safe ones.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -8,3 +10,11 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      dev-tools:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
