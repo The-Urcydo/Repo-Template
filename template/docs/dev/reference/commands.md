@@ -42,7 +42,7 @@ Tools that create or move things also regenerate the indexes, so `docs/INDEX.md`
 | `workspace-readme` `workspace-boundary` `workspace-cycle` | error | A subfolder in `apps/` or `packages/` is missing a README `summary`, or violates `depends_on` rules (packages depending on apps, apps depending on apps, missing targets, or cycles) |
 | `skill` | error | Skill name, folder match or description invalid, or the same skill name used twice (shared and per-role skills share one flat namespace) |
 | `item` `item-id` `handoff` `self-review` | error | A work item breaks the handoff rules, or `verified_by` matches the builder (`built_by`) |
-| `human-queue` | error / warn | Malformed question, or one waiting more than 7 days (warn) |
+| `human-queue` | error / warn | Malformed question (error), or any open question waiting more than 7 days (warn). Only a question that may default can be answered with its `if_no_answer`; an irreversible decision or an ambiguous directive stays open until the human answers |
 | `generated-drift` `adapter-drift` | error | A generated file differs from its source: run the sync tools |
 | `module-partial` | warn | A module is partly present |
 | `module-requires` | error | A module requires another module that is not installed |
