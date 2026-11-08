@@ -618,6 +618,8 @@ class WorktreeTests(RepoTestCase):
         self.assertEqual(wt_path.name, f"{self.repo.name}-{item}")
         self.assertIn("1 other git repo,", res.stderr)
         self.assertIn(f"({self.repo.name}/{self.repo.name})", res.stderr)  # the fix it names
+        self.assertIn("Tell the owner", res.stderr)  # the reader is usually an agent: it reports, it does not act
+        self.assertIn("do not move the clone yourself", res.stderr)
         self.assertEqual(len(res.stderr.strip().splitlines()), 1)  # one line, as the other tools print
 
     def test_worktree_warning_counts_every_other_repo(self) -> None:
@@ -640,6 +642,17 @@ class WorktreeTests(RepoTestCase):
         self.assertEqual(self.sh("worktree", "create", first).stderr, "")
         # the first worktree now sits beside the clone and has a .git of its own; it is not another project
         self.assertEqual(self.sh("worktree", "create", second).stderr, "")
+
+    def test_worktree_warning_stops_once_the_clone_has_a_worktree(self) -> None:
+        self._other_repo("other-project")
+        first = self.new_item("first-in-crowd")
+        second = self.new_item("second-in-crowd")
+        # no worktree yet: moving the clone into its own folder is still a plain mv, so say so
+        self.assertIn("1 other git repo,", self.sh("worktree", "create", first).stderr)
+        # a worktree exists now: moving the clone would break it, so the advice would be wrong
+        res = self.sh("worktree", "create", second)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertEqual(res.stderr, "")
 
     def test_worktree_warning_is_skipped_for_an_explicit_path(self) -> None:
         self._other_repo("other-project")
