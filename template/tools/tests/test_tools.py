@@ -617,7 +617,7 @@ class WorktreeTests(RepoTestCase):
         self.assertTrue(wt_path.is_dir())  # the worktree is still created, and stdout is still just the path
         self.assertEqual(wt_path.name, f"{self.repo.name}-{item}")
         self.assertIn("1 other git repo,", res.stderr)
-        self.assertIn("--path", res.stderr)
+        self.assertIn(f"({self.repo.name}/{self.repo.name})", res.stderr)  # the fix it names
         self.assertEqual(len(res.stderr.strip().splitlines()), 1)  # one line, as the other tools print
 
     def test_worktree_warning_counts_every_other_repo(self) -> None:
