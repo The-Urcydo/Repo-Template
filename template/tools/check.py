@@ -491,7 +491,7 @@ def check_queue(root: Path, rep: Report) -> None:
                     rep.error("human-queue", where, f"{q['id']} is missing '{k}': give a recommendation, a default, and the cost of guessing wrong")
             d = parse_date(q["fields"].get("date"))
             if d and (today() - d).days > QUESTION_WARN_DAYS:
-                rep.warn("human-queue", where, f"{q['id']} has waited {(today() - d).days} days; apply its if_no_answer default or re-ask")
+                rep.warn("human-queue", where, f"{q['id']} has waited {(today() - d).days} days: apply its if_no_answer default only if the question may default; an irreversible decision or an ambiguous directive stays open until the human answers")
         elif not q["fields"].get("answer"):
             rep.error("human-queue", where, f"{q['id']} is in Answered but has no answer")
 

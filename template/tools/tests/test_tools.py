@@ -811,6 +811,57 @@ class QueueTests(RepoTestCase):
     def test_answering_unknown_question_fails(self) -> None:
         self.assertIn("not an open question", self.fails("question", "answer", "Q-0099", "x"))
 
+    OLD_ADVICE = "apply its if_no_answer default or re-ask"
+
+    def age_question(self, qid: str, days: int) -> None:
+        """Rewrite the `- date:` line of one open question to `days` days ago. The tools read the real clock."""
+        path = self.repo / "work" / "HUMAN.md"
+        lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+        start = next(i for i, line in enumerate(lines) if line.startswith(f"### {qid}:"))
+        for i in range(start + 1, len(lines)):
+            if lines[i].startswith("#"):
+                break
+            if lines[i].startswith("- date:"):
+                lines[i] = f"- date: {(_lib.today() - timedelta(days=days)).isoformat()}\n"
+                path.write_text("".join(lines), encoding="utf-8")
+                return
+        raise AssertionError(f"{qid} has no date line")
+
+    def test_question_waiting_exactly_seven_days_is_not_flagged(self) -> None:
+        self.ok("question", *self.ASK)
+        self.age_question("Q-0001", 7)
+        self.assertNotIn("human-queue", self.ok("check", "--strict"))
+
+    def test_question_waiting_eight_days_warns_and_strict_fails(self) -> None:
+        self.ok("question", *self.ASK)
+        self.age_question("Q-0001", 8)
+        out = self.ok("check")  # a warning alone does not fail the plain check
+        self.assertIn("human-queue", out)
+        self.assertIn("Q-0001 has waited 8 days", out)
+        self.assertIn("only if the question may default", out)
+        self.assertIn("stays open", out)
+        self.assertNotIn(self.OLD_ADVICE, out)
+        self.assertIn("human-queue", self.fails("check", "--strict"))
+
+    def test_warning_never_tells_an_agent_to_default_a_question_that_must_stay_open(self) -> None:
+        args = list(self.ASK)
+        args[args.index("--if-no-answer") + 1] = "that part is not done"
+        self.ok("question", *args)
+        self.age_question("Q-0001", 8)
+        before = (self.repo / "work" / "HUMAN.md").read_text(encoding="utf-8")
+        out = self.ok("check")
+        self.assertIn("only if the question may default", out)
+        self.assertNotIn(self.OLD_ADVICE, out)
+        self.assertEqual((self.repo / "work" / "HUMAN.md").read_text(encoding="utf-8"), before)  # checks only warn
+        self.assertIn("Q-0001", self.ok("question", "list"))
+
+    def test_answering_a_late_question_clears_the_warning(self) -> None:
+        self.ok("question", *self.ASK)
+        self.age_question("Q-0001", 8)
+        self.fails("check", "--strict")
+        self.ok("question", "answer", "Q-0001", "keep them")
+        self.assertNotIn("human-queue", self.ok("check", "--strict"))
+
 
 class AdrTests(RepoTestCase):
     def test_numbers_increase_and_supersede_links_both_ways(self) -> None:

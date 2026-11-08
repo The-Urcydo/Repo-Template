@@ -137,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("title", help="short question the human can answer in one word")
     a.add_argument("--asked-by", required=True, help="your role (must exist in agents/roles/)")
     a.add_argument("--recommended", required=True, help="the option you would pick")
-    a.add_argument("--if-no-answer", required=True, help="what happens by default; for anything irreversible: nothing changes")
+    a.add_argument("--if-no-answer", required=True, help="what happens by default; irreversible: nothing changes; ambiguous directive: that part is not done")
     a.add_argument("--cost", required=True, help="low|medium|high: what guessing wrong would cost")
     a.add_argument("--options", help="the choices, separated by semicolons")
     a.add_argument("--item", help="id of the work item this question blocks, if any")
