@@ -48,6 +48,9 @@ _message_after_copy: |
     python3 tools/check.py --stubs    # placeholders to fill or delete
   Then read docs/dev/how-to/bootstrap-from-template.md.
 
+  Tip: agents work in git worktrees that the tools create beside this folder. Keep the
+  project in a folder of its own (for example projects/my-app/my-app) so they stay together.
+
 project_name:
   type: str
   help: Project name (shown in README.md and AGENTS.md)
