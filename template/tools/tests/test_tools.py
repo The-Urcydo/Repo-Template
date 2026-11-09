@@ -1374,6 +1374,18 @@ class EvalHarnessTests(RepoTestCase):
             reason = self._grade_researcher_fails(sandbox, meta)
             self.assertIn("a date", reason)
 
+    def test_eval_harness_rejects_a_source_outside_the_repo(self) -> None:
+        self._require_evals()
+        cited = "`tools/_lib.py` (`STALE_DAYS`), `agents/protocols/handoff.md`"
+        for label in ("absolute path", "parent-folder path"):
+            with self.subTest(source=label), tempfile.TemporaryDirectory() as tmp:
+                sandbox, meta = self._solved_researcher(tmp)
+                outside = Path(tmp) / "outside.md"  # beside the sandbox folder, not in it
+                outside.write_text(f"Anything here says {meta['answer']} days.\n", encoding="utf-8")
+                self._edit_research(sandbox, meta, cited, str(outside) if label == "absolute path" else "../outside.md")
+                reason = self._grade_researcher_fails(sandbox, meta)
+                self.assertIn("cites an existing file", reason)
+
     def test_eval_harness_rejects_a_leftover_evidence_placeholder_row(self) -> None:
         self._require_evals()
         with tempfile.TemporaryDirectory() as tmp:

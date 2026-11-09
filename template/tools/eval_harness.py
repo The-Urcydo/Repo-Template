@@ -197,6 +197,17 @@ def _table_rows(section: str) -> list[list[str]]:
     return rows
 
 
+def _cited_files(sandbox: Path, cell: str) -> list[Path]:
+    """Files inside the repo that a source cell names. A path that leads outside the repo does not count."""
+    root = sandbox.resolve()
+    found = []
+    for name in _PATH_IN_CELL.findall(cell):
+        path = (sandbox / name).resolve()
+        if path.is_file() and root in path.parents:
+            found.append(path)
+    return found
+
+
 def _open_questions(sandbox: Path) -> list[dict]:
     return [q for q in parse_queue(read_text(sandbox / "work" / "HUMAN.md")) if q["section"] == "open"]
 
@@ -286,7 +297,7 @@ def _git(root: Path, *args: str) -> str:
 def _fill(text: str, placeholder: str, value: str) -> str:
     """Replace a template placeholder, failing loudly if the template no longer has it."""
     if placeholder not in text:
-        raise ValueError(f"the item template no longer contains {placeholder!r}; update the merge-discipline fixture")
+        raise ValueError(f"a template no longer contains {placeholder!r}; update the golden-task fixture that fills it")
     return text.replace(placeholder, value)
 
 
@@ -941,7 +952,7 @@ def grade_task(sandbox: Path, task_id: str, meta: dict) -> tuple[bool, str]:
     if task_id == "callable-researcher":
         # The repo state cannot show who ran transition.py. It shows the result: the handoff is byte for byte what the
         # planner left, so nothing moved and nothing was edited. The answer must be the number the code defines, and
-        # a cited file must exist and state it. A hedged answer that names both numbers is not caught.
+        # a cited file must exist inside the repo and state it. A hedged answer that names both numbers is not caught.
         items = [i.id for i in iter_items(sandbox)]
         if items != [meta["item_id"]]:
             return False, f"expected only the seeded item {meta['item_id']}, found {items}"
@@ -964,13 +975,13 @@ def grade_task(sandbox: Path, task_id: str, meta: dict) -> tuple[bool, str]:
         if not re.search(value, sections["answer"]):
             return False, f"the answer does not give the {meta['answer']} days that the repo defines"
         rows = _table_rows(sections["evidence"])
-        if any(row in _table_rows(template["evidence"]) for row in rows):
+        if any(row in _table_rows(template.get("evidence", "")) for row in rows):
             return False, "an evidence row is still the template placeholder"
         sourced = False
         for cells in rows:
-            cited = [sandbox / p for p in _PATH_IN_CELL.findall(cells[1] if len(cells) > 1 else "")]
+            cited = _cited_files(sandbox, cells[1] if len(cells) > 1 else "")
             dated = len(cells) > 2 and _DATE_IN_CELL.search(cells[2])
-            if dated and any(p.is_file() and re.search(value, read_text(p)) for p in cited):
+            if dated and any(re.search(value, read_text(p)) for p in cited):
                 sourced = True
         if not sourced:
             return False, "no evidence row has a date and cites an existing file that states the answer"
