@@ -1,6 +1,41 @@
 # Repo-Template
 
-A [Copier](https://copier.readthedocs.io) template for new repositories that one human and several AI agents work in together. It gives you a finished *structure* — docs, work tracking, agent roles, health checks — so nobody researches how to organize the repo again, and every part can be cut off when you do not need it.
+> A [Copier](https://copier.readthedocs.io) template for repositories that one human and several AI agents work in together.
+
+[![CI](https://github.com/The-Urcydo/Repo-Template/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/The-Urcydo/Repo-Template/actions/workflows/test.yml)
+[![Version](https://img.shields.io/github/v/tag/The-Urcydo/Repo-Template?sort=semver&label=version)](https://github.com/The-Urcydo/Repo-Template/tags)
+[![License: MIT](https://img.shields.io/github/license/The-Urcydo/Repo-Template)](LICENSE)
+[![Copier 9.4+](https://img.shields.io/badge/copier-9.4%2B-blue)](https://copier.readthedocs.io)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org)
+
+Repo-Template gives a new project a finished *structure*: docs grouped by audience, work tracking with handoffs, tool-neutral agent roles and skills, and a one-command health check. Nobody has to research how to organize the repo again, and every optional part can be cut off when you do not need it.
+
+## Quick start
+
+Requires Python 3.9+, git and Copier 9.4+.
+
+```
+pipx install copier            # or: pip install copier
+copier copy --trust gh:The-Urcydo/Repo-Template projects/my-app/my-app
+cd projects/my-app/my-app
+git init && git add -A && git commit -m "Initial commit from Repo-Template"
+python3 tools/check.py         # prints "ok" and how many placeholders remain
+python3 tools/check.py --stubs # lists the placeholders to fill or delete
+```
+
+- **Generate with Copier, not GitHub's "Use this template" button.** The button copies this repository as it is (Jinja files included), not a finished project, and the copy cannot receive later updates.
+- **Generate into a folder of its own** (`my-app/my-app`, as above; Copier creates the missing parent folders). Parallel agents work in git worktrees that the tools create beside the clone (`my-app/my-app-<item-id>`), so this keeps them together instead of mixing them into the folder that holds your other projects. The tools warn once, when the first worktree is created in a folder that also holds other git repos.
+- **`--trust` is required** because the template runs two of its own stdlib-only tools after generating, to build the indexes and agent adapters. Without it Copier stops and tells you so; nothing is written.
+- **You answer five questions:** project name, one-line description, **profile**, **layout**, and whether to generate the `.claude/` adapter (see [Profiles and layouts](#profiles-and-layouts)).
+
+## Why this structure
+
+A repository worked by one human and many agents, over many fresh sessions, breaks the usual assumptions. The design answers four problems (the reasoning is in [design-rationale.md](template/docs/dev/explanation/design-rationale.md) and the [decision records](template/docs/decisions/)):
+
+- **Things that change at different speeds rot each other.** Durable docs, volatile work and the agent harness live in separate folders, each with one lifecycle and one owner.
+- **Context is a budget.** A short root `AGENTS.md` loads always, one-line-per-doc indexes come next, and the content itself is opened only when a task needs it.
+- **Parallel writers need structure, not luck.** Single-writer ownership, one git worktree per agent, a handoff file per work item, and a state machine that refuses `done` without independent review and evidence.
+- **Optional parts must be cuttable.** Modules that the core never links to, removed with one command.
 
 ## What you get
 
@@ -12,26 +47,34 @@ A [Copier](https://copier.readthedocs.io) template for new repositories that one
 | Tooling | `tools/` | Standard-library Python (3.9+): health check, index generators, work/ADR/doc/worktree/eval helpers |
 | Code | `src/`, `apps/` + `packages/`, `data/` + `notebooks/`, or none (`minimal`) | Placeholders for your stack or engine |
 
+A generated project (profile `full`, layout `single`) looks like this:
+
+```
+my-app/
+├── AGENTS.md            short instructions every agent reads first (≤100 lines, enforced)
+├── CLAUDE.md            shim for Claude Code, generated from agents/
+├── README.md  CONTRIBUTING.md  SECURITY.md  CHANGELOG.md
+├── docs/                durable knowledge, grouped by audience
+│   ├── dev/             tutorials, how-to, reference, explanation
+│   ├── user/            end-user docs (type folders are created on demand)
+│   ├── decisions/       numbered ADRs
+│   └── product/ operations/ security/ release/    optional modules
+├── work/                what is happening now
+│   ├── inbox/  items/  research/  archive/
+│   ├── ACTIVE.md        generated board
+│   └── HUMAN.md         questions waiting for the human
+├── agents/              the harness, tool-neutral
+│   ├── roles/           orchestrator, planner, architect, builder, reviewer, scribe, researcher (+ security)
+│   └── skills/  protocols/  evals/  adapters/
+├── tools/               check.py, new_item.py, transition.py, sync_indexes.py, sync_agents.py, ...
+├── src/  tests/         your code (depends on the layout)
+├── infra/  .github/     optional modules
+└── .claude/             generated Claude Code adapter (optional)
+```
+
 Rules that make it work for agents: a short root `AGENTS.md` (≤100 lines, enforced), a `CLAUDE.md` shim beside each `AGENTS.md`, front matter on every doc, one declared owner per folder, evidence and independent role verification (`--by <role>`) required before work counts as done, workspace dependency boundaries (`depends_on`) enforced across `apps/` and `packages/`, and `python3 tools/check.py` as the single "is the repo healthy?" command.
 
-## Create a project
-
-Requires Python 3.9+, git and Copier 9.4+.
-
-```
-pipx install copier            # or: pip install copier
-copier copy --trust gh:<you>/Repo-Template projects/my-app/my-app
-cd projects/my-app/my-app
-git init && git add -A && git commit -m "Initial commit from Repo-Template"
-python3 tools/check.py         # prints "ok"
-python3 tools/check.py --stubs # placeholders to fill or delete
-```
-
-Generate into a folder of its own (`my-app/my-app`, as above; Copier creates the missing parent folders). Parallel agents work in git worktrees that the tools create beside the clone (`my-app/my-app-<item-id>`), so this keeps them together instead of mixing them into the folder that holds your other projects. The tools warn once, when the first worktree is created in a folder that also holds other git repos.
-
-`--trust` is required because the template runs two of its own stdlib-only tools after generating, to build the indexes and agent adapters. Without it Copier stops and tells you so; nothing is written.
-
-You answer five questions: project name, one-line description, **profile**, **layout**, and whether to generate the `.claude/` adapter.
+## Profiles and layouts
 
 | Profile | Modules included |
 |---|---|
@@ -60,14 +103,13 @@ cd path/to/project             # must be a clean git repo
 copier update --trust
 ```
 
-Local edits are merged, and modules you cut stay cut. See `docs/dev/how-to/update-from-template.md` in a generated project. Tag releases of this template (`v0.2.0`, …) so updates have a stable reference.
+Local edits are merged, and modules you cut stay cut. See `docs/dev/how-to/update-from-template.md` in a generated project. Copier builds from the newest release tag of this template, so improvements reach your project once a new tag exists. Projects created from `v0.2.0` get a large update at `v0.3.0` (27 files are renamed: the docs layout and the role folders), so run it on a clean repo and read the diff.
 
-## Releasing
+## What it does not include
 
-```
-git tag -a v0.2.0 -m "v0.2.0"
-git push origin v0.2.0
-```
+- **No application code or stack.** The code folders are placeholders, and the shipped skills are stack-neutral procedures built on the `tools/` commands.
+- **No dependencies in a generated project.** The tools are standard-library Python. Copier is needed only to create and update a project, not to use it.
+- **No production mileage yet for multi-agent workflows.** See [Known limits](#known-limits).
 
 ## Developing this template
 
@@ -79,7 +121,20 @@ python -m pytest tests -q
 
 The tests generate real projects and exercise them: every profile × layout, custom module sets, deterministic output, idempotent sync, every documented command and flag, the tutorial end to end, the shipped unit tests, parity between the stdlib front-matter parser and PyYAML, and a full `copier update` that keeps local edits and cut modules.
 
+To try your branch by hand, always pass `--vcs-ref HEAD` (`copier copy --trust --vcs-ref HEAD . <dir>`). Without it Copier builds from the newest release tag, so you would test the tag, not your branch.
+
+Changes arrive as pull requests, one topic each, branched from `main`. The owner approves every pull request; agents propose and never merge on their own. The rules are in [AGENTS.md](AGENTS.md).
+
 Layout of this repo: `copier.yml` (questions, exclusions, tasks) · `template/` (everything that is generated) · `tests/` (template-level tests) · `.github/` (this repo's CI; not copied into projects).
+
+## Releasing
+
+```
+git tag -a vX.Y.Z -m "vX.Y.Z: short summary"
+git push origin vX.Y.Z
+```
+
+Tag on the merge commit, after the pull requests you want to ship have merged. The tag message lists what changed for generated projects and says when an update renames files.
 
 ## Known limits
 
