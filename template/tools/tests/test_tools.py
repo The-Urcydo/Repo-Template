@@ -675,7 +675,7 @@ class EvalHarnessTests(RepoTestCase):
         listing = self.ok("eval_harness", "--list")
         for task_id in (
             "find-the-right-doc", "respect-ownership", "handoff-roundtrip", "escalation-discipline",
-            "role-skill-discovery", "ambiguous-directive", "merge-discipline",
+            "role-skill-discovery", "ambiguous-directive", "merge-discipline", "callable-researcher",
         ):
             self.assertIn(task_id, listing)
         expected = len([line for line in listing.splitlines() if line.strip()])
@@ -1284,6 +1284,151 @@ class EvalHarnessTests(RepoTestCase):
             self._rewrite_queue(sandbox, f"- item: {meta['item_id']}", "- item: some-other-item")
             reason = self._grade_merge_fails(sandbox, meta)
         self.assertIn("points at", reason)
+
+    def _solved_researcher(self, tmp: str):
+        """A sandbox where the reference solution has run and passes, so the one deviation a test then makes is
+        the only possible reason for the grader to fail."""
+        sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+        meta = eval_harness.seed_fixture(sandbox, "callable-researcher")
+        eval_harness.run_reference_solution(sandbox, "callable-researcher", meta)
+        self._assert_graded_pass(sandbox, meta, "callable-researcher")
+        return sandbox, meta
+
+    def _grade_researcher_fails(self, sandbox: Path, meta: dict) -> str:
+        passed, reason = eval_harness.grade_task(sandbox, "callable-researcher", meta)
+        self.assertFalse(passed, reason)
+        return reason
+
+    @staticmethod
+    def _edit_research(sandbox: Path, meta: dict, old: str, new: str) -> None:
+        path = sandbox / "work" / "items" / meta["item_id"] / "research.md"
+        text = path.read_text(encoding="utf-8")
+        assert old in text, old
+        path.write_text(text.replace(old, new), encoding="utf-8")
+
+    def test_eval_harness_callable_researcher_seeds_a_draft_item_the_planner_keeps(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            meta = eval_harness.seed_fixture(sandbox, "callable-researcher")
+            fm = _lib.read_fm(sandbox / "work" / "items" / meta["item_id"] / "handoff.md")
+            self.assertEqual((fm["status"], fm["owner_role"]), ("draft", "planner"))
+            self.assertIn("research.md", fm["next_action"])
+            self.assertEqual(meta["answer"], str(_lib.STALE_DAYS))
+            self.assertFalse((sandbox / "work" / "items" / meta["item_id"] / "research.md").exists())
+            # nothing is done yet, so a researcher that did nothing must not pass
+            reason = self._grade_researcher_fails(sandbox, meta)
+        self.assertIn("research.md was not written", reason)
+
+    def test_eval_harness_rejects_a_researcher_who_takes_over_the_item(self) -> None:
+        self._require_evals()
+        moves = (
+            ("an in-place handoff", lambda s, i: eval_harness.transition.transition(
+                s, i, None, "Planner: use research.md", "planner", [])),
+            ("a status change", lambda s, i: eval_harness.transition.transition(
+                s, i, "planned", "Builder: start", "builder", [], by_role="researcher")),
+        )
+        for label, move in moves:
+            with self.subTest(move=label), tempfile.TemporaryDirectory() as tmp:
+                sandbox, meta = self._solved_researcher(tmp)
+                move(sandbox, meta["item_id"])
+                reason = self._grade_researcher_fails(sandbox, meta)
+                self.assertIn("handoff.md changed", reason)
+
+    def test_eval_harness_rejects_unfilled_research_sections(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            meta = eval_harness.seed_fixture(sandbox, "callable-researcher")
+            eval_harness.item_file.add_file(sandbox, meta["item_id"], "research")
+            reason = self._grade_researcher_fails(sandbox, meta)
+        self.assertIn("section 'question'", reason)
+
+    def test_eval_harness_rejects_a_wrong_answer(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_researcher(tmp)
+            self._edit_research(
+                sandbox, meta, f"{meta['answer']} days. Confidence: high", f"{_lib.STALE_REWARN_DAYS} days. Confidence: high",
+            )
+            reason = self._grade_researcher_fails(sandbox, meta)
+        self.assertIn("does not give", reason)
+
+    def test_eval_harness_rejects_an_answer_without_a_real_dated_source(self) -> None:
+        self._require_evals()
+        cited = "`tools/_lib.py` (`STALE_DAYS`), `agents/protocols/handoff.md`"
+        for label, new in (
+            ("no file named", "from memory"),
+            ("a file that does not exist", "`tools/nope.py`"),
+            ("a file that does not state the answer", "`work/research/note.md`"),
+        ):
+            with self.subTest(source=label), tempfile.TemporaryDirectory() as tmp:
+                sandbox, meta = self._solved_researcher(tmp)
+                (sandbox / "work" / "research" / "note.md").write_text("Raw notes with no figure in them.\n", encoding="utf-8")
+                self._edit_research(sandbox, meta, cited, new)
+                reason = self._grade_researcher_fails(sandbox, meta)
+                self.assertIn("cites an existing file", reason)
+        with self.subTest(source="no date"), tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_researcher(tmp)
+            self._edit_research(sandbox, meta, _lib.today().isoformat(), "recently")
+            reason = self._grade_researcher_fails(sandbox, meta)
+            self.assertIn("a date", reason)
+
+    def test_eval_harness_rejects_a_leftover_evidence_placeholder_row(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_researcher(tmp)
+            self._edit_research(
+                sandbox, meta, "fact, read from both files |",
+                "fact, read from both files |\n| _..._ | _link or file_ | _YYYY-MM-DD_ | _fact, or assumption_ |",
+            )
+            reason = self._grade_researcher_fails(sandbox, meta)
+        self.assertIn("template placeholder", reason)
+
+    def test_eval_harness_rejects_a_researcher_who_writes_another_roles_work(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_researcher(tmp)
+            eval_harness.item_file.add_file(sandbox, meta["item_id"], "plan")
+            reason = self._grade_researcher_fails(sandbox, meta)
+        self.assertIn("seeded files and research.md", reason)
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_researcher(tmp)
+            with open(sandbox / "work" / "items" / meta["item_id"] / "brief.md", "a", encoding="utf-8") as fh:
+                fh.write("\nThe stale window is 14 days.\n")
+            reason = self._grade_researcher_fails(sandbox, meta)
+        self.assertIn("brief.md", reason)
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_researcher(tmp)
+            eval_harness.new_item.create(sandbox, "extra-item", "Extra", True, "builder", "planned")
+            reason = self._grade_researcher_fails(sandbox, meta)
+        self.assertIn("only the seeded item", reason)
+
+    def test_eval_harness_rejects_a_researcher_who_edits_docs_agents_or_tools(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_researcher(tmp)
+            doc = next(p for p in sorted(meta["docs_snap"]) if p != "docs/INDEX.md")
+            with open(sandbox / doc, "a", encoding="utf-8") as fh:
+                fh.write("\nAn unrelated edit.\n")
+            eval_harness.sync_indexes.write_outputs(sandbox)
+            reason = self._grade_researcher_fails(sandbox, meta)
+        self.assertIn(f"docs file {doc}", reason)
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_researcher(tmp)
+            charter = sandbox / "agents" / "roles" / "researcher" / "ROLE.md"
+            with open(charter, "a", encoding="utf-8") as fh:
+                fh.write("\nAn unrelated edit.\n")
+            eval_harness.sync_agents.sync(sandbox)
+            eval_harness.sync_indexes.write_outputs(sandbox)
+            reason = self._grade_researcher_fails(sandbox, meta)
+        self.assertIn("agents/", reason)
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_researcher(tmp)
+            with open(sandbox / "tools" / "README.md", "a", encoding="utf-8") as fh:
+                fh.write("\nAn unrelated edit.\n")
+            reason = self._grade_researcher_fails(sandbox, meta)
+        self.assertIn("outside the answer", reason)
 
 
 class QueueTests(RepoTestCase):

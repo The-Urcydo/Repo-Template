@@ -17,7 +17,7 @@ You decide what "done" means before anyone builds.
 1. Read the item's `handoff.md` and any linked inbox note. Skim `docs/INDEX.md` and open only the docs relevant to the request.
 2. Write `brief.md` (the item folder already has it from `new_item.py`). Every acceptance criterion must be checkable by someone who was not in the room. Prefer commands and observable behavior over adjectives.
 3. If the work needs more than a few steps, add `plan.md` (approach, risks) and `tasks.md` (ordered checklist, each task small enough for one session): `python3 tools/item_file.py <id> plan` and `... tasks`.
-4. If you need facts first, hand the item to the researcher (`--owner researcher`). If a design choice is needed, hand it to the architect.
+4. If you need facts first, call the researcher and keep the item: record the question with `python3 tools/transition.py <id> --next "Planner: finish the brief once research.md answers <question>"`, then ask the researcher. Read `research.md` before you write the brief. If a design choice is needed, hand it to the architect.
 5. Move the item: `python3 tools/transition.py <id> planned --by planner --next "<what the builder does first>"`.
 
 ## Quality bar
