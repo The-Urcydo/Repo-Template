@@ -18,7 +18,7 @@ Plain `python3 tools/<name>.py`, no installs. Run any tool with `--help`. Comman
 | `item_file.py` | Adds a role-owned file (plan, tasks, review, research, design, security-review) to an item from its template |
 | `transition.py` | Moves an item through the lifecycle, enforcing evidence, `--by` attribution and independent-review rules |
 | `archive_item.py` | Archives `done` or `canceled` items; `--sweep` also flags idle ones as `stale` |
-| `worktree.py` | Creates, lists and removes isolated sibling git worktrees (`../<repo>-<item-id>`) for parallel work items; warns when the clone's folder also holds other git repos |
+| `worktree.py` | Creates, lists and removes isolated sibling git worktrees (`../<repo>-<item-id>`) for parallel work items |
 | `new_adr.py` | Creates the next numbered ADR (lock-protected) |
 | `new_doc.py` | Creates a doc from its template |
 | `question.py` | Adds to or answers the human decision queue |

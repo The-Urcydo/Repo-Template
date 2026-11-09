@@ -1,6 +1,6 @@
 # Copier template: agent-ready repo skeleton.
-#   Create:  copier copy --trust gh:<you>/<this-repo> path/to/new-project
-#   Update:  cd path/to/new-project && copier update --trust     (project must be a clean git repo)
+#   Create:  copier copy --trust gh:<you>/<this-repo> projects/my-app/my-app
+#   Update:  cd projects/my-app/my-app && copier update --trust  (project must be a clean git repo)
 # --trust is needed because the template runs two of its own stdlib-only tools after generating
 # (tools/sync_indexes.py and tools/sync_agents.py) to build the generated indexes and adapters.
 
