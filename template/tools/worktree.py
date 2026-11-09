@@ -8,8 +8,9 @@ Usage:
 
 Creates a sibling worktree at ../<repo>-<item-id> on branch item/<item-id> so parallel
 building agents never share a working directory or step on each other's index. When the
-folder that holds the clone also holds other git repos, it prints one warning (it never
-blocks): keep the project in its own folder, <name>/<name>, so its worktrees stay together.
+first worktree is created and the folder that holds the clone also holds other git repos, it
+prints one warning (it never blocks): the owner should keep the project in its own folder,
+<name>/<name>, so its worktrees stay together.
 """
 from __future__ import annotations
 
@@ -68,15 +69,19 @@ def registered_worktree(root: Path, item_id: str) -> Path | None:
 
 
 def crowded_parent(root: Path) -> int:
-    """Count the other git repos in the folder that holds the clone.
+    """Count the other git repos in the folder that holds the clone, until the clone has a worktree.
 
-    The clone itself and this repo's own worktrees do not count. Any trouble reading the folder
-    counts as none: the warning is a courtesy and must never stop a worktree from being created."""
+    Returns 0 once the clone has any worktree: moving the clone then breaks it, so the advice would be
+    wrong, and repeating it on every create would only cost the agent tokens. The clone itself does not
+    count. Any trouble reading the folder counts as none: the warning is a courtesy and must never stop
+    a worktree from being created."""
     try:
-        own = {root.resolve()} | {Path(e["worktree"]).resolve() for e in _worktree_entries(root)}
+        me = root.resolve()
+        if {Path(e["worktree"]).resolve() for e in _worktree_entries(root)} - {me}:
+            return 0
         count = 0
         for child in root.parent.iterdir():
-            if child.is_dir() and (child / ".git").exists() and child.resolve() not in own:
+            if child.is_dir() and (child / ".git").exists() and child.resolve() != me:
                 count += 1
         return count
     except (OSError, RuntimeError):
@@ -88,8 +93,9 @@ def _warn_if_crowded(root: Path) -> None:
     if others:
         print(
             f"warning: {root.parent} also holds {others} other git repo{'' if others == 1 else 's'}, "
-            f"so this worktree will sit among them; keep this project in its own folder "
-            f"({root.name}/{root.name}) so its worktrees stay together (see agents/protocols/parallel-work.md)",
+            f"so this worktree will sit among them. Tell the owner: the project belongs in a folder of its own "
+            f"({root.name}/{root.name}); do not move the clone yourself "
+            f"(see agents/protocols/parallel-work.md)",
             file=sys.stderr,
         )
 
