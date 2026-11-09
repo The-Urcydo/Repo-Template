@@ -1,6 +1,6 @@
 # Copier template: agent-ready repo skeleton.
-#   Create:  copier copy --trust gh:<you>/<this-repo> path/to/new-project
-#   Update:  cd path/to/new-project && copier update --trust     (project must be a clean git repo)
+#   Create:  copier copy --trust gh:<you>/<this-repo> projects/my-app/my-app
+#   Update:  cd projects/my-app/my-app && copier update --trust  (project must be a clean git repo)
 # --trust is needed because the template runs two of its own stdlib-only tools after generating
 # (tools/sync_indexes.py and tools/sync_agents.py) to build the generated indexes and adapters.
 
@@ -47,6 +47,9 @@ _message_after_copy: |
     python3 tools/check.py            # should print "ok"
     python3 tools/check.py --stubs    # placeholders to fill or delete
   Then read docs/dev/how-to/bootstrap-from-template.md.
+
+  Tip: agents work in git worktrees that the tools create beside this folder. Keep the
+  project in a folder of its own (for example projects/my-app/my-app) so they stay together.
 
 project_name:
   type: str

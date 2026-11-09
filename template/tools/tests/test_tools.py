@@ -601,6 +601,72 @@ class WorktreeTests(RepoTestCase):
         self.assertIn("outside the repository root",
                       self.fails("worktree", "create", item, "--path", str(self.repo / "sub")))
 
+    def _other_repo(self, name: str) -> Path:
+        """A second git repo in the same folder as the clone, like another project in a shared projects/ folder."""
+        other = self.repo.parent / name
+        other.mkdir()
+        subprocess.run(["git", "-C", str(other), "init", "-q"], check=True)
+        return other
+
+    def test_worktree_create_warns_when_the_parent_folder_holds_other_repos(self) -> None:
+        self._other_repo("other-project")
+        item = self.new_item("crowded")
+        res = self.sh("worktree", "create", item)
+        self.assertEqual(res.returncode, 0, res.stderr)  # a warning, never a refusal
+        wt_path = Path(res.stdout.strip())
+        self.assertTrue(wt_path.is_dir())  # the worktree is still created, and stdout is still just the path
+        self.assertEqual(wt_path.name, f"{self.repo.name}-{item}")
+        self.assertIn("1 other git repo,", res.stderr)
+        self.assertIn(f"({self.repo.name}/{self.repo.name})", res.stderr)  # the fix it names
+        self.assertIn("Tell the owner", res.stderr)  # the reader is usually an agent: it reports, it does not act
+        self.assertIn("do not move the clone yourself", res.stderr)
+        self.assertEqual(len(res.stderr.strip().splitlines()), 1)  # one line, as the other tools print
+
+    def test_worktree_warning_counts_every_other_repo(self) -> None:
+        self._other_repo("one")
+        self._other_repo("two")
+        item = self.new_item("two-others")
+        self.assertIn("2 other git repos,", self.sh("worktree", "create", item).stderr)
+
+    def test_worktree_create_is_silent_when_nothing_else_shares_the_folder(self) -> None:
+        (self.repo.parent / "notes").mkdir()  # a plain folder and a plain file are not repos
+        (self.repo.parent / "todo.txt").write_text("x\n", encoding="utf-8")
+        item = self.new_item("alone")
+        res = self.sh("worktree", "create", item)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertEqual(res.stderr, "")
+
+    def test_worktree_warning_ignores_this_repos_own_worktrees(self) -> None:
+        first = self.new_item("first-wt")
+        second = self.new_item("second-wt")
+        self.assertEqual(self.sh("worktree", "create", first).stderr, "")
+        # the first worktree now sits beside the clone and has a .git of its own; it is not another project
+        self.assertEqual(self.sh("worktree", "create", second).stderr, "")
+
+    def test_worktree_warning_stops_once_the_clone_has_a_worktree(self) -> None:
+        self._other_repo("other-project")
+        first = self.new_item("first-in-crowd")
+        second = self.new_item("second-in-crowd")
+        # no worktree yet: moving the clone into its own folder is still a plain mv, so say so
+        self.assertIn("1 other git repo,", self.sh("worktree", "create", first).stderr)
+        # a worktree exists now: moving the clone would break it, so the advice would be wrong
+        res = self.sh("worktree", "create", second)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertEqual(res.stderr, "")
+
+    def test_worktree_warning_is_skipped_for_an_explicit_path(self) -> None:
+        self._other_repo("other-project")
+        item = self.new_item("chosen-path")
+        res = self.sh("worktree", "create", item, "--path", str(self.repo.parent / "mine"))
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertEqual(res.stderr, "")  # the person chose the location
+
+    def test_new_item_worktree_warns_in_a_crowded_folder_too(self) -> None:
+        self._other_repo("other-project")
+        res = self.sh("new_item", "via-new-item", "--worktree")
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertIn("1 other git repo,", res.stderr)
+
 
 class EvalHarnessTests(RepoTestCase):
     def test_eval_harness_lists_and_verifies_golden_tasks(self) -> None:

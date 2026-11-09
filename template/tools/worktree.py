@@ -7,7 +7,10 @@ Usage:
   python3 tools/worktree.py list
 
 Creates a sibling worktree at ../<repo>-<item-id> on branch item/<item-id> so parallel
-building agents never share a working directory or step on each other's index.
+building agents never share a working directory or step on each other's index. When the
+first worktree is created and the folder that holds the clone also holds other git repos, it
+prints one warning (it never blocks): the owner should keep the project in its own folder,
+<name>/<name>, so its worktrees stay together.
 """
 from __future__ import annotations
 
@@ -65,6 +68,38 @@ def registered_worktree(root: Path, item_id: str) -> Path | None:
     return None
 
 
+def crowded_parent(root: Path) -> int:
+    """Count the other git repos in the folder that holds the clone, until the clone has a worktree.
+
+    Returns 0 once the clone has any worktree: moving the clone then breaks it, so the advice would be
+    wrong, and repeating it on every create would only cost the agent tokens. The clone itself does not
+    count. Any trouble reading the folder counts as none: the warning is a courtesy and must never stop
+    a worktree from being created."""
+    try:
+        me = root.resolve()
+        if {Path(e["worktree"]).resolve() for e in _worktree_entries(root)} - {me}:
+            return 0
+        count = 0
+        for child in root.parent.iterdir():
+            if child.is_dir() and (child / ".git").exists() and child.resolve() != me:
+                count += 1
+        return count
+    except (OSError, RuntimeError):
+        return 0
+
+
+def _warn_if_crowded(root: Path) -> None:
+    others = crowded_parent(root)
+    if others:
+        print(
+            f"warning: {root.parent} also holds {others} other git repo{'' if others == 1 else 's'}, "
+            f"so this worktree will sit among them. Tell the owner: the project belongs in a folder of its own "
+            f"({root.name}/{root.name}); do not move the clone yourself "
+            f"(see agents/protocols/parallel-work.md)",
+            file=sys.stderr,
+        )
+
+
 def _resolve_item(root: Path, query: str) -> tuple[str, Path]:
     """Find an item in the main checkout or, failing that, in a registered worktree."""
     try:
@@ -98,6 +133,8 @@ def create_for_id(root: Path, item_id: str, custom_path: str | None = None) -> P
     wt_path = Path(custom_path).resolve() if custom_path else default_wt_path(root, item_id)
     if wt_path == root or root in wt_path.parents:
         raise ValueError("worktree path must be outside the repository root (prefer a sibling folder)")
+    if custom_path is None:  # an explicit --path is the person's own choice of place
+        _warn_if_crowded(root)
     branch = branch_name(item_id)
     if branch_exists(root, item_id):
         res = _git(root, "worktree", "add", str(wt_path), branch)

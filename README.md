@@ -20,12 +20,14 @@ Requires Python 3.9+, git and Copier 9.4+.
 
 ```
 pipx install copier            # or: pip install copier
-copier copy --trust gh:<you>/Repo-Template path/to/new-project
-cd path/to/new-project
+copier copy --trust gh:<you>/Repo-Template projects/my-app/my-app
+cd projects/my-app/my-app
 git init && git add -A && git commit -m "Initial commit from Repo-Template"
 python3 tools/check.py         # prints "ok"
 python3 tools/check.py --stubs # placeholders to fill or delete
 ```
+
+Generate into a folder of its own (`my-app/my-app`, as above; Copier creates the missing parent folders). Parallel agents work in git worktrees that the tools create beside the clone (`my-app/my-app-<item-id>`), so this keeps them together instead of mixing them into the folder that holds your other projects. The tools warn once, when the first worktree is created in a folder that also holds other git repos.
 
 `--trust` is required because the template runs two of its own stdlib-only tools after generating, to build the indexes and agent adapters. Without it Copier stops and tells you so; nothing is written.
 
