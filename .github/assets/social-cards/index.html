@@ -1,0 +1,1932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Repo-Template — Social Card Design Studio (1280×640)</title>
+  <style>
+    /* ==========================================================================
+       DESIGNER AGENT COLLABORATION GUIDE (EDITABLE VIA PR)
+       --------------------------------------------------------------------------
+       1. Canvas Size: Every `.social-card` is strictly 1280px × 640px (2:1).
+       2. Safe Zone: Keep primary titles and crucial badges inside the inner
+          1120px × 520px area (60px top/bottom, 80px left/right padding).
+       3. Isolation Mode for Screenshot / Image Generation:
+          - Open with `?card=1` (or 2, 3, 4, 5) in the URL, OR click "Isolate 1280×640"
+            on any card to render ONLY that 1280×640 card at (0,0) with zero chrome.
+          - Example Playwright/Headless command:
+            `npx playwright screenshot --viewport-size="1280,640" "file://.../index.html?card=1" card-01.png`
+       4. Design Tokens: Edit CSS variables below or scoped inside `#card-01`..`#card-05`.
+       ========================================================================== */
+
+    :root {
+      /* Global Brand & Palette Tokens */
+      --bg-obsidian: #070a0f;
+      --bg-slate: #0d121b;
+      --bg-panel: #111823;
+      --bg-panel-elevated: #16202e;
+      --border-subtle: rgba(159, 179, 200, 0.14);
+      --border-highlight: rgba(63, 185, 168, 0.45);
+
+      --accent-teal: #3fb9a8;
+      --accent-teal-dim: rgba(63, 185, 168, 0.14);
+      --accent-cyan: #38bdf8;
+      --accent-amber: #f59e0b;
+      --accent-purple: #a78bfa;
+      --accent-emerald: #10b981;
+      --accent-rose: #f43f5e;
+
+      --text-primary: #f0f6fc;
+      --text-secondary: #9fb3c8;
+      --text-muted: #64768a;
+
+      --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", "DejaVu Sans Mono", Menlo, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #05070b;
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      padding: 48px 32px 96px;
+      min-height: 100vh;
+    }
+
+    /* ==========================================================================
+       STUDIO CHROME (Hidden automatically in `?card=N` or Isolation Mode)
+       ========================================================================== */
+    .studio-header {
+      max-width: 1280px;
+      margin: 0 auto 40px;
+      padding: 28px 32px;
+      background: linear-gradient(180deg, rgba(22, 32, 46, 0.7) 0%, rgba(13, 18, 27, 0.7) 100%);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      backdrop-filter: blur(12px);
+    }
+
+    .studio-header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .studio-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--accent-teal);
+      background: var(--accent-teal-dim);
+      border: 1px solid var(--border-highlight);
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 12px;
+    }
+
+    .studio-title {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+
+    .studio-subtitle {
+      font-size: 15px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      max-width: 780px;
+    }
+
+    .studio-controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .studio-btn {
+      appearance: none;
+      background: #16202e;
+      color: var(--text-primary);
+      border: 1px solid rgba(159, 179, 200, 0.25);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .studio-btn:hover,
+    .studio-btn.active {
+      background: var(--accent-teal-dim);
+      border-color: var(--accent-teal);
+      color: #fff;
+    }
+
+    .studio-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border-subtle);
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .studio-meta-item strong {
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    /* Concept Wrapper */
+    .concept-section {
+      max-width: 1280px;
+      margin: 0 auto 64px;
+    }
+
+    .concept-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 14px;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .concept-info h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .concept-num {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--accent-teal);
+      background: rgba(63, 185, 168, 0.12);
+      border: 1px solid rgba(63, 185, 168, 0.35);
+      padding: 2px 8px;
+      border-radius: 6px;
+    }
+
+    .concept-info p {
+      font-size: 13.5px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    /* ==========================================================================
+       CORE SOCIAL CARD CANVAS (1280 × 640 STRICT)
+       ========================================================================== */
+    .card-viewport {
+      width: 1280px;
+      height: 640px;
+      position: relative;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 28px 70px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
+
+    .social-card {
+      width: 1280px;
+      height: 640px;
+      position: relative;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* Optional Safe-Zone Overlay (toggled by button) */
+    .safe-zone-guide {
+      position: absolute;
+      inset: 60px 80px;
+      border: 1.5px dashed rgba(244, 63, 94, 0.65);
+      border-radius: 8px;
+      pointer-events: none;
+      z-index: 99;
+      display: none;
+    }
+
+    .safe-zone-guide::after {
+      content: "SAFE ZONE · 1120 × 520 (80px X / 60px Y)";
+      position: absolute;
+      top: 8px;
+      right: 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #f43f5e;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    body.show-safe-zone .safe-zone-guide {
+      display: block;
+    }
+
+    /* Isolation Mode (for exact 1280×640 image capture) */
+    body.isolated-mode {
+      padding: 0;
+      margin: 0;
+      background: transparent;
+      overflow: hidden;
+    }
+
+    body.isolated-mode .studio-header,
+    body.isolated-mode .concept-toolbar,
+    body.isolated-mode .concept-section:not(.active-isolated) {
+      display: none !important;
+    }
+
+    body.isolated-mode .concept-section.active-isolated {
+      margin: 0;
+      max-width: none;
+    }
+
+    body.isolated-mode .card-viewport {
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    .exit-isolation-btn {
+      display: none;
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      z-index: 9999;
+      background: rgba(13, 18, 27, 0.9);
+      color: #fff;
+      border: 1px solid var(--accent-teal);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+      opacity: 0.25;
+      transition: opacity 0.2s;
+    }
+
+    .exit-isolation-btn:hover {
+      opacity: 1;
+    }
+
+    body.isolated-mode .exit-isolation-btn {
+      display: block;
+    }
+
+    /* ==========================================================================
+       CONCEPT 01: THE VOLATILITY ARCHITECTURE (Refined PR #28 Flagship)
+       ========================================================================== */
+    #card-01 {
+      background: radial-gradient(circle at 82% 22%, rgba(63, 185, 168, 0.14) 0%, transparent 48%),
+                  radial-gradient(circle at 18% 88%, rgba(56, 189, 248, 0.08) 0%, transparent 45%),
+                  linear-gradient(135deg, #090d14 0%, #0f1722 55%, #131e2d 100%);
+      display: grid;
+      grid-template-columns: 590px 1fr;
+      padding: 56px 68px 56px 76px;
+      gap: 44px;
+      align-items: center;
+    }
+
+    #card-01 .bg-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(to right, rgba(159, 179, 200, 0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(159, 179, 200, 0.04) 1px, transparent 1px);
+      background-size: 32px 32px;
+      mask-image: radial-gradient(ellipse at center, black 55%, transparent 95%);
+      pointer-events: none;
+    }
+
+    #card-01 .left-accent-bar {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 10px;
+      background: linear-gradient(180deg, #3fb9a8 0%, #2dd4bf 50%, #0ea5e9 100%);
+    }
+
+    #card-01 .c1-left {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100%;
+      padding: 6px 0;
+    }
+
+    #card-01 .c1-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      align-self: flex-start;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(63, 185, 168, 0.1);
+      border: 1px solid rgba(63, 185, 168, 0.35);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 500;
+      color: #6ee7b7;
+      letter-spacing: 0.02em;
+    }
+
+    #card-01 .c1-eyebrow-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #3fb9a8;
+      box-shadow: 0 0 10px #3fb9a8;
+    }
+
+    #card-01 .c1-title {
+      font-size: 68px;
+      font-weight: 800;
+      letter-spacing: -0.035em;
+      line-height: 1.02;
+      color: #f8fafc;
+      margin-top: 18px;
+    }
+
+    #card-01 .c1-subtitle {
+      font-size: 27px;
+      font-weight: 500;
+      line-height: 1.35;
+      color: #b0c4d8;
+      margin-top: 16px;
+      letter-spacing: -0.015em;
+    }
+
+    #card-01 .c1-subtitle strong {
+      color: #f0f6fc;
+      font-weight: 600;
+    }
+
+    #card-01 .c1-mantra {
+      margin-top: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: var(--font-mono);
+      font-size: 15.5px;
+      color: #7c93ab;
+    }
+
+    #card-01 .c1-mantra span.sep {
+      color: #3fb9a8;
+      font-weight: 700;
+    }
+
+    #card-01 .c1-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: auto;
+    }
+
+    #card-01 .c1-chip {
+      padding: 8px 15px;
+      border-radius: 8px;
+      background: rgba(22, 32, 46, 0.85);
+      border: 1px solid rgba(159, 179, 200, 0.18);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      color: #d1dde8;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    #card-01 .c1-chip i {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #3fb9a8;
+    }
+
+    /* Right Architecture Stack Card */
+    #card-01 .c1-right {
+      position: relative;
+      z-index: 2;
+      background: rgba(11, 16, 24, 0.92);
+      border: 1px solid rgba(159, 179, 200, 0.2);
+      border-radius: 18px;
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 516px;
+    }
+
+    #card-01 .c1-win-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      background: rgba(20, 29, 43, 0.75);
+      border-bottom: 1px solid rgba(159, 179, 200, 0.14);
+    }
+
+    #card-01 .c1-dots {
+      display: flex;
+      gap: 8px;
+    }
+
+    #card-01 .c1-dots span {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+    }
+
+    #card-01 .c1-win-title {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: #9fb3c8;
+    }
+
+    #card-01 .c1-win-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #3fb9a8;
+      background: rgba(63, 185, 168, 0.12);
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(63, 185, 168, 0.3);
+    }
+
+    #card-01 .c1-layers {
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1;
+      justify-content: center;
+    }
+
+    #card-01 .c1-layer-row {
+      display: grid;
+      grid-template-columns: 118px 1fr auto;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: rgba(20, 29, 43, 0.55);
+      border: 1px solid rgba(159, 179, 200, 0.11);
+      border-left: 3px solid var(--layer-color, #3fb9a8);
+      border-radius: 10px;
+    }
+
+    #card-01 .c1-folder {
+      font-family: var(--font-mono);
+      font-size: 17px;
+      font-weight: 700;
+      color: #f0f6fc;
+    }
+
+    #card-01 .c1-folder-desc {
+      font-size: 14px;
+      color: #9fb3c8;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #card-01 .c1-speed-pill {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 9px;
+      border-radius: 6px;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      background: var(--pill-bg);
+      color: var(--pill-fg);
+      border: 1px solid var(--pill-border);
+    }
+
+    #card-01 .c1-footer-bar {
+      padding: 12px 20px;
+      background: rgba(9, 13, 20, 0.9);
+      border-top: 1px solid rgba(159, 179, 200, 0.14);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+
+    #card-01 .c1-cmd {
+      color: #cbd5e1;
+    }
+
+    #card-01 .c1-cmd .prompt {
+      color: #3fb9a8;
+      margin-right: 6px;
+    }
+
+    #card-01 .c1-status-ok {
+      color: #34d399;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* ==========================================================================
+       CONCEPT 02: HUMAN-AGENT ORCHESTRATION BLUEPRINT
+       ========================================================================== */
+    #card-02 {
+      background:
+        radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.14) 0%, transparent 55%),
+        linear-gradient(180deg, #070b12 0%, #0b1320 100%);
+      padding: 52px 68px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    #card-02 .blueprint-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(56, 189, 248, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(56, 189, 248, 0.05) 1px, transparent 1px),
+        linear-gradient(rgba(56, 189, 248, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(56, 189, 248, 0.025) 1px, transparent 1px);
+      background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
+      pointer-events: none;
+    }
+
+    #card-02 .c2-header {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+      padding-bottom: 20px;
+    }
+
+    #card-02 .c2-title-group h1 {
+      font-size: 52px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: #f8fafc;
+      line-height: 1.05;
+    }
+
+    #card-02 .c2-title-group h1 span {
+      color: #38bdf8;
+    }
+
+    #card-02 .c2-title-group p {
+      font-size: 20px;
+      color: #94a3b8;
+      margin-top: 6px;
+    }
+
+    #card-02 .c2-spec-tag {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      padding: 8px 14px;
+      border-radius: 8px;
+      text-align: right;
+    }
+
+    /* Diagram Area */
+    #card-02 .c2-diagram {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: 270px 1fr 310px;
+      gap: 24px;
+      align-items: center;
+      margin: 22px 0;
+    }
+
+    #card-02 .c2-node {
+      background: rgba(13, 21, 34, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      border-radius: 14px;
+      padding: 18px 20px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+    }
+
+    #card-02 .c2-node.human-node {
+      border-color: rgba(245, 158, 11, 0.45);
+      background: linear-gradient(180deg, rgba(245, 158, 11, 0.08) 0%, rgba(13, 21, 34, 0.95) 100%);
+    }
+
+    #card-02 .c2-node-badge {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 4px;
+      display: inline-block;
+      margin-bottom: 10px;
+    }
+
+    #card-02 .c2-node h3 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #f8fafc;
+      margin-bottom: 6px;
+    }
+
+    #card-02 .c2-node ul {
+      list-style: none;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: #9fb3c8;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      margin-top: 12px;
+    }
+
+    #card-02 .c2-node ul li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    /* Center Harness Spine */
+    #card-02 .c2-center-spine {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      position: relative;
+    }
+
+    #card-02 .c2-harness-box {
+      background: linear-gradient(135deg, rgba(63, 185, 168, 0.14) 0%, rgba(15, 23, 42, 0.95) 100%);
+      border: 1.5px solid #3fb9a8;
+      border-radius: 14px;
+      padding: 16px 20px;
+      text-align: center;
+      box-shadow: 0 0 30px rgba(63, 185, 168, 0.15);
+    }
+
+    #card-02 .c2-harness-box h4 {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      color: #f0f6fc;
+      margin-bottom: 4px;
+    }
+
+    #card-02 .c2-harness-box p {
+      font-size: 13.5px;
+      color: #9fb3c8;
+    }
+
+    #card-02 .c2-adapter-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    #card-02 .c2-adapter-pill {
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      border-radius: 8px;
+      padding: 8px 6px;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #cbd5e1;
+    }
+
+    #card-02 .c2-adapter-pill span {
+      display: block;
+      font-size: 10px;
+      color: #38bdf8;
+      margin-top: 2px;
+    }
+
+    #card-02 .c2-gate-bar {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      color: #6ee7b7;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Footer */
+    #card-02 .c2-footer {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 14px;
+      border-top: 1px solid rgba(148, 163, 184, 0.15);
+      font-family: var(--font-mono);
+      font-size: 13.5px;
+      color: #94a3b8;
+    }
+
+    /* ==========================================================================
+       CONCEPT 03: THE CONTEXT PYRAMID & GUARDRAILS (Bento Architecture)
+       ========================================================================== */
+    #card-03 {
+      background: #090c10;
+      padding: 48px 64px;
+      display: grid;
+      grid-template-columns: 460px 1fr;
+      gap: 32px;
+    }
+
+    #card-03 .c3-hero {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 28px;
+      background: linear-gradient(165deg, #111823 0%, #0b0f17 100%);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #card-03 .c3-hero::before {
+      content: "";
+      position: absolute;
+      top: -60px;
+      left: -60px;
+      width: 220px;
+      height: 220px;
+      background: radial-gradient(circle, rgba(63, 185, 168, 0.25) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    #card-03 .c3-kicker {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #3fb9a8;
+    }
+
+    #card-03 .c3-hero h1 {
+      font-size: 56px;
+      font-weight: 800;
+      letter-spacing: -0.035em;
+      color: #fff;
+      line-height: 1.04;
+      margin-top: 12px;
+    }
+
+    #card-03 .c3-hero p {
+      font-size: 19px;
+      line-height: 1.45;
+      color: #9fb3c8;
+      margin-top: 14px;
+    }
+
+    #card-03 .c3-cli-box {
+      background: #06080c;
+      border: 1px solid rgba(63, 185, 168, 0.3);
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: #e2e8f0;
+    }
+
+    #card-03 .c3-cli-box .comment {
+      color: #64748b;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    #card-03 .c3-bento {
+      display: grid;
+      grid-template-rows: 1fr 1fr;
+      gap: 20px;
+    }
+
+    #card-03 .c3-card {
+      background: #101620;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 20px;
+      padding: 24px 28px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    #card-03 .c3-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #card-03 .c3-card-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+
+    #card-03 .c3-card-sub {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #3fb9a8;
+    }
+
+    /* Tiered Context Bars */
+    #card-03 .c3-tiers {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    #card-03 .c3-tier {
+      display: grid;
+      grid-template-columns: 110px 1fr auto;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    #card-03 .c3-tier-label {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--tier-color);
+    }
+
+    #card-03 .c3-tier-file {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      color: #f0f6fc;
+    }
+
+    #card-03 .c3-tier-file span {
+      font-family: var(--font-sans);
+      color: #94a3b8;
+      font-size: 13px;
+      margin-left: 8px;
+    }
+
+    #card-03 .c3-tier-cost {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      color: #cbd5e1;
+    }
+
+    /* State Machine Pipeline */
+    #card-03 .c3-pipeline {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    #card-03 .c3-step {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 12px;
+      position: relative;
+    }
+
+    #card-03 .c3-step.verified {
+      border-color: rgba(52, 211, 153, 0.5);
+      background: rgba(16, 185, 129, 0.09);
+    }
+
+    #card-03 .c3-step-num {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #64748b;
+    }
+
+    #card-03 .c3-step-name {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 700;
+      color: #f8fafc;
+      margin: 4px 0;
+    }
+
+    #card-03 .c3-step-desc {
+      font-size: 12px;
+      color: #94a3b8;
+      line-height: 1.35;
+    }
+
+    #card-03 .c3-rule-foot {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #9fb3c8;
+      display: flex;
+      justify-content: space-between;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    /* ==========================================================================
+       CONCEPT 04: CUTTABLE MODULAR MATRIX (Industrial Hardware / Copier Synth)
+       ========================================================================== */
+    #card-04 {
+      background: linear-gradient(145deg, #0b0e14 0%, #121722 100%);
+      padding: 52px 68px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    #card-04 .c4-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    #card-04 .c4-brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    #card-04 .c4-logo-mark {
+      width: 54px;
+      height: 54px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #3fb9a8 0%, #0ea5e9 100%);
+      display: grid;
+      place-items: center;
+      font-family: var(--font-mono);
+      font-weight: 800;
+      font-size: 22px;
+      color: #061014;
+      box-shadow: 0 10px 25px rgba(63, 185, 168, 0.3);
+    }
+
+    #card-04 .c4-brand-text h1 {
+      font-size: 46px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: #f8fafc;
+      line-height: 1;
+    }
+
+    #card-04 .c4-brand-text p {
+      font-size: 18px;
+      color: #9fb3c8;
+      margin-top: 6px;
+    }
+
+    #card-04 .c4-copier-cmd {
+      background: #070a0f;
+      border: 1px solid rgba(159, 179, 200, 0.22);
+      border-radius: 10px;
+      padding: 12px 18px;
+      font-family: var(--font-mono);
+      font-size: 13.5px;
+      color: #e2e8f0;
+    }
+
+    #card-04 .c4-copier-cmd span {
+      color: #3fb9a8;
+    }
+
+    /* Core vs Cuttable Matrix */
+    #card-04 .c4-matrix {
+      display: grid;
+      grid-template-columns: 430px 1fr;
+      gap: 24px;
+      margin: 20px 0;
+      flex: 1;
+    }
+
+    #card-04 .c4-core-chassis {
+      background: linear-gradient(180deg, rgba(63, 185, 168, 0.11) 0%, rgba(15, 23, 34, 0.95) 100%);
+      border: 2px solid #3fb9a8;
+      border-radius: 16px;
+      padding: 22px 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    #card-04 .c4-chassis-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #card-04 .c4-chassis-head h2 {
+      font-family: var(--font-mono);
+      font-size: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #3fb9a8;
+    }
+
+    #card-04 .c4-lock-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      background: rgba(63, 185, 168, 0.2);
+      color: #6ee7b7;
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+
+    #card-04 .c4-core-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    #card-04 .c4-core-item {
+      background: rgba(7, 10, 15, 0.8);
+      border: 1px solid rgba(63, 185, 168, 0.3);
+      border-radius: 10px;
+      padding: 12px;
+    }
+
+    #card-04 .c4-core-item strong {
+      font-family: var(--font-mono);
+      font-size: 16px;
+      color: #fff;
+      display: block;
+    }
+
+    #card-04 .c4-core-item span {
+      font-size: 12.5px;
+      color: #9fb3c8;
+    }
+
+    #card-04 .c4-layouts-bar {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #cbd5e1;
+      background: rgba(7, 10, 15, 0.65);
+      padding: 10px 12px;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* Detachable Modules Bay */
+    #card-04 .c4-modules-bay {
+      background: rgba(15, 21, 31, 0.75);
+      border: 1.5px dashed rgba(159, 179, 200, 0.32);
+      border-radius: 16px;
+      padding: 22px 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    #card-04 .c4-bay-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #card-04 .c4-bay-head h2 {
+      font-family: var(--font-mono);
+      font-size: 15px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #f59e0b;
+    }
+
+    #card-04 .c4-cut-cmd {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #fbbf24;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+
+    #card-04 .c4-cartridges {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    #card-04 .c4-cartridge {
+      background: #141c28;
+      border: 1px dashed rgba(159, 179, 200, 0.28);
+      border-radius: 10px;
+      padding: 11px 12px;
+      position: relative;
+    }
+
+    #card-04 .c4-cartridge strong {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      color: #f0f6fc;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #card-04 .c4-cartridge strong i {
+      font-style: normal;
+      font-size: 11px;
+      color: #f59e0b;
+    }
+
+    #card-04 .c4-cartridge span {
+      display: block;
+      font-size: 11.5px;
+      color: #8b9eb3;
+      margin-top: 4px;
+    }
+
+    #card-04 .c4-profiles-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #9fb3c8;
+    }
+
+    #card-04 .c4-profile-pill {
+      padding: 5px 10px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #e2e8f0;
+    }
+
+    #card-04 .c4-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: #7c93ab;
+      padding-top: 10px;
+      border-top: 1px solid rgba(159, 179, 200, 0.12);
+    }
+
+    /* ==========================================================================
+       CONCEPT 05: SWISS TYPOGRAPHIC MANIFESTO (High-Contrast Editorial Light)
+       ========================================================================== */
+    #card-05 {
+      background: #f6f5f0;
+      color: #0d1117;
+      padding: 52px 68px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    #card-05 .swiss-grid-lines {
+      position: absolute;
+      inset: 40px 56px;
+      border: 1.5px solid #0d1117;
+      pointer-events: none;
+    }
+
+    #card-05 .c5-top-bar {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 24px;
+      border-bottom: 1.5px solid #0d1117;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    #card-05 .c5-top-bar .tag-pill {
+      background: #0d1117;
+      color: #f6f5f0;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+    }
+
+    #card-05 .c5-hero {
+      position: relative;
+      z-index: 2;
+      padding: 24px 28px;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 32px;
+      align-items: end;
+    }
+
+    #card-05 .c5-headline {
+      font-size: 64px;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      line-height: 0.98;
+      color: #0d1117;
+    }
+
+    #card-05 .c5-headline em {
+      font-style: normal;
+      background: #14b8a6;
+      color: #042f2e;
+      padding: 0 10px;
+      display: inline-block;
+    }
+
+    #card-05 .c5-side-note {
+      border-left: 3px solid #0d1117;
+      padding-left: 18px;
+      font-size: 16.5px;
+      line-height: 1.45;
+      color: #262f3d;
+      font-weight: 500;
+    }
+
+    #card-05 .c5-side-note code {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      background: #e5e3dc;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    #card-05 .c5-pillars {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border-top: 1.5px solid #0d1117;
+    }
+
+    #card-05 .c5-pillar {
+      padding: 20px 22px;
+      border-right: 1.5px solid #0d1117;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 185px;
+    }
+
+    #card-05 .c5-pillar:last-child {
+      border-right: none;
+    }
+
+    #card-05 .c5-p-num {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: #0d9488;
+      margin-bottom: 6px;
+    }
+
+    #card-05 .c5-pillar h3 {
+      font-size: 19px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #0d1117;
+      margin-bottom: 6px;
+    }
+
+    #card-05 .c5-pillar p {
+      font-size: 13.5px;
+      line-height: 1.4;
+      color: #3b4656;
+    }
+
+    #card-05 .c5-pillar .c5-code {
+      margin-top: 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      color: #0d1117;
+      background: #e7e5de;
+      padding: 5px 8px;
+      border-radius: 4px;
+      align-self: flex-start;
+    }
+  </style>
+</head>
+<body>
+
+  <button class="exit-isolation-btn" onclick="exitIsolation()">Exit 1280×640 Isolation (ESC)</button>
+
+  <!-- ========================================================================
+       STUDIO HEADER & DESIGN REVIEW SUMMARY
+       ======================================================================== -->
+  <header class="studio-header">
+    <div class="studio-header-top">
+      <div>
+        <div class="studio-badge">REPO-TEMPLATE · SOCIAL PREVIEW DESIGN STUDIO (1280 × 640)</div>
+        <h1 class="studio-title">Social Card Concepts & Multi-Agent Design Spec</h1>
+        <p class="studio-subtitle">
+          Five production-ready <code>1280×640</code> social card concepts grounded in Repo-Template's architectural rationale:
+          <strong>Volatility Split</strong>, <strong>Tiered Context Budget</strong>, <strong>Single-Writer Parallel Worktrees</strong>, and <strong>Cuttable Copier Modules</strong>.
+          Built in pure HTML/CSS so any designer agent or human can tweak tokens in PRs or capture deterministic PNGs.
+        </p>
+      </div>
+      <div class="studio-controls">
+        <button class="studio-btn" id="toggleSafeZoneBtn" onclick="toggleSafeZone()">Toggle Safe Zone (1120×520)</button>
+        <button class="studio-btn" onclick="isolateCard(1)">1280×640 #01</button>
+        <button class="studio-btn" onclick="isolateCard(2)">1280×640 #02</button>
+        <button class="studio-btn" onclick="isolateCard(3)">1280×640 #03</button>
+        <button class="studio-btn" onclick="isolateCard(4)">1280×640 #04</button>
+        <button class="studio-btn" onclick="isolateCard(5)">1280×640 #05</button>
+      </div>
+    </div>
+    <div class="studio-meta-grid">
+      <div class="studio-meta-item">
+        <strong>01 · CORE IDENTITY</strong>
+        One human. Several AI agents. One finished structure.
+      </div>
+      <div class="studio-meta-item">
+        <strong>02 · CANVAS & SAFE ZONE</strong>
+        1280 × 640 px (2:1 OpenGraph) · 80px X / 60px Y safe margin
+      </div>
+      <div class="studio-meta-item">
+        <strong>03 · DETERMINISTIC EXPORT</strong>
+        Append <code>?card=1..5</code> to URL for zero-chrome headless capture
+      </div>
+      <div class="studio-meta-item">
+        <strong>04 · ZERO DEPENDENCIES</strong>
+        100% self-contained HTML/CSS · No external images or CDNs
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================================================
+       CONCEPT 01: THE VOLATILITY ARCHITECTURE (Refined PR #28 Evolution)
+       ======================================================================== -->
+  <section class="concept-section" id="section-1">
+    <div class="concept-toolbar">
+      <div class="concept-info">
+        <h2><span class="concept-num">CONCEPT 01</span> The Volatility Architecture (Flagship Evolution of PR #28)</h2>
+        <p>Elevates PR #28's split layout with color-coded volatility lifecycle badges, specular borders, radial depth, and a live <code>tools/check.py → ok</code> status bar.</p>
+      </div>
+      <button class="studio-btn" onclick="isolateCard(1)">Isolate 1280×640 (#01)</button>
+    </div>
+
+    <div class="card-viewport">
+      <div class="safe-zone-guide"></div>
+      <article class="social-card" id="card-01">
+        <div class="bg-grid"></div>
+        <div class="left-accent-bar"></div>
+
+        <!-- Left Column: Brand & Value Prop -->
+        <div class="c1-left">
+          <div>
+            <div class="c1-eyebrow">
+              <span class="c1-eyebrow-dot"></span>
+              COPIER TEMPLATE · PYTHON 3.9+ STDLIB
+            </div>
+            <h1 class="c1-title">Repo-Template</h1>
+            <p class="c1-subtitle">
+              The <strong>agent-ready repository skeleton</strong> where one human and parallel AI agents build together without entropy.
+            </p>
+            <div class="c1-mantra">
+              <span>One human</span>
+              <span class="sep">·</span>
+              <span>Several AI agents</span>
+              <span class="sep">·</span>
+              <span>One structure</span>
+            </div>
+          </div>
+
+          <div class="c1-chips">
+            <span class="c1-chip"><i></i>AGENTS.md ≤100L</span>
+            <span class="c1-chip"><i></i>Diátaxis + ADRs</span>
+            <span class="c1-chip"><i></i>Tool-Neutral</span>
+            <span class="c1-chip"><i></i>Cuttable Modules</span>
+          </div>
+        </div>
+
+        <!-- Right Column: Volatility-Split Folder Architecture -->
+        <div class="c1-right">
+          <div class="c1-win-bar">
+            <div class="c1-dots">
+              <span style="background:#ff5f57"></span>
+              <span style="background:#febc2e"></span>
+              <span style="background:#28c840"></span>
+            </div>
+            <div class="c1-win-title">my-app/ — split by volatility</div>
+            <div class="c1-win-tag">1 OWNER / FOLDER</div>
+          </div>
+
+          <div class="c1-layers">
+            <div class="c1-layer-row" style="--layer-color:#38bdf8; --pill-bg:rgba(56,189,248,0.12); --pill-fg:#7dd3fc; --pill-border:rgba(56,189,248,0.35);">
+              <span class="c1-folder">docs/</span>
+              <span class="c1-folder-desc">dev/ &amp; user/ (Diátaxis) + numbered ADRs</span>
+              <span class="c1-speed-pill">Durable Truth</span>
+            </div>
+
+            <div class="c1-layer-row" style="--layer-color:#f59e0b; --pill-bg:rgba(245,158,11,0.12); --pill-fg:#fcd34d; --pill-border:rgba(245,158,11,0.35);">
+              <span class="c1-folder">work/</span>
+              <span class="c1-folder-desc">ACTIVE.md board, item handoffs, HUMAN.md queue</span>
+              <span class="c1-speed-pill">Volatile State</span>
+            </div>
+
+            <div class="c1-layer-row" style="--layer-color:#3fb9a8; --pill-bg:rgba(63,185,168,0.14); --pill-fg:#6ee7b7; --pill-border:rgba(63,185,168,0.4);">
+              <span class="c1-folder">agents/</span>
+              <span class="c1-folder-desc">Role charters, protocols, skills &amp; tool adapters</span>
+              <span class="c1-speed-pill">Agent Harness</span>
+            </div>
+
+            <div class="c1-layer-row" style="--layer-color:#a78bfa; --pill-bg:rgba(167,139,250,0.12); --pill-fg:#c4b5fd; --pill-border:rgba(167,139,250,0.35);">
+              <span class="c1-folder">tools/</span>
+              <span class="c1-folder-desc">check.py, sync_indexes, worktree &amp; eval helpers</span>
+              <span class="c1-speed-pill">Stdlib Guard</span>
+            </div>
+
+            <div class="c1-layer-row" style="--layer-color:#94a3b8; --pill-bg:rgba(148,163,184,0.12); --pill-fg:#cbd5e1; --pill-border:rgba(148,163,184,0.3);">
+              <span class="c1-folder">src/</span>
+              <span class="c1-folder-desc">single · workspace · data-ml · minimal layout</span>
+              <span class="c1-speed-pill">Your Stack</span>
+            </div>
+          </div>
+
+          <div class="c1-footer-bar">
+            <div class="c1-cmd"><span class="prompt">$</span>python3 tools/check.py --strict</div>
+            <div class="c1-status-ok">✓ ok · repo healthy</div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ========================================================================
+       CONCEPT 02: HUMAN-AGENT ORCHESTRATION BLUEPRINT
+       ======================================================================== -->
+  <section class="concept-section" id="section-2">
+    <div class="concept-toolbar">
+      <div class="concept-info">
+        <h2><span class="concept-num">CONCEPT 02</span> Human-Agent Orchestration Blueprint</h2>
+        <p>Visualizes the multi-agent coordination model: 1 Human Authority connected to tool-neutral adapters and parallel sibling git worktrees with independent verification.</p>
+      </div>
+      <button class="studio-btn" onclick="isolateCard(2)">Isolate 1280×640 (#02)</button>
+    </div>
+
+    <div class="card-viewport">
+      <div class="safe-zone-guide"></div>
+      <article class="social-card" id="card-02">
+        <div class="blueprint-grid"></div>
+
+        <div class="c2-header">
+          <div class="c2-title-group">
+            <h1>Repo-Template <span>// Orchestration</span></h1>
+            <p>Parallel AI agents need structure, single-writer ownership, and state-machine handoffs—not luck.</p>
+          </div>
+          <div class="c2-spec-tag">
+            gh:The-Urcydo/Repo-Template<br />
+            <span style="color:#94a3b8;font-size:11px;">COPIER 9.4+ · MIT LICENSE</span>
+          </div>
+        </div>
+
+        <div class="c2-diagram">
+          <!-- Column 1: 1 Human -->
+          <div class="c2-node human-node">
+            <span class="c2-node-badge" style="background:rgba(245,158,11,0.18);color:#fbbf24;border:1px solid rgba(245,158,11,0.4);">1 Human Owner</span>
+            <h3>Decision Authority</h3>
+            <p style="font-size:13px;color:#94a3b8;line-height:1.4;">Approves ADRs, resolves escalations, grants merges.</p>
+            <ul>
+              <li><span style="color:#fbbf24">●</span> work/HUMAN.md queue</li>
+              <li><span style="color:#fbbf24">●</span> docs/decisions/ (ADRs)</li>
+              <li><span style="color:#fbbf24">●</span> question.py escalations</li>
+              <li><span style="color:#fbbf24">●</span> Protected harness review</li>
+            </ul>
+          </div>
+
+          <!-- Column 2: Tool-Neutral Harness Spine -->
+          <div class="c2-center-spine">
+            <div class="c2-harness-box">
+              <h4>agents/ + AGENTS.md (≤100 lines)</h4>
+              <p>Single tool-neutral source of truth · Generated indexes &amp; shims</p>
+            </div>
+
+            <div class="c2-adapter-row">
+              <div class="c2-adapter-pill">Claude Code<span>.claude/ + CLAUDE.md</span></div>
+              <div class="c2-adapter-pill">Cursor<span>.cursor/rules/</span></div>
+              <div class="c2-adapter-pill">Copilot<span>copilot-instructions</span></div>
+              <div class="c2-adapter-pill">Gemini CLI<span>.gemini/settings</span></div>
+            </div>
+
+            <div class="c2-gate-bar">
+              <span>STATE GATE: transition.py &lt;id&gt; verified --by &lt;reviewer&gt;</span>
+              <span style="color:#34d399;font-weight:700;">NO SELF-VERIFY</span>
+            </div>
+          </div>
+
+          <!-- Column 3: Parallel Agent Worktrees -->
+          <div class="c2-node" style="border-color:rgba(63,185,168,0.45);">
+            <span class="c2-node-badge" style="background:rgba(63,185,168,0.16);color:#6ee7b7;border:1px solid rgba(63,185,168,0.4);">N Parallel Agents</span>
+            <h3>Sibling Worktrees</h3>
+            <p style="font-size:13px;color:#94a3b8;line-height:1.4;">Isolated git worktrees &amp; single-writer role lanes.</p>
+            <ul>
+              <li><span style="color:#3fb9a8">├─</span> my-app-001/ <span style="color:#64748b;margin-left:auto;">[architect]</span></li>
+              <li><span style="color:#38bdf8">├─</span> my-app-002/ <span style="color:#64748b;margin-left:auto;">[developer]</span></li>
+              <li><span style="color:#a78bfa">├─</span> my-app-003/ <span style="color:#64748b;margin-left:auto;">[reviewer]</span></li>
+              <li><span style="color:#34d399">└─</span> handoff.md <span style="color:#64748b;margin-left:auto;">[verified ✓]</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="c2-footer">
+          <span>$ copier copy --trust gh:The-Urcydo/Repo-Template projects/my-app/my-app</span>
+          <span style="color:#38bdf8">Durable docs/ · Volatile work/ · Tool-neutral agents/ · Stdlib tools/</span>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ========================================================================
+       CONCEPT 03: THE CONTEXT PYRAMID & GUARDRAILS (Bento Architecture)
+       ======================================================================== -->
+  <section class="concept-section" id="section-3">
+    <div class="concept-toolbar">
+      <div class="concept-info">
+        <h2><span class="concept-num">CONCEPT 03</span> Context Budget Pyramid &amp; Verification Pipeline</h2>
+        <p>Highlights two core engineering innovations from <code>design-rationale.md</code>: tiered token loading and the enforced work-item verification state machine.</p>
+      </div>
+      <button class="studio-btn" onclick="isolateCard(3)">Isolate 1280×640 (#03)</button>
+    </div>
+
+    <div class="card-viewport">
+      <div class="safe-zone-guide"></div>
+      <article class="social-card" id="card-03">
+        <!-- Left Hero Bento -->
+        <div class="c3-hero">
+          <div>
+            <div class="c3-kicker">AGENT-READY REPOSITORY SKELETON</div>
+            <h1>Repo-<br />Template</h1>
+            <p>
+              Context is a budget, not a free resource. Built for fresh multi-agent sessions with progressive disclosure and zero-dependency health checks.
+            </p>
+          </div>
+
+          <div class="c3-cli-box">
+            <span class="comment"># Create &amp; verify in 10 seconds</span>
+            <div>$ copier copy --trust gh:The-Urcydo/Repo-Template app</div>
+            <div style="color:#3fb9a8;margin-top:4px;">$ python3 tools/check.py &nbsp;# → ok</div>
+          </div>
+        </div>
+
+        <!-- Right 2-Row Bento -->
+        <div class="c3-bento">
+          <!-- Top Bento: 3-Tier Context Loading -->
+          <div class="c3-card">
+            <div class="c3-card-header">
+              <span class="c3-card-title">1 · Progressive Context Budget</span>
+              <span class="c3-card-sub">NEVER OVERLOAD AGENT MEMORY</span>
+            </div>
+            <div class="c3-tiers">
+              <div class="c3-tier" style="--tier-color:#3fb9a8;">
+                <span class="c3-tier-label">TIER 1 · ALWAYS</span>
+                <div class="c3-tier-file">AGENTS.md <span>Commands, role dispatch &amp; hard rules</span></div>
+                <span class="c3-tier-cost">≤ 100 lines</span>
+              </div>
+              <div class="c3-tier" style="--tier-color:#38bdf8;">
+                <span class="c3-tier-label">TIER 2 · ROUTING</span>
+                <div class="c3-tier-file">docs/INDEX.md · work/ACTIVE.md · ROSTER.md</div>
+                <span class="c3-tier-cost">1 line / item</span>
+              </div>
+              <div class="c3-tier" style="--tier-color:#a78bfa;">
+                <span class="c3-tier-label">TIER 3 · TASK</span>
+                <div class="c3-tier-file">brief.md · handoff.md · target Diátaxis doc</div>
+                <span class="c3-tier-cost">On demand</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Bento: Enforced Handoff State Machine -->
+          <div class="c3-card">
+            <div class="c3-card-header">
+              <span class="c3-card-title">2 · Guarded Work-Item Lifecycle</span>
+              <span class="c3-card-sub">TOOLS/TRANSITION.PY</span>
+            </div>
+
+            <div class="c3-pipeline">
+              <div class="c3-step">
+                <div class="c3-step-num">01 / BRIEF</div>
+                <div class="c3-step-name">planned</div>
+                <div class="c3-step-desc">Scope &amp; acceptance criteria set</div>
+              </div>
+              <div class="c3-step">
+                <div class="c3-step-num">02 / BUILD</div>
+                <div class="c3-step-name">in_progress</div>
+                <div class="c3-step-desc">Single-writer role in git worktree</div>
+              </div>
+              <div class="c3-step">
+                <div class="c3-step-num">03 / HANDOFF</div>
+                <div class="c3-step-name">review</div>
+                <div class="c3-step-desc">Evidence recorded, check.py green</div>
+              </div>
+              <div class="c3-step verified">
+                <div class="c3-step-num" style="color:#34d399;">04 / GATE</div>
+                <div class="c3-step-name" style="color:#6ee7b7;">verified</div>
+                <div class="c3-step-desc">Independent role review required</div>
+              </div>
+            </div>
+
+            <div class="c3-rule-foot">
+              <span>✓ Builder cannot self-verify</span>
+              <span>✓ Enforced depends_on boundaries</span>
+              <span>✓ Updatable via copier update</span>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ========================================================================
+       CONCEPT 04: CUTTABLE MODULAR MATRIX (Copier Profiles & Cartridges)
+       ======================================================================== -->
+  <section class="concept-section" id="section-4">
+    <div class="concept-toolbar">
+      <div class="concept-info">
+        <h2><span class="concept-num">CONCEPT 04</span> Cuttable Modular Matrix (Core Kernel + Detachable Modules)</h2>
+        <p>Showcases ADR-0004: start with a complete structure, and cleanly sever any optional module with <code>remove_module.py</code> without breaking core links.</p>
+      </div>
+      <button class="studio-btn" onclick="isolateCard(4)">Isolate 1280×640 (#04)</button>
+    </div>
+
+    <div class="card-viewport">
+      <div class="safe-zone-guide"></div>
+      <article class="social-card" id="card-04">
+        <div class="c4-top">
+          <div class="c4-brand">
+            <div class="c4-logo-mark">RT</div>
+            <div class="c4-brand-text">
+              <h1>Repo-Template</h1>
+              <p>Start with a complete agent-ready architecture. Cut anything you don't need in one command.</p>
+            </div>
+          </div>
+          <div class="c4-copier-cmd">
+            <span>$</span> copier copy --trust gh:The-Urcydo/Repo-Template
+          </div>
+        </div>
+
+        <div class="c4-matrix">
+          <!-- Immutable Core Kernel -->
+          <div class="c4-core-chassis">
+            <div class="c4-chassis-head">
+              <h2>● Core Kernel (Always Kept)</h2>
+              <span class="c4-lock-tag">ZERO OUTBOUND MODULE LINKS</span>
+            </div>
+
+            <div class="c4-core-grid">
+              <div class="c4-core-item">
+                <strong>docs/</strong>
+                <span>dev/, user/ &amp; ADRs</span>
+              </div>
+              <div class="c4-core-item">
+                <strong>work/</strong>
+                <span>ACTIVE, HUMAN, items</span>
+              </div>
+              <div class="c4-core-item">
+                <strong>agents/</strong>
+                <span>Roles, skills, protocols</span>
+              </div>
+              <div class="c4-core-item">
+                <strong>tools/</strong>
+                <span>check.py &amp; sync scripts</span>
+              </div>
+            </div>
+
+            <div class="c4-layouts-bar">
+              <span style="color:#3fb9a8;font-weight:700;">4 CODE LAYOUTS:</span>
+              <span>single · workspace · data-ml · minimal</span>
+            </div>
+          </div>
+
+          <!-- Cuttable Optional Modules -->
+          <div class="c4-modules-bay">
+            <div class="c4-bay-head">
+              <h2>✂ 7 Cuttable Modules (Detach Anytime)</h2>
+              <span class="c4-cut-cmd">$ python3 tools/remove_module.py &lt;name&gt; --apply</span>
+            </div>
+
+            <div class="c4-cartridges">
+              <div class="c4-cartridge">
+                <strong>product <i>✂</i></strong>
+                <span>PRD, roadmap &amp; specs</span>
+              </div>
+              <div class="c4-cartridge">
+                <strong>operations <i>✂</i></strong>
+                <span>Runbooks &amp; incident docs</span>
+              </div>
+              <div class="c4-cartridge">
+                <strong>security <i>✂</i></strong>
+                <span>Threat model &amp; role</span>
+              </div>
+              <div class="c4-cartridge">
+                <strong>release <i>✂</i></strong>
+                <span>Versioning &amp; checklists</span>
+              </div>
+              <div class="c4-cartridge">
+                <strong>infra <i>✂</i></strong>
+                <span>Environments &amp; IaC</span>
+              </div>
+              <div class="c4-cartridge">
+                <strong>evals <i>✂</i></strong>
+                <span>Golden agent tasks</span>
+              </div>
+              <div class="c4-cartridge">
+                <strong>github <i>✂</i></strong>
+                <span>CI workflows &amp; templates</span>
+              </div>
+              <div class="c4-cartridge" style="border-style:solid;border-color:rgba(63,185,168,0.4);background:rgba(63,185,168,0.08);">
+                <strong style="color:#6ee7b7;">.copier-answers</strong>
+                <span style="color:#9fb3c8;">Remembers cuts on update!</span>
+              </div>
+            </div>
+
+            <div class="c4-profiles-row">
+              <span style="color:#f0f6fc;font-weight:600;">PROFILES:</span>
+              <span class="c4-profile-pill">full (all 7)</span>
+              <span class="c4-profile-pill">standard (product, ops, github)</span>
+              <span class="c4-profile-pill">lean (core only)</span>
+              <span class="c4-profile-pill">custom (pick yours)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="c4-bottom">
+          <span>One human · Several AI agents · Tool-neutral harness</span>
+          <span style="color:#3fb9a8;">copier update --trust merges improvements &amp; keeps cut modules cut</span>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ========================================================================
+       CONCEPT 05: SWISS TYPOGRAPHIC MANIFESTO (High-Contrast Light Editorial)
+       ======================================================================== -->
+  <section class="concept-section" id="section-5">
+    <div class="concept-toolbar">
+      <div class="concept-info">
+        <h2><span class="concept-num">CONCEPT 05</span> Swiss Typographic Manifesto (High-Contrast Light Editorial)</h2>
+        <p>A stark, Stripe-Press / Swiss-grid editorial poster that stands out immediately in dark-mode-heavy feeds with bold problem-first copywriting.</p>
+      </div>
+      <button class="studio-btn" onclick="isolateCard(5)">Isolate 1280×640 (#05)</button>
+    </div>
+
+    <div class="card-viewport">
+      <div class="safe-zone-guide"></div>
+      <article class="social-card" id="card-05">
+        <div class="swiss-grid-lines"></div>
+
+        <div class="c5-top-bar">
+          <span>REPO-TEMPLATE // COPIER REPOSITORY SKELETON</span>
+          <span>1 HUMAN × N AI AGENTS</span>
+          <span class="tag-pill">PYTHON 3.9+ STDLIB · MIT</span>
+        </div>
+
+        <div class="c5-hero">
+          <h1 class="c5-headline">
+            Stop researching<br />
+            how to organize<br />
+            <em>agent-ready</em> repos.
+          </h1>
+          <div class="c5-side-note">
+            A finished repository structure where one human and parallel AI agents collaborate with clear ownership, bounded context, and a single health check:<br /><br />
+            <code>python3 tools/check.py → ok</code>
+          </div>
+        </div>
+
+        <div class="c5-pillars">
+          <div class="c5-pillar">
+            <div>
+              <div class="c5-p-num">01 / VOLATILITY SPLIT</div>
+              <h3>No Stale Docs</h3>
+              <p>Durable knowledge, volatile work items, and agent protocols live in separate lifecycles.</p>
+            </div>
+            <span class="c5-code">docs/ · work/ · agents/</span>
+          </div>
+
+          <div class="c5-pillar">
+            <div>
+              <div class="c5-p-num">02 / CONTEXT BUDGET</div>
+              <h3>Tiered Loading</h3>
+              <p>Short root instructions load always; 1-line indexes route agents to exact files on demand.</p>
+            </div>
+            <span class="c5-code">AGENTS.md ≤ 100 lines</span>
+          </div>
+
+          <div class="c5-pillar">
+            <div>
+              <div class="c5-p-num">03 / PARALLEL SAFETY</div>
+              <h3>Worktree Lanes</h3>
+              <p>Single-writer folder owners, sibling worktrees, and independent role verification.</p>
+            </div>
+            <span class="c5-code">--by &lt;reviewer_role&gt;</span>
+          </div>
+
+          <div class="c5-pillar">
+            <div>
+              <div class="c5-p-num">04 / CUTTABLE MODULES</div>
+              <h3>Zero Lock-In</h3>
+              <p>Tool-neutral harness with generated Claude/Cursor/Gemini adapters &amp; removable modules.</p>
+            </div>
+            <span class="c5-code">remove_module.py</span>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <script>
+    function toggleSafeZone() {
+      document.body.classList.toggle('show-safe-zone');
+      const btn = document.getElementById('toggleSafeZoneBtn');
+      btn.classList.toggle('active', document.body.classList.contains('show-safe-zone'));
+    }
+
+    function isolateCard(num) {
+      document.querySelectorAll('.concept-section').forEach(el => el.classList.remove('active-isolated'));
+      const target = document.getElementById('section-' + num);
+      if (target) {
+        target.classList.add('active-isolated');
+        document.body.classList.add('isolated-mode');
+        window.scrollTo(0, 0);
+      }
+    }
+
+    function exitIsolation() {
+      document.body.classList.remove('isolated-mode');
+      document.querySelectorAll('.concept-section').forEach(el => el.classList.remove('active-isolated'));
+      if (window.location.search.includes('card=')) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('card');
+        window.history.replaceState({}, '', url);
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && document.body.classList.contains('isolated-mode')) {
+        exitIsolation();
+      }
+    });
+
+    // Support URL query parameter `?card=1..5` for automated screenshot / headless browser tools
+    (function checkUrlParams() {
+      const params = new URLSearchParams(window.location.search);
+      const cardParam = parseInt(params.get('card'), 10);
+      if (cardParam >= 1 && cardParam <= 5) {
+        isolateCard(cardParam);
+      }
+      if (params.get('safezone') === '1') {
+        document.body.classList.add('show-safe-zone');
+      }
+    })();
+  </script>
+</body>
+</html>
