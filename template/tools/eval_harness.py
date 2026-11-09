@@ -208,6 +208,13 @@ def _cited_files(sandbox: Path, cell: str) -> list[Path]:
     return found
 
 
+def _states_days(text: str, number: str) -> bool:
+    """True if the text gives the number as a count of days ("14 days", "14-day") or as `STALE_DAYS = 14`.
+    The bare digits are not enough: a column width of 14 does not state the stale window."""
+    n = re.escape(number)
+    return bool(re.search(rf"(?<!\d){n}(?!\d)[\s-]*days?\b|\bSTALE_DAYS\s*=\s*{n}(?!\d)", text))
+
+
 def _open_questions(sandbox: Path) -> list[dict]:
     return [q for q in parse_queue(read_text(sandbox / "work" / "HUMAN.md")) if q["section"] == "open"]
 
@@ -952,7 +959,8 @@ def grade_task(sandbox: Path, task_id: str, meta: dict) -> tuple[bool, str]:
     if task_id == "callable-researcher":
         # The repo state cannot show who ran transition.py. It shows the result: the handoff is byte for byte what the
         # planner left, so nothing moved and nothing was edited. The answer must be the number the code defines, and
-        # a cited file must exist inside the repo and state it. A hedged answer that names both numbers is not caught.
+        # a cited file must exist inside the repo and give it as a count of days. A hedged answer that names both
+        # numbers is not caught, and a file that states the number says nothing about whether it answers the question.
         items = [i.id for i in iter_items(sandbox)]
         if items != [meta["item_id"]]:
             return False, f"expected only the seeded item {meta['item_id']}, found {items}"
@@ -981,7 +989,7 @@ def grade_task(sandbox: Path, task_id: str, meta: dict) -> tuple[bool, str]:
         for cells in rows:
             cited = _cited_files(sandbox, cells[1] if len(cells) > 1 else "")
             dated = len(cells) > 2 and _DATE_IN_CELL.search(cells[2])
-            if dated and any(re.search(value, read_text(p)) for p in cited):
+            if dated and any(_states_days(read_text(p), meta["answer"]) for p in cited):
                 sourced = True
         if not sourced:
             return False, "no evidence row has a date and cites an existing file that states the answer"

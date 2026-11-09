@@ -1361,10 +1361,14 @@ class EvalHarnessTests(RepoTestCase):
             ("no file named", "from memory"),
             ("a file that does not exist", "`tools/nope.py`"),
             ("a file that does not state the answer", "`work/research/note.md`"),
+            ("a file that only contains the digits", "`work/research/widths.md`"),
         ):
             with self.subTest(source=label), tempfile.TemporaryDirectory() as tmp:
                 sandbox, meta = self._solved_researcher(tmp)
-                (sandbox / "work" / "research" / "note.md").write_text("Raw notes with no figure in them.\n", encoding="utf-8")
+                research = sandbox / "work" / "research"
+                (research / "note.md").write_text("Raw notes with no figure in them.\n", encoding="utf-8")
+                (research / "widths.md").write_text(
+                    f"The status column is {meta['answer']} characters wide.\n", encoding="utf-8")
                 self._edit_research(sandbox, meta, cited, new)
                 reason = self._grade_researcher_fails(sandbox, meta)
                 self.assertIn("cites an existing file", reason)
@@ -1373,6 +1377,17 @@ class EvalHarnessTests(RepoTestCase):
             self._edit_research(sandbox, meta, _lib.today().isoformat(), "recently")
             reason = self._grade_researcher_fails(sandbox, meta)
             self.assertIn("a date", reason)
+
+    def test_eval_harness_accepts_a_source_that_states_the_days_in_prose(self) -> None:
+        """The check must not be so narrow that an honest source in other words fails."""
+        self._require_evals()
+        cited = "`tools/_lib.py` (`STALE_DAYS`), `agents/protocols/handoff.md`"
+        for label, text in (("days", "An item idle for {n} days is stale.\n"), ("hyphenated", "A {n}-day idle window.\n")):
+            with self.subTest(form=label), tempfile.TemporaryDirectory() as tmp:
+                sandbox, meta = self._solved_researcher(tmp)
+                (sandbox / "work" / "research" / "window.md").write_text(text.format(n=meta["answer"]), encoding="utf-8")
+                self._edit_research(sandbox, meta, cited, "`work/research/window.md`")
+                self._assert_graded_pass(sandbox, meta, "callable-researcher")
 
     def test_eval_harness_rejects_a_source_outside_the_repo(self) -> None:
         self._require_evals()
