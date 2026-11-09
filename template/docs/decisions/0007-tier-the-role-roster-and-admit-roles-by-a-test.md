@@ -1,7 +1,7 @@
 ---
 title: Tier the role roster and admit roles by a test
 type: decision
-status: proposed
+status: accepted
 summary: Roles are tiered into flow, advisory and optional, run as hats by default with a separate session only for review, and a new role must pass an admission test.
 date: 2026-11-08
 decision_makers: human
@@ -24,7 +24,7 @@ Four facts in the current harness make the question concrete:
 
 - One human and many fresh sessions: a role that needs no isolation should not cost a session.
 - Review needs real independence from the build, and the tools cannot prove it.
-- Evidence on multi-agent work: about 15 times the tokens of chat, and a weaker fit when agents share context, as most coding does. Subagents pay off for isolated, verbose or restricted work.
+- Evidence on multi-agent work: about 15 times the tokens of chat, and a poor fit when agents must share one context or depend on each other; most coding is less parallelizable than research. Subagents pay off for isolated, verbose or restricted work.
 - Instruction text has a cost too (`docs/dev/explanation/context-budget.md`), so remove or merge before adding.
 - The harness stays tool-neutral (ADR 0002), roles stay bundles (ADR 0005) and optional parts stay cuttable (ADR 0004).
 - Measure before adding: no real-agent run is recorded yet (issue #7).
@@ -84,13 +84,15 @@ Chosen option: "Tier the roster, run roles as hats by default, require a separat
 
 ## More information
 
+Accepted by the owner in chat on 2026-11-09, after reviewing the pull request that adds this record.
+
 Related: ADR 0002, ADR 0004, ADR 0005, `agents/protocols/review.md`, `agents/protocols/handoff.md`, `docs/dev/explanation/ownership-and-handoffs.md`.
 
 Evidence:
 
-- [How Anthropic built its multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system): about 15 times the tokens of chat; a weaker fit for shared-context work such as most coding.
+- [How Anthropic built its multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system): about 15 times the tokens of chat; a poor fit for work that needs one shared context or many dependencies between agents, and most coding tasks are less parallelizable than research.
 - [Claude Code subagents](https://code.claude.com/docs/en/sub-agents): isolated context, tool restrictions, and when to stay in the main conversation.
 - [Evaluating AGENTS.md (arXiv 2602.11988)](https://arxiv.org/abs/2602.11988): context files gave no general gain in task success and cost over 20% more.
-- [Reviewer independence: context reset or model diversity](https://agentpatterns.ai/patterns/multi-agent/context-reset-vs-model-diversity/): a fresh context is only partial independence; execution-grounded checks and model diversity help more.
+- [Reviewer independence: context reset or model diversity](https://agentpatterns.ai/patterns/multi-agent/context-reset-vs-model-diversity/): a fresh context is only partial independence because the reset keeps the model's weights; execution-grounded checks add more independent signal, and the evidence for model diversity is mixed.
 
 Follow-ups, each its own pull request: the researcher and scribe charter and dispatch edits; security routing; a tool-neutral `access` hint in `ROLE.md` that the Claude adapter maps to a subagent `tools` list (today `sync_agents.py` writes only `name` and `description`, and a tool list limits accidents, not a determined session, because a shell can still edit files); the split of procedure between `ROLE.md` and `SKILL.md`; real-agent baselines.
