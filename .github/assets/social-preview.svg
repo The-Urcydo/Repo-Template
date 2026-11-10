@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="t d">
+  <title id="t">Repo-Template</title>
+  <desc id="d">A Copier template for agent-ready repositories: docs, work, agents and tools, plus your code.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1117"/>
+      <stop offset="1" stop-color="#16202e"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <rect x="0" y="0" width="12" height="640" fill="#3fb9a8"/>
+
+  <!-- Title block -->
+  <text x="72" y="236" font-family="Inter, 'DejaVu Sans', sans-serif" font-size="76" font-weight="700" fill="#f0f6fc">Repo-Template</text>
+  <text x="72" y="300" font-family="Inter, 'DejaVu Sans', sans-serif" font-size="32" fill="#9fb3c8">A Copier template for</text>
+  <text x="72" y="346" font-family="Inter, 'DejaVu Sans', sans-serif" font-size="32" fill="#9fb3c8">agent-ready repositories</text>
+  <text x="72" y="410" font-family="Inter, 'DejaVu Sans', sans-serif" font-size="24" fill="#6e7f91">One human. Several AI agents. One structure.</text>
+
+  <!-- Keyword chips -->
+  <g font-family="Inter, 'DejaVu Sans', sans-serif" font-size="21" fill="#c9d6e2">
+    <rect x="72" y="468" width="116" height="44" rx="22" fill="#1f2d3d" stroke="#2f4257"/>
+    <text x="130" y="497" text-anchor="middle">Copier</text>
+    <rect x="200" y="468" width="146" height="44" rx="22" fill="#1f2d3d" stroke="#2f4257"/>
+    <text x="273" y="497" text-anchor="middle">AGENTS.md</text>
+    <rect x="358" y="468" width="116" height="44" rx="22" fill="#1f2d3d" stroke="#2f4257"/>
+    <text x="416" y="497" text-anchor="middle">Diátaxis</text>
+    <rect x="486" y="468" width="146" height="44" rx="22" fill="#1f2d3d" stroke="#2f4257"/>
+    <text x="559" y="497" text-anchor="middle">tool-neutral</text>
+  </g>
+
+  <!-- Folder-tree card -->
+  <rect x="670" y="104" width="570" height="440" rx="20" fill="#0b1118" stroke="#2f4257" stroke-width="2"/>
+  <circle cx="710" cy="140" r="7" fill="#ff5f57"/>
+  <circle cx="736" cy="140" r="7" fill="#febc2e"/>
+  <circle cx="762" cy="140" r="7" fill="#28c840"/>
+  <line x1="670" y1="172" x2="1240" y2="172" stroke="#2f4257" stroke-width="2"/>
+  <g font-family="'DejaVu Sans Mono', monospace" font-size="25" xml:space="preserve">
+    <text x="716" y="232" fill="#f0f6fc">my-app/</text>
+    <text x="716" y="288" fill="#6e7f91">├─ <tspan fill="#3fb9a8">docs/</tspan><tspan fill="#9fb3c8">     what is true</tspan></text>
+    <text x="716" y="344" fill="#6e7f91">├─ <tspan fill="#3fb9a8">work/</tspan><tspan fill="#9fb3c8">     what is happening</tspan></text>
+    <text x="716" y="400" fill="#6e7f91">├─ <tspan fill="#3fb9a8">agents/</tspan><tspan fill="#9fb3c8">   how work gets done</tspan></text>
+    <text x="716" y="456" fill="#6e7f91">├─ <tspan fill="#3fb9a8">tools/</tspan><tspan fill="#9fb3c8">    keeps it honest</tspan></text>
+    <text x="716" y="512" fill="#6e7f91">└─ <tspan fill="#3fb9a8">src/</tspan><tspan fill="#9fb3c8">      your code</tspan></text>
+  </g>
+</svg>
