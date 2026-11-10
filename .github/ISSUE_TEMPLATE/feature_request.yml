@@ -1,0 +1,38 @@
+name: Feature request
+description: Suggest an improvement to the template
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Everything under `template/` ships to every generated project, so please say who benefits and what the change would cost.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the situation you ran into, not only the solution you have in mind.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What should the template do differently?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+  - type: dropdown
+    id: audience
+    attributes:
+      label: Who is it for?
+      options:
+        - Humans using a generated project
+        - Agents working in a generated project
+        - Maintainers of this template
+        - Not sure
+    validations:
+      required: true

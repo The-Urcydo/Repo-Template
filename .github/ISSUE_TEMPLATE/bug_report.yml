@@ -1,0 +1,63 @@
+name: Bug report
+description: Something in the template, or in a project generated from it, does not work
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. This is the template repository. If the problem shows up in a project you generated, tell us which template version it came from below.
+        Security problems do not belong here: follow the [security policy](https://github.com/The-Urcydo/Repo-Template/security/policy).
+  - type: input
+    id: version
+    attributes:
+      label: Template version
+      description: The release tag or commit you generated from. It is the `_commit` line in your project's `.copier-answers.yml`.
+      placeholder: v0.3.0
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Python, Copier and operating system
+      placeholder: Python 3.12, Copier 9.4.1, Ubuntu 24.04
+    validations:
+      required: true
+  - type: input
+    id: choices
+    attributes:
+      label: Profile and layout
+      description: The answers you gave when generating, if you remember them.
+      placeholder: full, single
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you see, and where?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The exact commands you ran, in order.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+  - type: textarea
+    id: output
+    attributes:
+      label: Output or logs
+      description: If `python3 tools/check.py` is involved, include its full output.
+      render: shell
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the existing issues and this is not a duplicate.
+          required: true

@@ -1,0 +1,16 @@
+name: Request a private channel
+description: Ask an owner for a private way to report a conduct concern. Do not describe the concern here.
+title: "[Private channel]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue is public. Do not describe the concern, name anyone or paste private details here. An owner will reply with a private way to share it.
+        Security vulnerabilities do not belong here: use [private vulnerability reporting](https://github.com/The-Urcydo/Repo-Template/security/policy).
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Before submitting
+      options:
+        - label: I understand this issue is public and I have not described the concern in it.
+          required: true

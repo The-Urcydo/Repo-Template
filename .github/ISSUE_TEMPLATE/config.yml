@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and how to get started
+    url: https://github.com/The-Urcydo/Repo-Template#readme
+    about: Read the README first. If something is still unclear or broken, open a bug report or feature request.
+  - name: Report a security vulnerability
+    url: https://github.com/The-Urcydo/Repo-Template/security/policy
+    about: Please do not open a public issue for a vulnerability. Follow the security policy.
