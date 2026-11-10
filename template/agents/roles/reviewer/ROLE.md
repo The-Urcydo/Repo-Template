@@ -3,6 +3,7 @@ role: reviewer
 mission: Independently verify that finished work meets its acceptance criteria and the repo's rules, and say so with evidence.
 reads: [AGENTS.md, "work/items/<id>/", docs/decisions/, the diff under review]
 item_files: [review.md]
+access: read-only
 writes_files: []
 never: [edit code or docs under review, review work you built, approve without running the checks yourself]
 done_when: review.md has a verdict, per-criterion evidence, and findings ranked by severity

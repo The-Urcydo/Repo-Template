@@ -24,8 +24,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sync_agents  # noqa: E402
 import sync_indexes  # noqa: E402
 from _lib import (  # noqa: E402
-    ADR_STATUSES, AUDIENCES, DEFAULT_OWNER, DIATAXIS_DIRS, DOC_STATUSES, DOC_TYPES, ITEM_ID_RE, NEEDS_EVIDENCE, ROLE_FILE,
-    SKIP_DIRS, STALE_DAYS, STALE_REWARN_DAYS, STATUSES, TYPE_FOLDERS, FrontMatterError, doc_type_dir, folder_owners,
+    ACCESS_LEVELS, ADR_STATUSES, AUDIENCES, DEFAULT_OWNER, DIATAXIS_DIRS, DOC_STATUSES, DOC_TYPES, ITEM_ID_RE, NEEDS_EVIDENCE,
+    RESTRICTING_LEVELS, ROLE_FILE, SKIP_DIRS, STALE_DAYS, STALE_REWARN_DAYS, STATUSES, TOOL_NAME_RE, TYPE_FOLDERS,
+    FrontMatterError, doc_type_dir, folder_owners,
     git_last_change, iter_docs, iter_items, iter_markdown, load_catalog, load_modules, load_roles, load_targets,
     md_links, module_of, module_present, parse_date, parse_front_matter, parse_queue, read_fm, read_text,
     repo_root, resolve_link, skill_folders, today,
@@ -267,6 +268,10 @@ def check_roles(root: Path, rep: Report) -> None:
                 rep.error("role", p, f"missing '{k}'")
         if fm.get("role") != name:
             rep.error("role", p, f"role '{fm.get('role')}' must equal the folder name '{name}'")
+        if "access" in fm and fm["access"] not in ACCESS_LEVELS:
+            rep.error("role", p, f"access '{fm['access']}' must be one of: {', '.join(ACCESS_LEVELS)} (or leave it out)")
+        if "use_when" in fm and not (isinstance(fm["use_when"], str) and fm["use_when"].strip()):
+            rep.error("role", p, "use_when must be a short phrase that completes 'Use when ...' (or leave it out)")
         for key, seen in (("item_files", seen_item), ("writes_files", seen_file)):
             for f in fm.get(key) or []:
                 if f in seen:
@@ -534,7 +539,38 @@ def check_adapters_config(root: Path, rep: Report) -> bool:
         rep.error("adapters", "agents/adapters/targets.json",
                   "must be an object mapping target names to config objects")
         return False
-    return True
+    return _check_claude_extras(root, targets.get("claude", {}), rep)
+
+
+def _check_claude_extras(root: Path, claude: dict, rep: Report) -> bool:
+    """`models` (role -> model) and `disallowed_tools` (access level -> tool names) in the claude target."""
+    where = "agents/adapters/targets.json"
+    ok = True
+    models = claude.get("models", {})
+    if not isinstance(models, dict) or any(
+            not isinstance(v, str) or not v.strip() for v in models.values()):
+        rep.error("adapters", where, "claude.models must map a role name to a model alias or id (a non-empty string)")
+        ok = False
+    else:
+        roles = load_roles(root)
+        for role in models:
+            if roles and role not in roles:
+                rep.error("adapters", where, f"claude.models names '{role}', which is not a role in agents/roles/")
+                ok = False
+    table = claude.get("disallowed_tools", {})
+    if not isinstance(table, dict):
+        rep.error("adapters", where, "claude.disallowed_tools must map an access level to a list of tool names")
+        return False
+    for level, tools in table.items():
+        if level not in RESTRICTING_LEVELS:
+            rep.error("adapters", where,
+                      f"claude.disallowed_tools key '{level}' must be one of: {', '.join(RESTRICTING_LEVELS)} "
+                      "('full' is the default and cannot restrict)")
+            ok = False
+        elif not isinstance(tools, list) or not all(isinstance(t, str) and TOOL_NAME_RE.fullmatch(t) for t in tools):
+            rep.error("adapters", where, f"claude.disallowed_tools['{level}'] must be a list of plain tool names such as Edit")
+            ok = False
+    return ok
 
 
 # ------------------------------------------------------------------------ main

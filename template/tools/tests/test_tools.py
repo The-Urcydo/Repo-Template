@@ -1876,6 +1876,144 @@ class AdapterTests(RepoTestCase):
         mine.write_text("# Mine\n\n[broken](does/not/exist.md)\n")
         self.ok("check", "--strict")
 
+    # --- role `access` hint, `use_when` and per-role models (ADR 0007 follow-up) -------------------
+    GOOD_CLAUDE_EXTRAS = {"models": {}, "disallowed_tools": {"read-only": ["Edit", "NotebookEdit"]}}
+
+    def set_claude(self, **cfg: object) -> None:
+        t = self.repo / "agents" / "adapters" / "targets.json"
+        data = json.loads(t.read_text())
+        data.setdefault("claude", {})["enabled"] = True
+        data["claude"].update(cfg)
+        t.write_text(json.dumps(data))
+
+    def add_charter_key(self, role: str, line: str) -> None:
+        p = self.repo / "agents" / "roles" / role / "ROLE.md"
+        p.write_text(p.read_text().replace("\nreads:", f"\n{line}\nreads:", 1))
+
+    def head(self, path: Path) -> str:
+        """The front matter block of a generated file."""
+        return path.read_text().split("---\n", 2)[1]
+
+    def claude_head(self, role: str) -> str:
+        return self.head(self.repo / ".claude" / "agents" / f"{role}.md")
+
+    def test_read_only_role_gets_a_disallowed_tools_line(self) -> None:
+        self.set_claude()
+        self.add_charter_key("builder", "access: read-only")
+        self.ok("sync_agents")
+        self.assertIn("disallowedTools: Edit, NotebookEdit\n", self.claude_head("builder"))
+        self.assertNotIn("disallowedTools", self.claude_head("planner"))
+        self.ok("sync_agents", "--check")
+        self.ok("check", "--strict")
+
+    def test_access_full_adds_no_restriction(self) -> None:
+        self.set_claude()
+        self.add_charter_key("builder", "access: full")
+        self.ok("sync_agents")
+        self.assertNotIn("disallowedTools", self.claude_head("builder"))
+        self.ok("check", "--strict")
+
+    def test_shipped_read_only_roles_get_the_tool_limit(self) -> None:
+        # reviewer and researcher write only their own item file (and, for the researcher, work/research/).
+        # security owns docs/security/ and updates threat-model.md in place, so it is not read-only.
+        self.set_claude()
+        self.ok("sync_agents")
+        for role in ("reviewer", "researcher"):
+            self.assertIn("disallowedTools: Edit, NotebookEdit\n", self.claude_head(role), role)
+        for role in ("builder", "planner", "architect", "scribe", "orchestrator", "security"):
+            if not (self.repo / "agents" / "roles" / role / "ROLE.md").exists():
+                continue  # the security module may be cut
+            self.assertNotIn("disallowedTools", self.claude_head(role), role)
+
+    def test_access_is_not_copied_to_cursor_rules(self) -> None:
+        self.set_claude()
+        self.enable(cursor=True)
+        self.add_charter_key("builder", "access: read-only")
+        self.ok("sync_agents")
+        rule = self.head(self.repo / ".cursor" / "rules" / "role-builder.mdc")
+        self.assertNotIn("disallowedTools", rule)
+        self.assertNotIn("model:", rule)
+
+    def test_unknown_access_value_is_reported_by_check_and_ignored_by_sync(self) -> None:
+        self.set_claude()
+        self.add_charter_key("builder", "access: read-write")
+        r = self.sh("sync_agents")
+        self.assertNotIn("Traceback", r.stdout + r.stderr)
+        self.assertNotIn("disallowedTools", self.claude_head("builder"))
+        out = self.fails("check")
+        self.assertIn("access", out)
+        self.assertNotIn("Traceback", out)
+
+    def test_models_map_writes_a_model_line_for_the_named_role_only(self) -> None:
+        self.set_claude(models={"reviewer": "opus"})
+        self.ok("sync_agents")
+        self.assertIn("model: opus\n", self.claude_head("reviewer"))
+        self.assertNotIn("model:", self.claude_head("builder"))
+        self.ok("check", "--strict")
+        self.set_claude(models={})
+        self.assertIn("reviewer.md", self.fails("sync_agents", "--check"))
+        self.ok("sync_agents")
+        self.assertNotIn("model:", self.claude_head("reviewer"))
+
+    def test_changing_the_tool_mapping_is_drift_until_synced(self) -> None:
+        self.set_claude()
+        self.add_charter_key("builder", "access: read-only")
+        self.ok("sync_agents")
+        self.set_claude(disallowed_tools={"read-only": ["Write"]})
+        self.assertIn("builder.md", self.fails("sync_agents", "--check"))
+        self.ok("sync_agents")
+        self.assertIn("disallowedTools: Write\n", self.claude_head("builder"))
+        self.ok("check", "--strict")
+
+    def test_bad_adapter_extras_are_reported_without_crashing(self) -> None:
+        for bad in (
+            {"models": {"ghost": "opus"}},
+            {"models": ["opus"]},
+            {"models": {"reviewer": ""}},
+            {"disallowed_tools": {"read-only": "Edit"}},
+            {"disallowed_tools": {"read-only": ["Bash(git push *)"]}},
+            {"disallowed_tools": {"read-write": ["Edit"]}},
+        ):
+            self.set_claude(**{**self.GOOD_CLAUDE_EXTRAS, **bad})
+            out = self.fails("check")
+            self.assertIn("adapters", out, bad)
+            self.assertNotIn("Traceback", out, bad)
+            r = self.sh("sync_agents")
+            self.assertNotIn("Traceback", r.stdout + r.stderr, bad)
+
+    def test_disallowed_tools_cannot_restrict_full(self) -> None:
+        self.set_claude(disallowed_tools={"full": ["Edit"]})
+        self.add_charter_key("builder", "access: full")
+        out = self.fails("check")
+        self.assertIn("full", out)
+        self.assertNotIn("Traceback", out)
+        self.ok("sync_agents")
+        self.assertNotIn("disallowedTools", self.claude_head("builder"))
+
+    def test_use_when_replaces_the_owner_role_sentence(self) -> None:
+        self.set_claude()
+        self.enable(cursor=True)
+        self.add_charter_key("builder", "use_when: a planner asks for a second opinion")
+        self.ok("sync_agents")
+        for head in (self.claude_head("builder"), self.head(self.repo / ".cursor" / "rules" / "role-builder.mdc")):
+            self.assertIn("Use when a planner asks for a second opinion.", head)
+            self.assertNotIn("owner_role is builder", head)
+        self.assertIn("handoff owner_role is planner", self.claude_head("planner"))
+
+    def test_shipped_researcher_is_not_described_by_ownership(self) -> None:
+        # The researcher never owns an item (ADR 0007), so "owner_role is researcher" can never match.
+        self.set_claude()
+        self.ok("sync_agents")
+        head = self.claude_head("researcher")
+        self.assertIn("Use when", head)
+        self.assertNotIn("owner_role is researcher", head)
+
+    def test_empty_use_when_fails_check(self) -> None:
+        self.add_charter_key("builder", "use_when:")
+        out = self.fails("check")
+        self.assertIn("use_when", out)
+        self.assertNotIn("Traceback", out)
+
 
 if __name__ == "__main__":
     unittest.main()
