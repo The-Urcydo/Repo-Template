@@ -27,6 +27,18 @@ python3 tools/sync_agents.py --check    # fail if generated files differ from th
 
 `manifest.json` records a hash of every generated file. The sync tool refuses to overwrite a file it did not generate, and removes generated files whose source disappeared.
 
+## Claude Code: tool limits, models and descriptions
+
+Three optional inputs shape the generated `.claude/agents/<role>.md` front matter. Cursor, Copilot and Gemini ignore the first two.
+
+| Input | Where | Effect |
+|---|---|---|
+| `access: read-only` | a role's `ROLE.md` | Adds `disallowedTools` from the `claude.disallowed_tools` table in `targets.json` (shipped: `Edit` and `NotebookEdit`). No `access`, or `full`, adds nothing |
+| `claude.models` | `targets.json` | Maps a role name to a model alias or id and adds `model:` for that role only. Shipped empty: every role inherits the session's model. Model names live here, never in `ROLE.md` |
+| `use_when` | a role's `ROLE.md` | Completes "Use when ..." in the subagent and Cursor rule description. Without it the description says "Use when a work item's handoff owner_role is `<role>`", which fits a role that is handed items and never fits a role that is only called |
+
+`disallowedTools` guards against accidents: it stops a role from using the in-place edit tool on code it reviews. It is not a security boundary. A `read-only` role still needs `Write` to create its own item file from the template (`tools/item_file.py`) and a shell to run checks, and a shell can change files. Command-level limits belong in Claude Code permission rules or hooks, which this tool does not generate. `check.py` fails on an unknown `access` value, an unknown role in `models`, or a tool name that is not a plain name such as `Edit`.
+
 ## Turn a target on or off
 
 Set `"enabled"` to `true` or `false` for `claude`, `cursor`, `copilot` or `gemini` in `targets.json`, then run `python3 tools/sync_agents.py`. Turning a target off removes the files it generated (and any folder left empty). To manage a tool's files yourself, copy what you need from `agents/` first (for Claude Code: each `agents/roles/<role>/ROLE.md` and every skill folder, shared and per role, into `.claude/`), then set `enabled` to false so the sync tool leaves them alone. The sync tool never overwrites a file it did not generate: it reports `SKIPPED` and exits 1.

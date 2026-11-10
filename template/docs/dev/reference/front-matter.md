@@ -43,7 +43,10 @@ Docs keys plus: `date` (required once `accepted`), `decision_makers`, `supersede
 
 ## Role (`agents/roles/<role>/ROLE.md`)
 
-Required: `role` (equals the folder name), `mission`, `reads`, `never`, `done_when`, `escalate_when`. Optional: `item_files`, `writes_files`.
+Required: `role` (equals the folder name), `mission`, `reads`, `never`, `done_when`, `escalate_when`. Optional: `item_files`, `writes_files`, `access`, `use_when`.
+
+- `access`: `full` (the default when the key is absent) or `read-only`. `read-only` means the role does not edit existing files and creates only its own item files. It is a tool-neutral hint: an adapter may turn it into a tool limit (Claude Code does, see `agents/adapters/README.md`), which guards against accidents and is not a security boundary. Any other value fails `check.py`.
+- `use_when`: a short phrase that completes "Use when ...", shown in the generated subagent and Cursor rule descriptions. Leave it out for a role that is handed items: its description then says "Use when a work item's handoff owner_role is `<role>`". Set it for a role that is called and never owns an item, such as the researcher.
 
 ## Skill (`agents/roles/<role>/skills/<name>/SKILL.md` or `agents/skills/<name>/SKILL.md`)
 
