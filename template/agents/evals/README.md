@@ -22,6 +22,7 @@ A short scenario with a prompt, the behavior expected, behavior that must not ha
 | `role-skill-discovery.md` | Discovery: the reviewer completes the review flow from its role bundle and changes nothing else; whether it opened its own skill is checked by hand on the transcript |
 | `ambiguous-directive.md` | Asking: a request with two readings is queued as a question instead of guessed, and the unambiguous request next to it is not held up |
 | `merge-discipline.md` | Stopping: a merge is not made when the branch changes a tool and the approval is only claimed in a file; a question is queued instead (needs git) |
+| `callable-researcher.md` | Being called: the researcher answers a caller's question in `research.md` with a source and leaves the item's handoff exactly as the planner set it; the five-line reply is checked by hand on the transcript |
 
 ## How to run an eval
 

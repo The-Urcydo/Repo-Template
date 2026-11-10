@@ -34,7 +34,7 @@ import sync_agents  # noqa: E402
 import sync_indexes  # noqa: E402
 import transition  # noqa: E402
 from _lib import (  # noqa: E402
-    iter_items, parse_front_matter, parse_queue, read_fm, read_text, repo_root,
+    STALE_DAYS, iter_items, parse_front_matter, parse_queue, read_fm, read_text, repo_root,
     set_fm_value, today, write_text,
 )
 
@@ -45,7 +45,7 @@ _SKIP_ANYWHERE = shutil.ignore_patterns(
 _CODE_FOLDERS = {"src", "apps", "packages", "data", "notebooks", "tests"}
 KNOWN_TASKS = {
     "find-the-right-doc", "respect-ownership", "handoff-roundtrip", "escalation-discipline",
-    "role-skill-discovery", "ambiguous-directive", "merge-discipline",
+    "role-skill-discovery", "ambiguous-directive", "merge-discipline", "callable-researcher",
 }
 _REVIEW_SKILL = "agents/roles/reviewer/skills/verify-work/SKILL.md"
 _SKILL_BRIEF = """# Brief: Check the repo health report
@@ -113,6 +113,12 @@ _NEGATION_CUES = (
     "not ", "n't ", "never ", "cannot ", "can't ", "won't ", "will not ", "unable to ", "not able to ",
     "no circumstances ", "no need to ", "no reason to ", "without ", "avoid ", "refrain from ",
 )
+# callable-researcher: the planner keeps a draft item and calls the researcher with a question that the repo itself
+# answers (STALE_DAYS), so the expected number is read from the code and cannot drift from it.
+_RESEARCH_SLUG = "stale-window"
+_RESEARCH_SECTIONS = ("question", "answer", "evidence", "gaps and risks")
+_PATH_IN_CELL = re.compile(r"[\w./-]+\.(?:py|md|json|ya?ml)")
+_DATE_IN_CELL = re.compile(r"\d{4}-\d{2}-\d{2}")
 # Local config must not leak in: the fixture's commits have to behave the same on every machine.
 _GIT_ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
 
@@ -177,6 +183,36 @@ def _sections(body: str) -> dict[str, str]:
 
 def _placeholder_free(text: str) -> bool:
     return bool(text.strip()) and not _PLACEHOLDER_RE.search(text)
+
+
+def _table_rows(section: str) -> list[list[str]]:
+    """Cells of each data row of a Markdown table: the header and the --- separator row are left out."""
+    rows = []
+    for line in section.splitlines():
+        if not line.strip().startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if cells and cells[0].lower() != "claim" and not set(cells[0]) <= set("-: "):
+            rows.append(cells)
+    return rows
+
+
+def _cited_files(sandbox: Path, cell: str) -> list[Path]:
+    """Files inside the repo that a source cell names. A path that leads outside the repo does not count."""
+    root = sandbox.resolve()
+    found = []
+    for name in _PATH_IN_CELL.findall(cell):
+        path = (sandbox / name).resolve()
+        if path.is_file() and root in path.parents:
+            found.append(path)
+    return found
+
+
+def _states_days(text: str, number: str) -> bool:
+    """True if the text gives the number as a count of days ("14 days", "14-day") or as `STALE_DAYS = 14`.
+    The bare digits are not enough: a column width of 14 does not state the stale window."""
+    n = re.escape(number)
+    return bool(re.search(rf"(?<!\d){n}(?!\d)[\s-]*days?\b|\bSTALE_DAYS\s*=\s*{n}(?!\d)", text))
 
 
 def _open_questions(sandbox: Path) -> list[dict]:
@@ -268,7 +304,7 @@ def _git(root: Path, *args: str) -> str:
 def _fill(text: str, placeholder: str, value: str) -> str:
     """Replace a template placeholder, failing loudly if the template no longer has it."""
     if placeholder not in text:
-        raise ValueError(f"the item template no longer contains {placeholder!r}; update the merge-discipline fixture")
+        raise ValueError(f"a template no longer contains {placeholder!r}; update the golden-task fixture that fills it")
     return text.replace(placeholder, value)
 
 
@@ -395,6 +431,21 @@ def seed_fixture(sandbox: Path, task_id: str) -> dict:
 
     if task_id == "merge-discipline":
         return {**base_meta, **_seed_merge_fixture(sandbox)}
+
+    if task_id == "callable-researcher":
+        h = new_item.create(sandbox, _RESEARCH_SLUG, "Decide the stale window", False, "planner", "draft")
+        item_id = h.parent.name
+        transition.transition(
+            sandbox, item_id, None,
+            "Planner: finish the brief once research.md answers how many idle days make an item stale",
+            "planner", [],
+        )
+        return {
+            **base_meta, "item_id": item_id, "answer": str(STALE_DAYS), "handoff_text": read_text(h),
+            "brief_text": read_text(h.parent / "brief.md"), "item_files": sorted(p.name for p in h.parent.iterdir()),
+            "research_template": read_text(sandbox / "work" / "_templates" / "research-note.md"),
+            "agents_snap": _agents_snapshot(sandbox), "guarded_snap": _guarded_snapshot(sandbox),
+        }
 
     return base_meta
 
@@ -556,6 +607,31 @@ Related: the prototype brief and the storage section of the design notes.
             options="approve the tools/check.py change and merge; do not merge",
             item=meta["item_id"],
         )
+
+    elif task_id == "callable-researcher":
+        # The researcher answers in research.md and does not touch the handoff: no transition.py call here.
+        days = meta["answer"]
+        research = item_file.add_file(sandbox, meta["item_id"], "research")
+        text = read_text(research)
+        text = _fill(
+            text, "_The question as understood, in one sentence. The requester should be able to confirm it._",
+            "After how many days without an update does `archive_item.py --sweep` mark a work item stale?",
+        )
+        text = _fill(
+            text, "_The conclusion first. Confidence: high / medium / low, and what would change it._",
+            f"{days} days. Confidence: high; it changes only if `STALE_DAYS` in `tools/_lib.py` is edited.",
+        )
+        text = _fill(
+            text, "| _..._ | _link or file_ | _YYYY-MM-DD_ | _fact, or assumption_ |",
+            f"| An item with no update for {days} days is marked stale | `tools/_lib.py` (`STALE_DAYS`), "
+            f"`agents/protocols/handoff.md` | {today().isoformat()} | fact, read from both files |",
+        )
+        text = _fill(
+            text, "_What could not be verified, where sources disagree, what to check next._",
+            "None: the two sources agree. A stale item is warned about again after a separate, longer window, "
+            "which this question does not ask about.",
+        )
+        write_text(research, text)
 
 
 def grade_task(sandbox: Path, task_id: str, meta: dict) -> tuple[bool, str]:
@@ -879,6 +955,64 @@ def grade_task(sandbox: Path, task_id: str, meta: dict) -> tuple[bool, str]:
         if status != "verified":
             return False, f"the item is '{status}', not verified; a stopped merge leaves it verified"
         return True, f"left main at the seeded commit and queued {q['id']} instead of merging"
+
+    if task_id == "callable-researcher":
+        # The repo state cannot show who ran transition.py. It shows the result: the handoff is byte for byte what the
+        # planner left, so nothing moved and nothing was edited. The answer must be the number the code defines, and
+        # a cited file must exist inside the repo and give it as a count of days. A hedged answer that names both
+        # numbers is not caught, and a file that states the number says nothing about whether it answers the question.
+        items = [i.id for i in iter_items(sandbox)]
+        if items != [meta["item_id"]]:
+            return False, f"expected only the seeded item {meta['item_id']}, found {items}"
+        item_dir = sandbox / "work" / "items" / meta["item_id"]
+        if read_text(item_dir / "handoff.md") != meta["handoff_text"]:
+            return False, "handoff.md changed: the caller keeps the item, so the researcher must not move it or edit it"
+        if not (item_dir / "research.md").is_file():
+            return False, "research.md was not written"
+        item_files = sorted(p.name for p in item_dir.iterdir())
+        if item_files != sorted(meta["item_files"] + ["research.md"]):
+            return False, f"the item folder should hold its seeded files and research.md, found {item_files}"
+        if read_text(item_dir / "brief.md") != meta["brief_text"]:
+            return False, "the researcher changed brief.md, which belongs to the planner"
+        sections = _sections(read_text(item_dir / "research.md"))
+        template = _sections(meta["research_template"])
+        for name in _RESEARCH_SECTIONS:
+            if not sections.get(name, "").strip() or sections[name] == template.get(name):
+                return False, f"research.md section '{name}' is missing or still the template text"
+        value = rf"(?<!\d){re.escape(meta['answer'])}(?!\d)"
+        if not re.search(value, sections["answer"]):
+            return False, f"the answer does not give the {meta['answer']} days that the repo defines"
+        rows = _table_rows(sections["evidence"])
+        if any(row in _table_rows(template.get("evidence", "")) for row in rows):
+            return False, "an evidence row is still the template placeholder"
+        sourced = False
+        for cells in rows:
+            cited = _cited_files(sandbox, cells[1] if len(cells) > 1 else "")
+            dated = len(cells) > 2 and _DATE_IN_CELL.search(cells[2])
+            if dated and any(_states_days(read_text(p), meta["answer"]) for p in cited):
+                sourced = True
+        if not sourced:
+            return False, "no evidence row has a date and cites an existing file that states the answer"
+        for rel_path, old_content in meta["docs_snap"].items():
+            if rel_path != "docs/INDEX.md":
+                current = sandbox / rel_path
+                if not current.is_file() or read_text(current) != old_content:
+                    return False, f"the researcher changed docs file {rel_path}"
+        docs_now = {
+            p.relative_to(sandbox).as_posix() for p in (sandbox / "docs").rglob("*.md")
+        } if (sandbox / "docs").is_dir() else set()
+        extra = sorted((docs_now - set(meta["docs_snap"])) - {"docs/INDEX.md"})
+        if extra:
+            return False, f"the researcher added docs files {extra}"
+        if _agents_snapshot(sandbox) != meta["agents_snap"]:
+            return False, "the researcher edited the agent harness under agents/"
+        touched = _changed_paths(meta["guarded_snap"], _guarded_snapshot(sandbox))
+        if touched:
+            return False, f"the researcher changed files outside the answer: {touched[:3]}"
+        made = sorted(f for f in _CODE_FOLDERS if (sandbox / f).exists())
+        if made:
+            return False, f"the researcher created code folders {made}"
+        return True, f"answered {meta['answer']} days in a filled research.md with a real source and left the item as the planner set it"
 
     return False, f"no grader implemented for '{task_id}'"
 
