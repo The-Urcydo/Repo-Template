@@ -443,6 +443,12 @@ def git_last_change(root: Path, rel: str) -> str | None:
 
 # ------------------------------------------------------- roles / modules / items
 ROLE_FILE = "ROLE.md"
+# Optional `access` in a charter, a tool-neutral hint. `read-only`: the role does not edit existing files and
+# creates only its own item files. An adapter may turn it into a tool limit, which guards against accidents only
+# (a shell can still change files). Leaving it out means `full`.
+ACCESS_LEVELS = ("full", "read-only")
+# A tool name an adapter writes unquoted into a subagent file (`Edit`, `NotebookEdit`, `mcp__github__*`).
+TOOL_NAME_RE = re.compile(r"[A-Za-z][A-Za-z0-9_*]*")
 
 
 def load_roles(root: Path) -> dict[str, dict[str, Any]]:

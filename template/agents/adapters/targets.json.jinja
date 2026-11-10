@@ -3,7 +3,9 @@
     "enabled": {{ enable_claude_adapter | tojson }},
     "agents_dir": ".claude/agents",
     "skills_dir": ".claude/skills",
-    "claude_md_shims": true
+    "claude_md_shims": true,
+    "disallowed_tools": { "read-only": ["Edit", "NotebookEdit"] },
+    "models": {}
   },
   "cursor": {
     "enabled": false,

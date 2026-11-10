@@ -4,7 +4,8 @@
 Source of truth:  agents/roles/<role>/ROLE.md, agents/skills/*/ (shared skills),
                   agents/roles/<role>/skills/*/ (skills only that role uses), every AGENTS.md
 Generated for Claude Code (when enabled in agents/adapters/targets.json):
-  .claude/agents/<role>.md        subagent definitions (name + description + charter)
+  .claude/agents/<role>.md        subagent definitions (name + description + charter; plus `model` and
+                                  `disallowedTools` when targets.json maps them, see adapters/README.md)
   .claude/skills/<name>/...       copies of the open-standard skill folders (flat, from both lanes)
   <dir>/CLAUDE.md                 one-line shim importing the sibling AGENTS.md
                                   (Claude Code reads CLAUDE.md instead of AGENTS.md
@@ -34,8 +35,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _lib import (  # noqa: E402
-    SKIP_DIRS, folder_owners, load_roles, load_targets, read_text, repo_root, sha256_bytes, skill_folders,
-    write_text, yaml_scalar,
+    SKIP_DIRS, TOOL_NAME_RE, folder_owners, load_roles, load_targets, read_text, repo_root, sha256_bytes,
+    skill_folders, write_text, yaml_scalar,
 )
 
 MANIFEST = "agents/adapters/manifest.json"
@@ -72,8 +73,30 @@ def _agents_md_dirs(root: Path) -> list[Path]:
 
 
 def _role_description(role: str, fm: dict) -> str:
+    """The mission plus when to pick this role. A charter's `use_when` says it; without one the role is
+    picked when it owns the item (flow roles). A role that is called, not handed an item, sets `use_when`."""
     mission = " ".join(str(fm.get("mission", "")).split())
+    when = fm.get("use_when")
+    if isinstance(when, str) and when.strip():
+        return f"{mission} Use when {' '.join(when.split()).rstrip('. ')}."
     return f"{mission} Use when a work item's handoff owner_role is {role}."
+
+
+def _claude_extra_head(role: str, fm: dict, cfg: dict) -> list[str]:
+    """Optional subagent front matter lines: `model` (from `models` in targets.json) and `disallowedTools`
+    (the charter's `access` looked up in `disallowed_tools`). Config that check.py would reject adds
+    nothing, so a bad targets.json never crashes the sync."""
+    lines: list[str] = []
+    models = cfg.get("models")
+    model = models.get(role) if isinstance(models, dict) else None
+    if isinstance(model, str) and model.strip():
+        lines.append(f"model: {yaml_scalar(model.strip())}")
+    level = fm.get("access")
+    table = cfg.get("disallowed_tools")
+    tools = table.get(level) if isinstance(table, dict) and isinstance(level, str) else None
+    if isinstance(tools, list) and tools and all(isinstance(t, str) and TOOL_NAME_RE.fullmatch(t) for t in tools):
+        lines.append("disallowedTools: " + ", ".join(tools))  # the comma-separated form Claude Code documents
+    return lines
 
 
 def _role_brief(role: str, fm: dict, body: str, owned: list[str]) -> list[str]:
@@ -103,8 +126,9 @@ def _role_brief(role: str, fm: dict, body: str, owned: list[str]) -> list[str]:
     ]
 
 
-def render_subagent(role: str, fm: dict, body: str, owned: list[str]) -> str:
-    head = ["---", f"name: {role}", f"description: {yaml_scalar(_role_description(role, fm))}", "---"]
+def render_subagent(role: str, fm: dict, body: str, owned: list[str], extra_head: list[str] | None = None) -> str:
+    head = ["---", f"name: {role}", f"description: {yaml_scalar(_role_description(role, fm))}",
+            *(extra_head or []), "---"]
     return "\n".join(head + _role_brief(role, fm, body, owned))
 
 
@@ -127,7 +151,8 @@ def _claude_outputs(root: Path, cfg: dict) -> dict[str, bytes]:
     agents_dir = cfg.get("agents_dir", ".claude/agents")
     skills_dir = cfg.get("skills_dir", ".claude/skills")
     for role, fm, body, owned in _role_files(root):
-        out[f"{agents_dir}/{role}.md"] = render_subagent(role, fm, body, owned).encode("utf-8")
+        out[f"{agents_dir}/{role}.md"] = render_subagent(
+            role, fm, body, owned, _claude_extra_head(role, fm, cfg)).encode("utf-8")
     # Shared skills and role-only skills both land flat in `.claude/skills/<name>/`.
     for _owner, sk in skill_folders(root):
         if (sk / "SKILL.md").exists():
