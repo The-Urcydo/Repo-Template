@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Repo-Template social card · B · Paper headline</title>
+<link rel="stylesheet" href="fonts.css">
+<style>
+  /* B · Paper headline: type-led light poster. The tagline is the picture; the five folders are the footer.
+     1280x640. Safe zone 1120x520 (80px sides, 60px top and bottom). Smallest text 22px.
+     Light on purpose: it stands out in dark feeds. The teal is darkened for text (contrast), bright only as a fill. */
+  :root {
+    --paper: #f4f1ea;
+    --ink: #0d1117;
+    --ink-2: #364352;
+    --teal: #3fb9a8;
+    --teal-deep: #0b6b62;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1280px; height: 640px; overflow: hidden; background: var(--paper); }
+  .card { position: relative; width: 1280px; height: 640px; background: var(--paper); font-family: "RT Sans", sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+  .bar { position: absolute; left: 0; top: 0; width: 12px; height: 640px; background: var(--teal); }
+
+  .top { position: absolute; left: 88px; right: 80px; top: 64px; height: 40px; display: flex; justify-content: space-between; align-items: baseline; }
+  .wordmark { font-family: "RT Display", sans-serif; font-weight: 700; font-size: 34px; line-height: 40px; letter-spacing: -0.01em; }
+  .kind { font-family: "RT Mono", monospace; font-size: 22px; color: var(--teal-deep); font-weight: 700; }
+
+  h1 { position: absolute; left: 88px; top: 122px; font-family: "RT Display", sans-serif; font-weight: 800; font-size: 92px; line-height: 0.98; letter-spacing: -0.03em; }
+  h1 span { display: block; }
+  h1 em { font-style: normal; background: linear-gradient(transparent 64%, var(--teal) 64%, var(--teal) 90%, transparent 90%); }
+
+  .what { position: absolute; left: 88px; top: 414px; font-weight: 500; font-size: 28px; color: var(--ink-2); }
+
+  /* Columns are sized to their captions (not equal) so no caption runs into the next folder name. */
+  .folders { position: absolute; left: 88px; right: 80px; top: 482px; border-top: 3px solid var(--ink); display: grid; grid-template-columns: 200px 238px 262px 218px 1fr; padding-top: 18px; }
+  .folders div { padding-right: 12px; }
+  .folders b { display: block; font-family: "RT Mono", monospace; font-weight: 700; font-size: 26px; line-height: 34px; color: var(--teal-deep); }
+  .folders span { display: block; font-weight: 500; font-size: 22px; line-height: 30px; color: var(--ink-2); white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="bar"></div>
+  <div class="top"><span class="wordmark">Repo-Template</span><span class="kind">copier template</span></div>
+  <h1><span>One human.</span><span>Several AI agents.</span><span><em>One structure.</em></span></h1>
+  <p class="what">A Copier template for agent-ready repositories.</p>
+  <div class="folders">
+    <div><b>docs/</b><span>what is true</span></div>
+    <div><b>work/</b><span>what is happening</span></div>
+    <div><b>agents/</b><span>how work gets done</span></div>
+    <div><b>tools/</b><span>keeps it honest</span></div>
+    <div><b>src/</b><span>your code</span></div>
+  </div>
+</div>
+</body>
+</html>

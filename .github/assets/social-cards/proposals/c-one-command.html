@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Repo-Template social card · C · One command, then ok</title>
+<link rel="stylesheet" href="fonts.css">
+<style>
+  /* C · One command, then ok: the real command and the real result. The giant "ok" is the picture.
+     `python3 tools/check.py` prints "ok" on a freshly generated project (README quick start).
+     1280x640. Safe zone 1120x520 (80px sides, 60px top and bottom). Smallest text 22px. */
+  :root {
+    --bg: #0b1118;
+    --panel: #0e151e;
+    --line: #2f4257;
+    --teal: #3fb9a8;
+    --text: #f0f6fc;
+    --text-2: #c9d6e2;
+    --text-3: #9fb3c8;
+    --comment: #8396ab;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1280px; height: 640px; overflow: hidden; background: var(--bg); }
+  .card { position: relative; width: 1280px; height: 640px; background: var(--bg); font-family: "RT Sans", sans-serif; color: var(--text); -webkit-font-smoothing: antialiased; }
+  .bar { position: absolute; left: 0; top: 0; width: 12px; height: 640px; background: var(--teal); }
+
+  .top { position: absolute; left: 88px; right: 80px; top: 66px; height: 64px; display: flex; justify-content: space-between; align-items: baseline; }
+  h1 { font-family: "RT Display", sans-serif; font-weight: 800; font-size: 56px; line-height: 64px; letter-spacing: -0.025em; }
+  .what { font-weight: 500; font-size: 24px; color: var(--text-3); }
+
+  .term { position: absolute; left: 88px; top: 144px; width: 1112px; height: 436px; background: var(--panel); border: 2px solid var(--line); border-radius: 20px; padding: 32px 40px; font-family: "RT Mono", monospace; }
+  .ln { font-size: 27px; line-height: 48px; white-space: pre; color: var(--text); }
+  .ln b { color: var(--teal); font-weight: 700; }
+  .ln.c { color: var(--comment); }
+  .gap { height: 14px; }
+  .out { position: relative; height: 204px; }
+  .ok { position: absolute; left: 0; top: 0; font-weight: 700; font-size: 196px; line-height: 204px; color: var(--teal); letter-spacing: -0.02em; }
+  .say { position: absolute; right: 0; bottom: 18px; font-family: "RT Sans", sans-serif; font-weight: 600; font-size: 34px; line-height: 44px; color: var(--text-2); }
+  .say em { font-style: normal; color: var(--teal); }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="bar"></div>
+  <div class="top"><h1>Repo-Template</h1><p class="what">A Copier template for agent-ready repositories</p></div>
+  <div class="term">
+    <div class="ln"><b>$</b> copier copy --trust gh:The-Urcydo/Repo-Template my-app</div>
+    <div class="ln c"># docs/  work/  agents/  tools/  src/</div>
+    <div class="gap"></div>
+    <div class="ln"><b>$</b> python3 tools/check.py</div>
+    <div class="out">
+      <div class="ok">ok</div>
+      <div class="say">One human.<br>Several AI agents.<br><em>One structure.</em></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
