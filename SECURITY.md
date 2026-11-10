@@ -4,7 +4,7 @@
 
 Please report security problems privately. Do not open a public issue with the details.
 
-Use GitHub's private vulnerability reporting: open the **Security** tab of this repository and choose **Report a vulnerability**. If that option is not available to you, open an issue that says you have a security concern, without any details, and ask for a private way to share them.
+Use GitHub's private vulnerability reporting: open the **Security** tab of this repository and choose **Report a vulnerability**.
 
 We will acknowledge your report as soon as we can and keep you informed while it is looked at. This is a small project, so there is no fixed response time.
 
