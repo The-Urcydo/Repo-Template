@@ -25,8 +25,8 @@ import sync_agents  # noqa: E402
 import sync_indexes  # noqa: E402
 from _lib import (  # noqa: E402
     ACCESS_LEVELS, ADR_STATUSES, AUDIENCES, DEFAULT_OWNER, DIATAXIS_DIRS, DOC_STATUSES, DOC_TYPES, ITEM_ID_RE, NEEDS_EVIDENCE,
-    ROLE_FILE, SKIP_DIRS, STALE_DAYS, STALE_REWARN_DAYS, STATUSES, TOOL_NAME_RE, TYPE_FOLDERS, FrontMatterError,
-    doc_type_dir, folder_owners,
+    RESTRICTING_LEVELS, ROLE_FILE, SKIP_DIRS, STALE_DAYS, STALE_REWARN_DAYS, STATUSES, TOOL_NAME_RE, TYPE_FOLDERS,
+    FrontMatterError, doc_type_dir, folder_owners,
     git_last_change, iter_docs, iter_items, iter_markdown, load_catalog, load_modules, load_roles, load_targets,
     md_links, module_of, module_present, parse_date, parse_front_matter, parse_queue, read_fm, read_text,
     repo_root, resolve_link, skill_folders, today,
@@ -562,12 +562,10 @@ def _check_claude_extras(root: Path, claude: dict, rep: Report) -> bool:
         rep.error("adapters", where, "claude.disallowed_tools must map an access level to a list of tool names")
         return False
     for level, tools in table.items():
-        if level == "full":
+        if level not in RESTRICTING_LEVELS:
             rep.error("adapters", where,
-                      "claude.disallowed_tools maps levels that restrict a role; 'full' is the default and adds nothing, so remove it")
-            ok = False
-        elif level not in ACCESS_LEVELS:
-            rep.error("adapters", where, f"claude.disallowed_tools key '{level}' must be one of: {', '.join(ACCESS_LEVELS)}")
+                      f"claude.disallowed_tools key '{level}' must be one of: {', '.join(RESTRICTING_LEVELS)} "
+                      "('full' is the default and cannot restrict)")
             ok = False
         elif not isinstance(tools, list) or not all(isinstance(t, str) and TOOL_NAME_RE.fullmatch(t) for t in tools):
             rep.error("adapters", where, f"claude.disallowed_tools['{level}'] must be a list of plain tool names such as Edit")

@@ -35,8 +35,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _lib import (  # noqa: E402
-    SKIP_DIRS, TOOL_NAME_RE, folder_owners, load_roles, load_targets, read_text, repo_root, sha256_bytes,
-    skill_folders, write_text, yaml_scalar,
+    RESTRICTING_LEVELS, SKIP_DIRS, TOOL_NAME_RE, folder_owners, load_roles, load_targets, read_text, repo_root,
+    sha256_bytes, skill_folders, write_text, yaml_scalar,
 )
 
 MANIFEST = "agents/adapters/manifest.json"
@@ -93,7 +93,7 @@ def _claude_extra_head(role: str, fm: dict, cfg: dict) -> list[str]:
         lines.append(f"model: {yaml_scalar(model.strip())}")
     level = fm.get("access")
     table = cfg.get("disallowed_tools")
-    tools = table.get(level) if isinstance(table, dict) and isinstance(level, str) else None
+    tools = table.get(level) if isinstance(table, dict) and level in RESTRICTING_LEVELS else None
     if isinstance(tools, list) and tools and all(isinstance(t, str) and TOOL_NAME_RE.fullmatch(t) for t in tools):
         lines.append("disallowedTools: " + ", ".join(tools))  # the comma-separated form Claude Code documents
     return lines

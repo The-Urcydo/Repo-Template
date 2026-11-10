@@ -1983,9 +1983,12 @@ class AdapterTests(RepoTestCase):
 
     def test_disallowed_tools_cannot_restrict_full(self) -> None:
         self.set_claude(disallowed_tools={"full": ["Edit"]})
+        self.add_charter_key("builder", "access: full")
         out = self.fails("check")
         self.assertIn("full", out)
         self.assertNotIn("Traceback", out)
+        self.ok("sync_agents")
+        self.assertNotIn("disallowedTools", self.claude_head("builder"))
 
     def test_use_when_replaces_the_owner_role_sentence(self) -> None:
         self.set_claude()

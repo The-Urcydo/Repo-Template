@@ -447,6 +447,8 @@ ROLE_FILE = "ROLE.md"
 # declares and the folders it owns. An adapter may turn it into a tool limit, which is coarser than this rule
 # and guards against accidents only (a shell can still change files). Leaving it out means `full`.
 ACCESS_LEVELS = ("full", "read-only")
+# Levels an adapter can map to a restriction. `full` is the default and cannot restrict.
+RESTRICTING_LEVELS = tuple(level for level in ACCESS_LEVELS if level != "full")
 # A tool name an adapter writes unquoted into a subagent file (`Edit`, `NotebookEdit`, `mcp__github__*`).
 TOOL_NAME_RE = re.compile(r"[A-Za-z][A-Za-z0-9_*]*")
 
