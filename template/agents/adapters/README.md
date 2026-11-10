@@ -37,7 +37,7 @@ Three optional inputs shape the generated `.claude/agents/<role>.md` front matte
 | `claude.models` | `targets.json` | Maps a role name to a model alias or id and adds `model:` for that role only. Shipped empty: every role inherits the session's model. Model names live here, never in `ROLE.md` |
 | `use_when` | a role's `ROLE.md` | Completes "Use when ..." in the subagent and Cursor rule description. Without it the description says "Use when a work item's handoff owner_role is `<role>`", which fits a role that is handed items and never fits a role that is only called |
 
-`disallowedTools` guards against accidents: it stops a role from using the in-place edit tool on code it reviews. It is not a security boundary. A `read-only` role still needs `Write` to create its own item file from the template (`tools/item_file.py`) and a shell to run checks, and a shell can change files. Command-level limits belong in Claude Code permission rules or hooks, which this tool does not generate. `check.py` fails on an unknown `access` value, an unknown role in `models`, or a tool name that is not a plain name such as `Edit`.
+`disallowedTools` guards against accidents: it stops a read-only role from editing work it does not own in place. It is not a security boundary. These roles still need `Write` to fill the item file `tools/item_file.py` creates and to write their owned files, and a shell can change files anyway. Command-level limits belong in Claude Code permission rules or hooks, which this tool does not generate. `check.py` fails on an unknown `access` value, an unknown role in `models`, a tool name that is not a plain name such as `Edit`, and a `disallowed_tools` entry for `full` (the default level cannot restrict).
 
 ## Turn a target on or off
 

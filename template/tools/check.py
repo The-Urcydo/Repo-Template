@@ -562,7 +562,11 @@ def _check_claude_extras(root: Path, claude: dict, rep: Report) -> bool:
         rep.error("adapters", where, "claude.disallowed_tools must map an access level to a list of tool names")
         return False
     for level, tools in table.items():
-        if level not in ACCESS_LEVELS:
+        if level == "full":
+            rep.error("adapters", where,
+                      "claude.disallowed_tools maps levels that restrict a role; 'full' is the default and adds nothing, so remove it")
+            ok = False
+        elif level not in ACCESS_LEVELS:
             rep.error("adapters", where, f"claude.disallowed_tools key '{level}' must be one of: {', '.join(ACCESS_LEVELS)}")
             ok = False
         elif not isinstance(tools, list) or not all(isinstance(t, str) and TOOL_NAME_RE.fullmatch(t) for t in tools):

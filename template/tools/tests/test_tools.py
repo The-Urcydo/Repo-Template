@@ -1913,14 +1913,16 @@ class AdapterTests(RepoTestCase):
         self.assertNotIn("disallowedTools", self.claude_head("builder"))
         self.ok("check", "--strict")
 
-    def test_shipped_review_roles_are_read_only(self) -> None:
+    def test_shipped_read_only_roles_get_the_tool_limit(self) -> None:
+        # reviewer and researcher write only their own item file (and, for the researcher, work/research/).
+        # security owns docs/security/ and updates threat-model.md in place, so it is not read-only.
         self.set_claude()
         self.ok("sync_agents")
-        for role in ("reviewer", "researcher", "security"):
+        for role in ("reviewer", "researcher"):
+            self.assertIn("disallowedTools: Edit, NotebookEdit\n", self.claude_head(role), role)
+        for role in ("builder", "planner", "architect", "scribe", "orchestrator", "security"):
             if not (self.repo / "agents" / "roles" / role / "ROLE.md").exists():
                 continue  # the security module may be cut
-            self.assertIn("disallowedTools: Edit, NotebookEdit\n", self.claude_head(role), role)
-        for role in ("builder", "planner", "architect", "scribe", "orchestrator"):
             self.assertNotIn("disallowedTools", self.claude_head(role), role)
 
     def test_access_is_not_copied_to_cursor_rules(self) -> None:
@@ -1978,6 +1980,12 @@ class AdapterTests(RepoTestCase):
             self.assertNotIn("Traceback", out, bad)
             r = self.sh("sync_agents")
             self.assertNotIn("Traceback", r.stdout + r.stderr, bad)
+
+    def test_disallowed_tools_cannot_restrict_full(self) -> None:
+        self.set_claude(disallowed_tools={"full": ["Edit"]})
+        out = self.fails("check")
+        self.assertIn("full", out)
+        self.assertNotIn("Traceback", out)
 
     def test_use_when_replaces_the_owner_role_sentence(self) -> None:
         self.set_claude()
