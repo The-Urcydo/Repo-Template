@@ -5,14 +5,12 @@
 [![CI](https://github.com/The-Urcydo/Repo-Template/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/The-Urcydo/Repo-Template/actions/workflows/test.yml)
 [![Version](https://img.shields.io/github/v/tag/The-Urcydo/Repo-Template?sort=semver&label=version)](https://github.com/The-Urcydo/Repo-Template/tags)
 [![License: MIT](https://img.shields.io/github/license/The-Urcydo/Repo-Template)](LICENSE)
-[![Copier 9.4+](https://img.shields.io/badge/copier-9.4%2B-blue)](https://copier.readthedocs.io)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org)
 
 Repo-Template gives a new project a finished *structure*: docs grouped by audience, work tracking with handoffs, tool-neutral agent roles and skills, and a one-command health check. Nobody has to research how to organize the repo again, and every optional part can be cut off when you do not need it.
 
 ## Quick start
 
-Requires Python 3.9+, git and Copier 9.4+.
+Requires Python 3.9+, git and Copier 9.4+. Generate with Copier: cloning or forking this repository gives you the template source (Jinja files), not a finished project, and it cannot receive later updates.
 
 ```
 pipx install copier            # or: pip install copier
@@ -23,7 +21,6 @@ python3 tools/check.py         # prints "ok" and how many placeholders remain
 python3 tools/check.py --stubs # lists the placeholders to fill or delete
 ```
 
-- **Generate with Copier, not GitHub's "Use this template" button.** The button copies this repository as it is (Jinja files included), not a finished project, and the copy cannot receive later updates.
 - **Generate into a folder of its own** (`my-app/my-app`, as above; Copier creates the missing parent folders). Parallel agents work in git worktrees that the tools create beside the clone (`my-app/my-app-<item-id>`), so this keeps them together instead of mixing them into the folder that holds your other projects. The tools warn once, when the first worktree is created in a folder that also holds other git repos.
 - **`--trust` is required** because the template runs two of its own stdlib-only tools after generating, to build the indexes and agent adapters. Without it Copier stops and tells you so; nothing is written.
 - **You answer five questions:** project name, one-line description, **profile**, **layout**, and whether to generate the `.claude/` adapter (see [Profiles and layouts](#profiles-and-layouts)).
@@ -103,7 +100,7 @@ cd path/to/project             # must be a clean git repo
 copier update --trust
 ```
 
-Local edits are merged, and modules you cut stay cut. See `docs/dev/how-to/update-from-template.md` in a generated project. Copier builds from the newest release tag of this template, so improvements reach your project once a new tag exists. Projects created from `v0.2.0` get a large update at `v0.3.0` (27 files are renamed: the docs layout and the role folders), so run it on a clean repo and read the diff.
+Local edits are merged, and modules you cut stay cut. See `docs/dev/how-to/update-from-template.md` in a generated project. Copier builds from the newest release tag of this template, so improvements reach your project once a new tag exists. A release that renames files says so in its tag message and release notes: run the update on a clean repo and read the diff.
 
 ## What it does not include
 
