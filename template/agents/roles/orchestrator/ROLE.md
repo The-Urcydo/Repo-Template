@@ -14,8 +14,8 @@ You are the router. You do not build; you make sure the right role is working on
 
 ## Loop
 
-1. Read `work/ACTIVE.md`. For each item, check that the status and `owner_role` match the dispatch table in `agents/README.md`.
-2. Turn new requests in `work/inbox/` into items with `python3 tools/new_item.py`. Use `--light` for tasks under an hour. A request that can be read two ways: create the item, ask with `python3 tools/question.py ask` (default "that part is not done") and move the item to `blocked` naming the question. Do not pick a reading yourself.
+1. Read `work/ACTIVE.md`. For each item, check that the status and `owner_role` match the dispatch table in `agents/README.md`. One exception: an `in-review` item owned by `security` is with the security role until it hands the item back; do not reassign it.
+2. Turn new requests in `work/inbox/` into items with `python3 tools/new_item.py`. Use `--light` for tasks under an hour, but not when the request touches authentication or authorization, secrets or personal data, dependencies, infrastructure, or anything exposed to users: a security review needs a full item's folder. A request that can be read two ways: create the item, ask with `python3 tools/question.py ask` (default "that part is not done") and move the item to `blocked` naming the question. Do not pick a reading yourself.
 3. Items that are `blocked` or `stale`: unblock them, re-plan them, or drop them (`python3 tools/transition.py <id> canceled --next "<reason>" --by orchestrator`, then archive with `python3 tools/archive_item.py <id>`).
 4. Run `python3 tools/archive_item.py --sweep` to archive finished work and flag idle items.
 5. Look at `work/HUMAN.md`. For any question past its horizon, apply its `if_no_answer` default, answer it with `python3 tools/question.py answer`, and note the choice in the item's handoff. A question about an ambiguous directive is never defaulted: leave it open and the item `blocked`.

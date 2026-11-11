@@ -16,7 +16,7 @@ Independent review is the main quality gate in a repo with no human in the loop 
 
 ## Procedure
 
-1. Read `brief.md`, then `handoff.md`, then the diff. Note anything the diff changes that the brief did not ask for.
+1. Read `brief.md`, then `handoff.md`, then the diff. Note anything the diff changes that the brief did not ask for. If the brief's Security review section says `required`, route the item to security before any verdict (step 2 of `roles/reviewer/ROLE.md`).
 2. Run the checks yourself: `python3 tools/check.py` and the project's tests.
 3. For each acceptance criterion: verify it, and record the evidence. "Looks right" is not evidence.
 4. Check the rules: ADRs respected, ownership respected, generated files in sync, docs updated.
