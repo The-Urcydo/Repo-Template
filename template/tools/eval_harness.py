@@ -491,7 +491,8 @@ def seed_fixture(sandbox: Path, task_id: str) -> dict:
     if task_id == "security-routing":
         if not (sandbox / "agents" / "roles" / "security").is_dir():
             raise FixtureUnavailable("the security role is not installed (agents/roles/security/), so nothing can be handed to it")
-        _fill(read_text(sandbox / "work" / "_templates" / "brief.md"), "## Security review", "")
+        if "## Security review" not in read_text(sandbox / "work" / "_templates" / "brief.md"):
+            raise FixtureUnavailable("the brief template has no '## Security review' section to flag")
         meta = {**base_meta}
         for key, (slug, title, goal, flag) in _SECURITY_ITEMS.items():
             h = new_item.create(sandbox, slug, title, False, "builder", "planned")
@@ -945,6 +946,8 @@ def grade_task(sandbox: Path, task_id: str, meta: dict) -> tuple[bool, str]:
             return False, f"expected only the seeded items {sorted([required, free])}, found {items}"
         dirs = {key: sandbox / "work" / "items" / meta[f"{key}_id"] for key in ("required", "not_needed")}
         for key, item_dir in dirs.items():
+            if not (item_dir / "brief.md").is_file():
+                return False, f"{item_dir.name} has no brief.md: it must not be deleted or moved"
             if read_text(item_dir / "brief.md") != meta[f"{key}_brief"]:
                 return False, f"the reviewer changed brief.md of {item_dir.name}"
 

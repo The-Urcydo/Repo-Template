@@ -34,5 +34,7 @@ The grader reads repository state. It checks the hand-over, not the security ses
 
 - It cannot see that security ran in a separate session. Whether the reviewer stopped after the hand-over, and did not play the security role itself, is checked by hand on the transcript: record it in `results/README.md`.
 - Any wording of the next step passes. The routing is the owner role, not a phrase.
+- The grader reads the final state only. A hand-over that is reversed leaves no trace, so handing the unflagged item to security and taking it straight back still passes; only a leftover owner is caught.
+- The planner's half is not graded: the fixture seeds both briefs already flagged.
 - A pass shows that the routing works from the charters and the brief. It does not show that a real agent follows it unprompted.
 - The task is listed only while `agents/roles/security/` exists (`needs_role` above), so cutting the `security` module does not leave a task that can never pass.

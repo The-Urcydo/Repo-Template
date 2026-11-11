@@ -1605,6 +1605,15 @@ class EvalHarnessTests(RepoTestCase):
             reason = self._grade_security_fails(sandbox, meta)
         self.assertIn("brief.md", reason)
 
+    def test_eval_harness_fails_cleanly_when_a_security_routing_brief_is_deleted(self) -> None:
+        """A destructive agent must get a FAIL line, not a traceback that stops every other task."""
+        self._require_security()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_security(tmp)
+            (sandbox / "work" / "items" / meta["not_needed_id"] / "brief.md").unlink()
+            reason = self._grade_security_fails(sandbox, meta)
+        self.assertIn("has no brief.md", reason)
+
     def test_eval_harness_rejects_a_security_routing_run_that_edits_the_harness_or_adds_items(self) -> None:
         self._require_security()
         with tempfile.TemporaryDirectory() as tmp:
