@@ -436,6 +436,54 @@ class WorkLifecycleTests(RepoTestCase):
         self.assertTrue((self.repo / path).is_file())
         self.ok("check", "--strict")
 
+    def _in_review(self, slug: str) -> str:
+        item = self.new_item(slug)
+        self.ok("transition", item, "planned", "--next", "build", "--by", "planner")
+        self.ok("transition", item, "in-progress", "--next", "build", "--by", "builder")
+        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "ran check", "--by", "builder")
+        self.ok("item_file", item, "review")
+        return item
+
+    def _set_security_flag(self, item: str, line: str) -> None:
+        brief = self.repo / "work" / "items" / item / "brief.md"
+        lines = brief.read_text(encoding="utf-8").splitlines()
+        out = [line if old.strip().startswith("_required or not needed") else old for old in lines]
+        self.assertNotEqual(out, lines, "the brief template no longer has the Security review placeholder")
+        brief.write_text("\n".join(out) + "\n", encoding="utf-8")
+
+    def test_verified_refuses_a_missing_security_review_when_the_brief_requires_one(self) -> None:
+        if "security" not in _lib.load_modules(self.repo):
+            self.skipTest("security module not installed")
+        item = self._in_review("auth-gate")
+        self._set_security_flag(item, "required: the change adds a sign-in form and stores password hashes.")
+        reason = self.fails("transition", item, "verified", "--next", "docs", "--by", "reviewer")
+        self.assertIn("security-review.md", reason)
+        self.assertEqual(_lib.read_fm(_lib.find_item(self.repo, item).handoff)["status"], "in-review")
+        self.ok("item_file", item, "security-review")
+        self.ok("transition", item, "verified", "--next", "docs", "--by", "reviewer")
+        self.ok("check", "--strict")
+
+    def test_verified_security_gate_ignores_other_flags_and_the_placeholder(self) -> None:
+        for name, flag in {
+            "not needed": "not needed: a wording change; no input, data or permission is touched.",
+            "no section": None,
+            "placeholder": "placeholder",
+        }.items():
+            with self.subTest(flag=name):
+                item = self._in_review(f"help-{name.replace(' ', '-')}")
+                brief = self.repo / "work" / "items" / item / "brief.md"
+                if flag == "placeholder":
+                    pass
+                elif flag is None:
+                    text = brief.read_text(encoding="utf-8")
+                    brief.write_text(
+                        text[:text.index("## Security review")] + text[text.index("## Open questions"):],
+                        encoding="utf-8",
+                    )
+                else:
+                    self._set_security_flag(item, flag)
+                self.ok("transition", item, "verified", "--next", "docs", "--by", "reviewer")
+
     def test_blocked_needs_a_reason_and_can_resume(self) -> None:
         item = self.new_item("waits")
         self.ok("transition", item, "planned", "--next", "go", "--by", "planner")
@@ -1519,9 +1567,15 @@ class EvalHarnessTests(RepoTestCase):
         self._require_security()
 
         def verify(sandbox: Path, meta: dict) -> None:
+            """The tool now refuses this move (the security gate); simulate an agent that edits the handoff."""
             eval_harness.item_file.add_file(sandbox, meta["required_id"], "review")
-            eval_harness.transition.transition(
-                sandbox, meta["required_id"], "verified", "update docs and changelog", None, [], by_role="reviewer")
+            handoff = sandbox / "work" / "items" / meta["required_id"] / "handoff.md"
+            text = _lib.read_text(handoff)
+            text = _lib.set_fm_value(text, "status", "verified")
+            text = _lib.set_fm_value(text, "owner_role", "scribe")
+            text = _lib.set_fm_value(text, "verified_by", "reviewer")
+            _lib.write_text(handoff, text)
+            eval_harness.sync_indexes.write_outputs(sandbox)
 
         def send_back(sandbox: Path, meta: dict) -> None:
             eval_harness.transition.transition(

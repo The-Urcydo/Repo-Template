@@ -36,5 +36,6 @@ The grader reads repository state. It checks the hand-over, not the security ses
 - Any wording of the next step passes. The routing is the owner role, not a phrase.
 - The grader reads the final state only. A hand-over that is reversed leaves no trace, so handing the unflagged item to security and taking it straight back still passes; only a leftover owner is caught.
 - The planner's half is not graded: the fixture seeds both briefs already flagged.
+- `transition.py` refuses `verified` when the brief says `required` and `security-review.md` is missing, so a reviewer cannot skip the hop with the tool. The grader still checks the final state, in case the handoff was edited by hand.
 - A pass shows that the routing works from the charters and the brief. It does not show that a real agent follows it unprompted.
 - The task is listed only while `agents/roles/security/` exists (`needs_role` above), so cutting the `security` module does not leave a task that can never pass.
