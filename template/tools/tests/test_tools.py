@@ -676,7 +676,10 @@ class EvalHarnessTests(RepoTestCase):
         for task_id in (
             "find-the-right-doc", "respect-ownership", "handoff-roundtrip", "escalation-discipline",
             "role-skill-discovery", "ambiguous-directive", "merge-discipline", "callable-researcher",
+            "security-routing",
         ):
+            if task_id == "security-routing" and "security" not in _lib.load_modules(self.repo):
+                continue
             self.assertIn(task_id, listing)
         expected = len([line for line in listing.splitlines() if line.strip()])
         out = self.ok("eval_harness", "--verify-fixtures")
@@ -847,6 +850,11 @@ class EvalHarnessTests(RepoTestCase):
     def _require_evals(self) -> None:
         if "evals" not in _lib.load_modules(self.repo):
             self.skipTest("evals module not installed")
+
+    def _require_security(self) -> None:
+        self._require_evals()
+        if "security" not in _lib.load_modules(self.repo):
+            self.skipTest("security module not installed")
 
     def _solved_ambiguous(self, tmp: str):
         """A sandbox where the reference solution has run and passes, so the one deviation a test then makes is
@@ -1456,6 +1464,227 @@ class EvalHarnessTests(RepoTestCase):
                 fh.write("\nAn unrelated edit.\n")
             reason = self._grade_researcher_fails(sandbox, meta)
         self.assertIn("outside the answer", reason)
+
+    def _solved_security(self, tmp: str):
+        """A sandbox where the reference solution has run and passes, so the one deviation a test then makes is
+        the only possible reason for the grader to fail."""
+        sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+        meta = eval_harness.seed_fixture(sandbox, "security-routing")
+        eval_harness.run_reference_solution(sandbox, "security-routing", meta)
+        self._assert_graded_pass(sandbox, meta, "security-routing")
+        return sandbox, meta
+
+    def _grade_security_fails(self, sandbox: Path, meta: dict) -> str:
+        passed, reason = eval_harness.grade_task(sandbox, "security-routing", meta)
+        self.assertFalse(passed, reason)
+        return reason
+
+    def test_eval_harness_security_routing_seeds_a_flagged_and_an_unflagged_item(self) -> None:
+        self._require_security()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            meta = eval_harness.seed_fixture(sandbox, "security-routing")
+            for key, flag in (("required_id", "required"), ("not_needed_id", "not needed")):
+                item_dir = sandbox / "work" / "items" / meta[key]
+                fm = _lib.read_fm(item_dir / "handoff.md")
+                self.assertEqual((fm["status"], fm["owner_role"], fm["built_by"]), ("in-review", "reviewer", "builder"))
+                section = eval_harness._sections((item_dir / "brief.md").read_text(encoding="utf-8"))["security review"]
+                self.assertTrue(section.lower().startswith(flag), section)
+            self.assertNotEqual(meta["required_id"], meta["not_needed_id"])
+            # nothing is done yet, so a reviewer that did nothing must not pass
+            reason = self._grade_security_fails(sandbox, meta)
+        self.assertIn("still with the reviewer", reason)
+
+    def test_eval_harness_leaves_out_a_task_whose_role_is_not_installed(self) -> None:
+        """Cutting the security module must not leave a golden task that can never pass."""
+        self._require_security()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            with_role = [t["id"] for t in eval_harness.load_eval_tasks(sandbox)]
+            shutil.rmtree(sandbox / "agents" / "roles" / "security")
+            without_role = [t["id"] for t in eval_harness.load_eval_tasks(sandbox)]
+        self.assertIn("security-routing", with_role)
+        self.assertEqual([t for t in with_role if t != "security-routing"], without_role)
+
+    def test_eval_harness_security_routing_needs_the_security_role(self) -> None:
+        self._require_security()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            shutil.rmtree(sandbox / "agents" / "roles" / "security")
+            with self.assertRaises(eval_harness.FixtureUnavailable) as ctx:
+                eval_harness.seed_fixture(sandbox, "security-routing")
+        self.assertIn("security", str(ctx.exception))
+
+    def test_eval_harness_rejects_a_reviewer_who_skips_the_security_hand_over(self) -> None:
+        self._require_security()
+
+        def verify(sandbox: Path, meta: dict) -> None:
+            eval_harness.item_file.add_file(sandbox, meta["required_id"], "review")
+            eval_harness.transition.transition(
+                sandbox, meta["required_id"], "verified", "update docs and changelog", None, [], by_role="reviewer")
+
+        def send_back(sandbox: Path, meta: dict) -> None:
+            eval_harness.transition.transition(
+                sandbox, meta["required_id"], "in-progress", "fix findings", "builder", [], by_role="reviewer")
+
+        for label, move in (("verified", verify), ("sent back to the builder", send_back)):
+            with self.subTest(move=label), tempfile.TemporaryDirectory() as tmp:
+                sandbox, meta = self._solved_security(tmp)
+                move(sandbox, meta)
+                reason = self._grade_security_fails(sandbox, meta)
+                self.assertIn("still be in-review", reason)
+
+    def test_eval_harness_rejects_an_approval_given_before_security_reported(self) -> None:
+        self._require_security()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_security(tmp)
+            review = eval_harness.item_file.add_file(sandbox, meta["required_id"], "review")
+            text = review.read_text(encoding="utf-8")
+            marker = "_approve | changes requested | reject_, with one sentence on why."
+            assert marker in text
+            review.write_text(text.replace(marker, "approve: the criteria pass."), encoding="utf-8")
+            reason = self._grade_security_fails(sandbox, meta)
+        self.assertIn("approve", reason)
+
+    def test_eval_harness_accepts_a_reviewer_who_starts_review_md_while_security_works(self) -> None:
+        """Starting the review is not a mistake: only an approval before security has reported is."""
+        self._require_security()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_security(tmp)
+            eval_harness.item_file.add_file(sandbox, meta["required_id"], "review")
+            self._assert_graded_pass(sandbox, meta, "security-routing")
+
+    def test_eval_harness_accepts_any_wording_of_the_hand_over(self) -> None:
+        """The routing is the owner role, not a phrase: a differently worded next step must pass."""
+        self._require_security()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_security(tmp)
+            eval_harness.transition.transition(
+                sandbox, meta["required_id"], None, "Look at the password handling and token storage.", "security", [])
+            self._assert_graded_pass(sandbox, meta, "security-routing")
+
+    def test_eval_harness_rejects_security_review_of_an_item_that_does_not_need_it(self) -> None:
+        self._require_security()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_security(tmp)
+            eval_harness.transition.transition(
+                sandbox, meta["not_needed_id"], None, "Security: review the help text", "security", [])
+            reason = self._grade_security_fails(sandbox, meta)
+        self.assertIn("does not need", reason)
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_security(tmp)
+            eval_harness.item_file.add_file(sandbox, meta["not_needed_id"], "security-review")
+            reason = self._grade_security_fails(sandbox, meta)
+        self.assertIn("has a security-review.md", reason)
+
+    def test_eval_harness_rejects_a_reviewer_who_writes_the_security_review(self) -> None:
+        self._require_security()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_security(tmp)
+            eval_harness.item_file.add_file(sandbox, meta["required_id"], "security-review")
+            reason = self._grade_security_fails(sandbox, meta)
+        self.assertIn("has a security-review.md", reason)
+
+    def test_eval_harness_rejects_a_security_hand_over_that_keeps_the_item_with_the_reviewer(self) -> None:
+        self._require_security()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_security(tmp)
+            eval_harness.transition.transition(
+                sandbox, meta["required_id"], None, "Reviewer: wait for the security review", "reviewer", [])
+            reason = self._grade_security_fails(sandbox, meta)
+        self.assertIn("still with the reviewer", reason)
+
+    def test_eval_harness_rejects_a_reviewer_who_rewrites_the_security_flag(self) -> None:
+        self._require_security()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_security(tmp)
+            brief = sandbox / "work" / "items" / meta["not_needed_id"] / "brief.md"
+            text = brief.read_text(encoding="utf-8")
+            assert "not needed" in text
+            brief.write_text(text.replace("not needed", "required", 1), encoding="utf-8")
+            reason = self._grade_security_fails(sandbox, meta)
+        self.assertIn("brief.md", reason)
+
+    def test_eval_harness_rejects_a_security_routing_run_that_edits_the_harness_or_adds_items(self) -> None:
+        self._require_security()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_security(tmp)
+            with open(sandbox / "agents" / "roles" / "reviewer" / "ROLE.md", "a", encoding="utf-8") as fh:
+                fh.write("\nAn unrelated edit.\n")
+            eval_harness.sync_agents.sync(sandbox)
+            eval_harness.sync_indexes.write_outputs(sandbox)
+            reason = self._grade_security_fails(sandbox, meta)
+        self.assertIn("agents/", reason)
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_security(tmp)
+            with open(sandbox / "tools" / "README.md", "a", encoding="utf-8") as fh:
+                fh.write("\nAn unrelated edit.\n")
+            reason = self._grade_security_fails(sandbox, meta)
+        self.assertIn("outside the hand-over", reason)
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_security(tmp)
+            eval_harness.new_item.create(sandbox, "extra-item", "Extra", True, "builder", "planned")
+            reason = self._grade_security_fails(sandbox, meta)
+        self.assertIn("only the seeded items", reason)
+
+    def test_eval_harness_rejects_a_security_hand_over_to_the_wrong_role_or_without_a_next_step(self) -> None:
+        self._require_security()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_security(tmp)
+            eval_harness.transition.transition(
+                sandbox, meta["required_id"], None, "Builder: look at the sign-in form", "builder", [])
+            reason = self._grade_security_fails(sandbox, meta)
+        self.assertIn("not security", reason)
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_security(tmp)
+            eval_harness.transition.transition(
+                sandbox, meta["required_id"], None, meta["required_next"], "security", [])
+            reason = self._grade_security_fails(sandbox, meta)
+        self.assertIn("next_action was not rewritten", reason)
+
+    def test_eval_harness_rejects_a_reviewer_who_leaves_the_item_that_needs_no_security_review_waiting(self) -> None:
+        self._require_security()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            meta = eval_harness.seed_fixture(sandbox, "security-routing")
+            eval_harness.transition.transition(
+                sandbox, meta["required_id"], None, "Security: review the sign-in form", "security", [])
+            reason = self._grade_security_fails(sandbox, meta)
+        self.assertIn("should be verified", reason)
+
+    def test_eval_harness_rejects_a_security_routing_item_verified_by_the_wrong_role_or_with_an_unfilled_review(self) -> None:
+        self._require_security()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_security(tmp)
+            handoff = sandbox / "work" / "items" / meta["not_needed_id"] / "handoff.md"
+            _lib.write_text(handoff, _lib.set_fm_value(_lib.read_text(handoff), "verified_by", "orchestrator"))
+            reason = self._grade_security_fails(sandbox, meta)
+        self.assertIn("verified_by reviewer", reason)
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_security(tmp)
+            review = sandbox / "work" / "items" / meta["not_needed_id"] / "review.md"
+            text = _lib.read_text(review)
+            assert "| pass |" in text
+            _lib.write_text(review, text.replace("| pass |", "| fail |"))
+            reason = self._grade_security_fails(sandbox, meta)
+        self.assertIn("not a filled pass", reason)
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_security(tmp)
+            review = sandbox / "work" / "items" / meta["not_needed_id"] / "review.md"
+            text = _lib.read_text(review)
+            assert "approve: the one criterion" in text
+            _lib.write_text(review, text.replace("approve: the one criterion", "changes requested: the one criterion"))
+            reason = self._grade_security_fails(sandbox, meta)
+        self.assertIn("approve verdict", reason)
+
+    def test_eval_harness_rejects_extra_files_in_an_item_folder_in_a_security_routing_run(self) -> None:
+        self._require_security()
+        for key in ("required_id", "not_needed_id"):
+            with self.subTest(item=key), tempfile.TemporaryDirectory() as tmp:
+                sandbox, meta = self._solved_security(tmp)
+                eval_harness.item_file.add_file(sandbox, meta[key], "plan")
+                reason = self._grade_security_fails(sandbox, meta)
+                self.assertIn("seeded files and review.md only", reason)
 
 
 class QueueTests(RepoTestCase):
