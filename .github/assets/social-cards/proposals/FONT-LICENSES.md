@@ -4,7 +4,7 @@
 
 ## Inter (`RT Sans` and `RT Display` in `fonts.css`)
 
-Copyright 2016-2023 The Inter Project Authors <rasmus@notion.se>. Source: https://github.com/rsms/inter
+Copyright 2016 The Inter Project Authors, as written in the embedded font files; the Debian package's copyright file gives "2016-2023 The Inter Project Authors <rasmus@notion.se>". Source: https://github.com/rsms/inter
 
 Licensed under the SIL Open Font License, Version 1.1. (The Debian package lists "OFL-1.1 and Apache-2.0" for the whole project; the font files used here are the OFL part.)
 
