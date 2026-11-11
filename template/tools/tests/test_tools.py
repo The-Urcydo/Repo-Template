@@ -166,8 +166,11 @@ class HealthTests(RepoTestCase):
 
     def test_stubs_report_release_placeholders(self) -> None:
         out = self.ok("check", "--stubs")
+        # SECURITY.md and CODEOWNERS belong to optional modules: when a project cut the
+        # module, the file is gone and --stubs must not report it.
         for where in ("README.md", "SECURITY.md", ".github/CODEOWNERS"):
-            self.assertIn(where, out)
+            if (self.repo / where).is_file():
+                self.assertIn(where, out)
 
     def test_invalid_adapter_targets_report_without_crashing(self) -> None:
         p = self.repo / "agents" / "adapters" / "targets.json"
