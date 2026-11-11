@@ -157,7 +157,7 @@ A-1, A-2, B, C, D, E, in that order of value. They are independent PRs (not stac
 
 ## 9. Session log (append-only)
 
-- 2026-11-11, Claude session (planner): audited `template/`, the shipped CI and `tools/`; ran the upgrade trial, timings, context sizing and both linters (section 4); the owner approved the plan with all eight recommendations (section 2); opened this PR as the shared plan and log. No file in the repo changed before this commit. `main` was `78b7a68`; open PR: #35 only.
+- 2026-11-11, Claude session (planner): audited `template/`, the shipped CI and `tools/`; ran the upgrade trial, timings, context sizing and both linters (section 4); the owner approved the plan with all eight recommendations (section 2); opened this PR (#36, draft) as the shared plan and log. No file in the repo changed before this commit. `main` was `78b7a68`; open PR: #35 only.
 
 ## 10. Next steps
 
