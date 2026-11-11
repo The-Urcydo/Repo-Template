@@ -10,9 +10,9 @@ Nothing here ships to generated projects: Copier copies only `template/`.
 |---|---|---|
 | `b-paper-headline.html` | Light, type-led. The tagline is the picture; the five folders are the footer strip. Stands out in dark feeds. | **Live.** Its render is `../../social-preview.png`. |
 | `a-sharper-tree.html` / `.png` | Dark, close to the #28 card. Bigger type, brighter secondary text, the proof line `python3 tools/check.py` with `ok`. | Alternate |
-| `c-one-command.html` / `.png` | Dark, bold. The clone command, the check, and a giant `ok` (the first word of the real output). The command is the README's `copier copy` without the destination folder. | Alternate |
+| `c-one-command.html` / `.png` | Dark, bold. The clone command, the check, and a giant `ok` (the first word of the real output). The command is the README's `copier copy` with the destination shortened from `projects/my-app/my-app` to `my-app`. | Alternate |
 
-The tagline "One human. Several AI agents. One structure." and the five folder meanings come from the card merged in #28; "A Copier template for agent-ready repositories" follows the first line of `AGENTS.md`. On a freshly generated project `python3 tools/check.py` prints a line that starts with `ok` and then the number of placeholders left (`ok (15 placeholder(s); list them with: python3 tools/check.py --stubs)` on `main` at `532cd3e`); cards A and C show the first word.
+The tagline "One human. Several AI agents. One structure." and the five folder meanings come from the card merged in #28; "A Copier template for agent-ready repositories" is on line 3 of `AGENTS.md` and on the #28 card. On a freshly generated project `python3 tools/check.py` prints a line that starts with `ok` and then the number of placeholders left (`ok (15 placeholder(s); list them with: python3 tools/check.py --stubs)` on `main` at `94fe581`); cards A and C show the first word.
 
 ## Built to avoid the problems found in the PR #30 concepts
 

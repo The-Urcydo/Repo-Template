@@ -1,6 +1,6 @@
 # Font licences
 
-`fonts.css` embeds subset copies (woff2, base64) of two font families. The subsets keep the copyright notice and the font names, but not the licence text or URL that the original files carry, so the full licence texts are given here. They are copied from the `copyright` files of the Debian packages `fonts-inter` and `fonts-dejavu-core` that the fonts were taken from.
+`fonts.css` embeds subset copies (woff2, base64) of two font families. The subsets keep the copyright notice and the font names, but not the licence text or URL that the original files carry. They also drop the other name records, for Inter the trademark statement ("Inter UI and Inter is a trademark of rsms.") and the designer and vendor URLs. So the full licence texts are given here. They are copied from the `copyright` files of the Debian packages `fonts-inter` and `fonts-dejavu-core` that the fonts were taken from.
 
 ## Inter (`RT Sans` and `RT Display` in `fonts.css`)
 
@@ -97,7 +97,7 @@ SOFTWARE OR FROM OTHER DEALINGS IN THE FONT SOFTWARE.
 
 ## DejaVu Sans Mono (`RT Mono` in `fonts.css`)
 
-Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved. Bitstream Vera is a trademark of Bitstream, Inc. DejaVu changes are in the public domain. Source: https://dejavu-fonts.github.io/
+Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved. Bitstream Vera is a trademark of Bitstream, Inc. DejaVu changes are in public domain. (Wording as in the Debian copyright file; the embedded font says the same without the trademark line.) Source: https://dejavu-fonts.github.io/
 
 ```text
 Permission is hereby granted, free of charge, to any person obtaining a copy

@@ -8,8 +8,8 @@ This folder holds the editable HTML source for five `Repo-Template` social previ
 
 - **The Exit button shows in every `?card=N` render**, so a plain capture puts "Exit 1280×640 Isolation (ESC)" in the PNG. Hide `.exit-isolation-btn` before capturing (snippet below).
 - **Fonts are not bundled** (no `@font-face`), so the output depends on the fonts installed on the machine.
-- **Small text:** most text in concepts 1–4 is 10–13px on the 1280px canvas, so only concept 05 stays readable at about 400px wide.
-- **Layout:** concept 1 ends five descriptions in `…`, concept 3 splits "Repo-" and "Template", concept 2 wraps its clone URL and footer command, and concept 4's badge overlaps its "CORE KERNEL" header with `.copier-answers` as an 8th tile in the "7 modules" grid.
+- **Small text:** counted by characters, 59%, 62% and 65% of the text in concepts 2, 3 and 4 is 13px or smaller on the 1280px canvas (concept 1: 29%, concept 5: 28%; smallest sizes 10–12px). In a 400px-wide render only concept 05 reads clearly (a visual check).
+- **Layout:** concept 1 ends five descriptions in `…`, concept 3 splits "Repo-" and "Template", concept 2 wraps its clone URL and footer command; in concept 4 the badge crowds the "CORE KERNEL (ALWAYS KEPT)" header and pushes "KEPT)" onto a second line, and `.copier-answers` is an 8th tile in the "7 modules" grid.
 - **Safe zone:** text in concepts 1, 2 and 4 sits outside the `1120×520` safe zone.
 
 ## Files
@@ -26,14 +26,15 @@ This folder holds the editable HTML source for five `Repo-Template` social previ
 1. **Preview all 5 cards side-by-side:** Open `.github/assets/legacy/social-card-concepts/index.html` in any browser.
 2. **Check the safe zone (`1120×520`):** Click **Toggle Safe Zone (1120×520)** in the top bar (or append `?safezone=1`) to see the `80px` horizontal and `60px` vertical margins.
 3. **Isolate a single `1280×640` card:** Click `1280×640 #01`..`#05` in the header, or open `index.html?card=1` (through `5`). The studio header and toolbar disappear and the chosen card sits at `(0, 0)`; only the Exit button remains.
-4. **Capture it to a PNG** with the Exit button hidden (run from the repository root, replace `1` with the concept number and `concept-01.png` with a file name that is not the live card):
+4. **Capture it to a PNG** with the Exit button hidden. Run it from the repository root; it needs the Node `playwright` package (`npm i playwright`) and writes `concept-01.png` into the current folder, so delete the file or write it outside the repository. Replace `1` with the concept number and `concept-01.png` with a name that is not the live card:
    ```bash
    node -e "
+   const { pathToFileURL } = require('url');
    const { chromium } = require('playwright');
    (async () => {
      const b = await chromium.launch();
      const p = await b.newPage({ viewport: { width: 1280, height: 640 } });
-     await p.goto('file://' + process.cwd() + '/.github/assets/legacy/social-card-concepts/index.html?card=1');
+     await p.goto(pathToFileURL(process.cwd() + '/.github/assets/legacy/social-card-concepts/index.html').href + '?card=1');
      await p.addStyleTag({ content: '.exit-isolation-btn{display:none!important}' });
      await p.screenshot({ path: 'concept-01.png' });
      await b.close();
