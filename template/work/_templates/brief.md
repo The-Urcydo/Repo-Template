@@ -22,6 +22,10 @@ _Relevant ADRs (link them), deadlines, things that must not change._
 
 _What this item deliberately does not do._
 
+## Security review
+
+_required or not needed, then the reason. Required when the work touches authentication or authorization, secrets or personal data, dependencies, infrastructure, or anything exposed to users. "Not needed" is a statement: say why._
+
 ## Open questions
 
 _Anything unresolved. Decisions only the human can make go to `work/HUMAN.md` instead._

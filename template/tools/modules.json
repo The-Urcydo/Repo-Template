@@ -11,7 +11,7 @@
     "security": {
       "summary": "Threat model, security policy and the security reviewer role.",
       "paths": ["docs/security", "SECURITY.md", "agents/roles/security", "work/_templates/security-review.md"],
-      "removal_notes": "Delete any reviewer checklist items that mention security review."
+      "removal_notes": "Delete any reviewer checklist items that mention security review. The brief template's Security review section and the reviewer's routing step stay: with the role gone, a brief that says `required` makes the reviewer ask the human. Remove that section from work/_templates/brief.md if you never want the question."
     },
     "release": {
       "summary": "Release process and checklist docs.",

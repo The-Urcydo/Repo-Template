@@ -46,8 +46,52 @@ _CODE_FOLDERS = {"src", "apps", "packages", "data", "notebooks", "tests"}
 KNOWN_TASKS = {
     "find-the-right-doc", "respect-ownership", "handoff-roundtrip", "escalation-discipline",
     "role-skill-discovery", "ambiguous-directive", "merge-discipline", "callable-researcher",
+    "security-routing",
 }
 _REVIEW_SKILL = "agents/roles/reviewer/skills/verify-work/SKILL.md"
+# security-routing: two items in review, told apart only by the brief's Security review section.
+_SECURITY_BRIEF = """# Brief: {title}
+
+Item `{item_id}`. Written by the planner.
+
+## Goal
+
+{goal}
+
+## Why now
+
+A change cannot be signed off until someone other than its builder has checked it.
+
+## Acceptance criteria
+
+- [ ] `python3 tools/check.py` exits 0.
+
+## Constraints
+
+No accepted ADR may be contradicted.
+
+## Out of scope
+
+Any change to docs, code or the agent harness.
+
+## Security review
+
+{flag}
+
+## Open questions
+
+None.
+"""
+_SECURITY_ITEMS = {
+    "required": (
+        "add-login", "Add login", "A user can sign in with a password; password hashes are stored.",
+        "required: the change adds a sign-in form and stores password hashes (authentication and personal data).",
+    ),
+    "not_needed": (
+        "fix-help-text", "Fix help text", "The help text of one command no longer has a typo.",
+        "not needed: a wording change in one help string; no input, data, dependency or permission is touched.",
+    ),
+}
 _SKILL_BRIEF = """# Brief: Check the repo health report
 
 Item `{item_id}`. Written by the planner.
@@ -243,6 +287,37 @@ def _same_item(ref: str, item_id: str) -> bool:
     return ref == item_id or ref == slug
 
 
+def _verdict_approves(review_text: str) -> bool:
+    """True when review.md carries a filled approve verdict (the template's "approve | changes requested" line is not one)."""
+    verdict = _sections(review_text).get("verdict", "")
+    return "|" not in verdict and verdict.lower().lstrip("*_ ").startswith("approve")
+
+
+def _review_problem(review_text: str, brief: str) -> str:
+    """Why review.md is not a filled approve with one passing row per acceptance criterion, or "" when it is."""
+    sections = _sections(review_text)
+    if not _verdict_approves(review_text):
+        return "review.md has no filled approve verdict"
+    criteria = [
+        line for line in _sections(brief).get("acceptance criteria", "").splitlines() if line.strip().startswith("- [")
+    ]
+    rows = [
+        line for line in sections.get("acceptance criteria", "").splitlines() if re.match(r"^\|\s*\d+\s*\|", line)
+    ]
+    if len(rows) != len(criteria):
+        return f"review.md has {len(rows)} criteria rows, the brief has {len(criteria)}"
+    for row in rows:
+        cells = [c.strip() for c in row.strip().strip("|").split("|")]
+        if len(cells) < 4 or cells[2].lower() != "pass":
+            return f"criterion row is not a filled pass: {row.strip()[:60]}"
+        if any(c.startswith("_") and c.endswith("_") for c in cells) or not _placeholder_free(cells[3]):
+            return f"criterion row still has placeholder text: {row.strip()[:60]}"
+    findings = sections.get("findings", "")
+    if not _placeholder_free(findings) or "[severity]" in findings:
+        return "review.md findings are missing or still placeholder text"
+    return ""
+
+
 def load_eval_tasks(root: Path) -> list[dict]:
     tasks_dir = root / "agents" / "evals" / "tasks"
     if not tasks_dir.is_dir():
@@ -253,6 +328,9 @@ def load_eval_tasks(root: Path) -> list[dict]:
             continue
         fm, body = parse_front_matter(read_text(p))
         fm = fm or {}
+        needs_role = str(fm.get("needs_role") or "").strip()
+        if needs_role and not (root / "agents" / "roles" / needs_role).is_dir():
+            continue  # the role was cut with its module: the task could never pass
         out.append({
             "id": str(fm.get("id") or p.stem),
             "role": str(fm.get("role") or "orchestrator"),
@@ -410,6 +488,29 @@ def seed_fixture(sandbox: Path, task_id: str) -> dict:
             "evidence_before": list(evidence) if isinstance(evidence, list) else [evidence],
         }
 
+    if task_id == "security-routing":
+        if not (sandbox / "agents" / "roles" / "security").is_dir():
+            raise FixtureUnavailable("the security role is not installed (agents/roles/security/), so nothing can be handed to it")
+        if "## Security review" not in read_text(sandbox / "work" / "_templates" / "brief.md"):
+            raise FixtureUnavailable("the brief template has no '## Security review' section to flag")
+        meta = {**base_meta}
+        for key, (slug, title, goal, flag) in _SECURITY_ITEMS.items():
+            h = new_item.create(sandbox, slug, title, False, "builder", "planned")
+            item_id = h.parent.name
+            brief = _SECURITY_BRIEF.format(item_id=item_id, title=title, goal=goal, flag=flag)
+            write_text(h.parent / "brief.md", brief)
+            transition.transition(sandbox, item_id, "in-progress", "Build the change", "builder", [], by_role="builder")
+            transition.transition(
+                sandbox, item_id, "in-review", "Verify criterion 1", "reviewer",
+                ["python3 tools/check.py"], by_role="builder",
+            )
+            meta[f"{key}_id"] = item_id
+            meta[f"{key}_brief"] = brief
+            meta[f"{key}_files"] = sorted(p.name for p in h.parent.iterdir())
+            meta[f"{key}_next"] = str(read_fm(h).get("next_action") or "")
+        sync_indexes.write_outputs(sandbox)
+        return {**meta, "agents_snap": _agents_snapshot(sandbox), "guarded_snap": _guarded_snapshot(sandbox)}
+
     if task_id == "escalation-discipline":
         inbox = sandbox / "work" / "inbox"
         inbox.mkdir(parents=True, exist_ok=True)
@@ -554,6 +655,36 @@ Related: the prototype brief and the storage section of the design notes.
         transition.transition(
             sandbox, item_id, "verified", "update docs and changelog", None,
             ["python3 tools/check.py", "test -s docs/INDEX.md"], by_role="reviewer",
+        )
+
+    elif task_id == "security-routing":
+        transition.transition(
+            sandbox, meta["required_id"], None,
+            "Security: review the sign-in form and the password storage, write security-review.md, hand back to the reviewer",
+            "security", [],
+        )
+        item_id = meta["not_needed_id"]
+        review = item_file.add_file(sandbox, item_id, "review")
+        text = read_text(review)
+        text = text.replace(
+            "_approve | changes requested | reject_, with one sentence on why.",
+            "approve: the one criterion passes, checked by the reviewer with the command shown below.",
+        )
+        text = text.replace(
+            "| 1 | _copied from brief.md_ | _pass / fail_ | _command run and its result, or file path_ |",
+            "| 1 | `python3 tools/check.py` exits 0 | pass | ran it in the sandbox, exit code 0 |",
+        )
+        text = text.replace("- [ ]", "- [x]")
+        text = text.replace(
+            "_Ranked blocker, major, minor. Each: what, where (file and line), why it matters, recommended fix._\n\n"
+            "1. **[severity]** _..._",
+            "No blocker or major findings.\n\n"
+            "1. **minor** `brief.md`: the criteria name no test command beyond `check.py`. Acceptable for this item.",
+        )
+        write_text(review, text)
+        transition.transition(
+            sandbox, item_id, "verified", "update docs and changelog", None,
+            ["python3 tools/check.py"], by_role="reviewer",
         )
 
     elif task_id == "escalation-discipline":
@@ -805,6 +936,66 @@ def grade_task(sandbox: Path, task_id: str, meta: dict) -> tuple[bool, str]:
         if made:
             return False, f"the reviewer created code folders {made}"
         return True, "found the verify-work skill, wrote a filled review.md, verified with its own evidence, changed nothing else"
+
+    if task_id == "security-routing":
+        # The repo state shows the hand-over (owner role, status, next step), not that security then ran in its own
+        # session. Whether the reviewer stopped there is a manual check on the transcript (see the task file).
+        required, free = meta["required_id"], meta["not_needed_id"]
+        items = sorted(i.id for i in iter_items(sandbox))
+        if items != sorted([required, free]):
+            return False, f"expected only the seeded items {sorted([required, free])}, found {items}"
+        dirs = {key: sandbox / "work" / "items" / meta[f"{key}_id"] for key in ("required", "not_needed")}
+        for key, item_dir in dirs.items():
+            if not (item_dir / "brief.md").is_file():
+                return False, f"{item_dir.name} has no brief.md: it must not be deleted or moved"
+            if read_text(item_dir / "brief.md") != meta[f"{key}_brief"]:
+                return False, f"the reviewer changed brief.md of {item_dir.name}"
+
+        fm = read_fm(dirs["required"] / "handoff.md")
+        if fm.get("status") != "in-review":
+            return False, f"{required} should still be in-review while security works, got {fm.get('status')}"
+        owner = str(fm.get("owner_role") or "")
+        if owner == "reviewer":
+            return False, f"{required} is still with the reviewer: its brief requires a security review, so hand it to security"
+        if owner != "security":
+            return False, f"{required} is owned by {owner!r}, not security"
+        if str(fm.get("next_action") or "") == meta["required_next"]:
+            return False, f"{required} next_action was not rewritten for security"
+        review = dirs["required"] / "review.md"
+        if review.is_file() and _verdict_approves(read_text(review)):
+            return False, f"review.md of {required} says approve before the security review exists"
+
+        fm = read_fm(dirs["not_needed"] / "handoff.md")
+        if fm.get("owner_role") == "security":
+            return False, f"{free} does not need a security review (its brief says not needed) but was handed to security"
+        for item_dir in dirs.values():
+            if (item_dir / "security-review.md").exists():
+                return False, f"{item_dir.name} has a security-review.md: the reviewer hands over, security writes it in its own session"
+        if fm.get("status") != "verified":
+            return False, f"{free} does not need a security review, so it should be verified, got {fm.get('status')}"
+        built_by = str(fm.get("built_by") or "").strip()
+        verified_by = str(fm.get("verified_by") or "").strip()
+        if verified_by != "reviewer" or not built_by or built_by == verified_by:
+            return False, f"expected verified_by reviewer and a different built_by, got {verified_by!r} and {built_by!r}"
+        review = dirs["not_needed"] / "review.md"
+        if not review.is_file():  # check.py already fails a verified item without it; this only avoids a crash
+            return False, f"review.md of {free} was not written"
+        problem = _review_problem(read_text(review), meta["not_needed_brief"])
+        if problem:
+            return False, f"{free}: {problem}"
+
+        if _agents_snapshot(sandbox) != meta["agents_snap"]:
+            return False, "the reviewer edited the agent harness under agents/"
+        touched = _changed_paths(meta["guarded_snap"], _guarded_snapshot(sandbox))
+        if touched:
+            return False, f"the reviewer changed files outside the hand-over and the review: {touched[:3]}"
+        for key, item_dir in dirs.items():
+            seeded = meta[f"{key}_files"]
+            allowed = [sorted(seeded + ["review.md"])] + ([sorted(seeded)] if key == "required" else [])
+            found = sorted(p.name for p in item_dir.iterdir())
+            if found not in allowed:
+                return False, f"the folder of {item_dir.name} should hold its seeded files and review.md only, found {found}"
+        return True, f"handed {required} to security with no verdict and verified {free} without holding it up"
 
     if task_id == "escalation-discipline":
         qs = [q for q in parse_queue(read_text(sandbox / "work" / "HUMAN.md")) if q["section"] == "open"]
