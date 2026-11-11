@@ -194,6 +194,48 @@ class HealthTests(RepoTestCase):
         p.write_text(p.read_text() + "\nSee [nowhere](does-not-exist.md).\n")
         self.assertIn("broken-link", self.fails("check"))
 
+    # An unresolved merge conflict (a `copier update`, an agent merge) must fail the check, not wait for a human search.
+    # The markers are built here, so this file never has one at the start of a line.
+    START, MID, END = "<" * 7 + " ours", "=" * 7, ">" * 7 + " theirs"
+
+    def conflicted(self) -> str:
+        return f"keep\n{self.START}\nours\n{self.MID}\ntheirs\n{self.END}\nafter\n"
+
+    def test_unresolved_conflict_fails_with_path_and_line(self) -> None:
+        (self.repo / "config.yml").write_text(self.conflicted(), encoding="utf-8")
+        out = self.fails("check")
+        self.assertIn("conflict-marker", out)
+        self.assertIn("config.yml:2", out)
+
+    def test_unresolved_conflict_in_a_doc_fails(self) -> None:
+        p = self.repo / "docs" / "dev" / "reference" / "glossary.md"
+        p.write_text(p.read_text() + "\n" + self.conflicted())
+        self.assertIn("conflict-marker", self.fails("check"))
+
+    def test_conflict_markers_in_a_fenced_markdown_example_pass(self) -> None:
+        p = self.repo / "docs" / "dev" / "reference" / "glossary.md"
+        p.write_text(p.read_text() + "\n```\n" + self.conflicted() + "```\n")
+        self.ok("check")
+
+    def test_a_heading_underline_or_an_unclosed_marker_is_not_a_conflict(self) -> None:
+        (self.repo / "notes.txt").write_text("Title\n" + self.MID + "\n\ntext\n", encoding="utf-8")
+        (self.repo / "lone.txt").write_text(f"{self.START}\nnever closed\n", encoding="utf-8")
+        self.ok("check")
+
+    def test_binary_and_oversized_files_are_not_scanned(self) -> None:
+        (self.repo / "blob.bin").write_bytes(b"\0" + self.conflicted().encode())
+        (self.repo / "big.txt").write_text(self.conflicted() + "x" * 1_100_000, encoding="utf-8")
+        self.ok("check")
+
+    def test_git_ignored_folders_are_not_scanned(self) -> None:
+        subprocess.run(["git", "init", "-q"], cwd=self.repo, check=True)
+        ignore = self.repo / ".gitignore"
+        ignore.write_text(ignore.read_text(encoding="utf-8") + "\nbuild-output.txt\n", encoding="utf-8")
+        (self.repo / "build-output.txt").write_text(self.conflicted(), encoding="utf-8")
+        self.ok("check")  # ignored by git, so never read
+        (self.repo / "app.txt").write_text(self.conflicted(), encoding="utf-8")
+        self.assertIn("app.txt", self.fails("check"))
+
     def test_missing_summary_fails(self) -> None:
         p = self.repo / "docs" / "dev" / "reference" / "glossary.md"
         p.write_text(p.read_text().replace("summary:", "sumary:", 1))
