@@ -131,7 +131,7 @@ def transition(root: Path, query: str, target: str | None, next_action: str | No
                 raise ValueError(
                     f"{item.id} cannot be verified: its brief requires a security review and "
                     f"{item.id}/security-review.md is missing. Hand it to security first "
-                    "(`transition.py <id> --owner security`); if the role is not installed, "
+                    "(python3 tools/transition.py <id> --owner security); if the role is not installed, "
                     "ask the human and block the item."
                 )
         if not by_role:
