@@ -13,6 +13,7 @@ Rules (see agents/protocols/handoff.md):
   * every status except `done` needs --next (blocked: say what unblocks it)
   * in-review, verified and done need evidence (new --evidence or already in the handoff)
   * verified and done need review.md in a full item folder (independent review happened)
+  * verified is refused when the brief's Security review section says required and security-review.md is missing
   * built_by is set once, when the item first enters in-progress or in-review, and is never overwritten
   * verified and done need an existing built_by, and the role passing --by must be different
   * the next owner defaults to the role in DEFAULT_OWNER; override with --owner
@@ -20,6 +21,7 @@ Rules (see agents/protocols/handoff.md):
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -30,6 +32,34 @@ from _lib import (  # noqa: E402
     load_roles, parse_front_matter, read_text, repo_root, set_fm_value, today, write_text, yaml_list,
     yaml_scalar,
 )
+
+
+_SECURITY_HEADING_RE = re.compile(r"^##\s+security review\s*$", re.IGNORECASE)
+
+
+def _security_section(brief: str) -> str | None:
+    """The text under a brief's Security review heading, or None when the brief has no such section."""
+    lines = brief.splitlines()
+    for index, line in enumerate(lines):
+        if _SECURITY_HEADING_RE.match(line.strip()):
+            body: list[str] = []
+            for after in lines[index + 1:]:
+                if re.match(r"^#{1,3}\s+", after):
+                    break
+                body.append(after)
+            return "\n".join(body).strip()
+    return None
+
+
+def _security_required(brief: str) -> bool:
+    """True when the section states `required`. The template placeholder is not a decision."""
+    section = _security_section(brief)
+    if not section:
+        return False
+    first = section.lstrip("*-_ \t").strip()
+    if first.lower().startswith("required or not needed"):
+        return False
+    return bool(re.match(r"required\b", first, re.IGNORECASE))
 
 
 def _apply_by_role(text: str, fm: dict, status: str, by_role: str | None) -> str:
@@ -91,6 +121,19 @@ def transition(root: Path, query: str, target: str | None, next_action: str | No
             raise ValueError(f"{target} needs evidence: pass --evidence '<command run or link>'")
         if target in ("verified", "done") and not item.light and not (item.path / "review.md").exists():
             raise ValueError(f"{target} needs {item.id}/review.md written by the reviewer")
+        if target == "verified" and not item.light:
+            brief = item.path / "brief.md"
+            if (
+                brief.is_file()
+                and _security_required(read_text(brief))
+                and not (item.path / "security-review.md").is_file()
+            ):
+                raise ValueError(
+                    f"{item.id} cannot be verified: its brief requires a security review and "
+                    f"{item.id}/security-review.md is missing. Hand it to security first "
+                    "(python3 tools/transition.py <id> --owner security); if the role is not installed, "
+                    "ask the human and block the item."
+                )
         if not by_role:
             raise ValueError(f"--by <role> is required for status changes ({current} -> {target})")
         text = _apply_by_role(text, fm, target, by_role)

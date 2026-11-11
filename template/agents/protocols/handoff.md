@@ -31,6 +31,7 @@ A session ends and a fresh one starts with no memory. The handoff file is the me
 2. `in-review`, `verified` and `done` need evidence in the handoff (commands run, links), not assertions.
 3. Every status change needs `--by <role>`. The tool records `built_by` the first time an item enters `in-progress` or `in-review`, never overwrites it, and refuses `verified`/`done` from that same role. `verified` and `done` also need `review.md` in the item folder (full items), written by a different role than the builder.
 4. The next owner defaults to the role in the dispatch table in `agents/README.md`. Override with `--owner`.
+5. `verified` is refused when the brief's Security review section says `required` and the item folder has no `security-review.md`. The template placeholder is not a decision, and a brief with no section does not block. Full items only.
 
 ## handoff.md format
 
