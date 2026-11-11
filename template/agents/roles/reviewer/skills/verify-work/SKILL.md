@@ -9,11 +9,11 @@ description: Independently verifies a finished work item against its brief and w
 You must not be the role that built the item. If you were, stop and hand it to a fresh session.
 
 1. Read `work/items/<id>/brief.md` first, then `handoff.md`, then the diff. Do not start from the builder's summary.
-2. Read the brief's Security review section before any verdict. `required` and no `security-review.md` yet: hand the item to the security role and stop (it runs in a separate session):
+2. Read the brief's Security review section before any verdict. `required`, `agents/roles/security/` exists and no `security-review.md` yet: hand the item to the security role and stop (it runs in a separate session):
    ```
    python3 tools/transition.py <id> --owner security --next "Security: review the diff, write security-review.md, hand back to the reviewer"
    ```
-   When it comes back, read `security-review.md` first: a blocker or major finding means `changes requested`. `not needed`, or no such section: carry on. If the role is not installed, see step 2 of the reviewer's `ROLE.md`.
+   When it comes back, read `security-review.md` first: a blocker or major finding means `changes requested`. `not needed`, or no such section: carry on. If the role is not installed, do not hand over: follow step 2 of the reviewer's `ROLE.md`.
 3. Run the checks yourself:
    ```
    python3 tools/check.py
