@@ -22,6 +22,10 @@ sync:
     python3 tools/sync_indexes.py
     python3 tools/sync_agents.py
 
+# Is a newer template release available? (no network failure ever fails it)
+template-status:
+    python3 tools/template_status.py
+
 # Unit tests for the tooling
 test:
     python3 -m unittest discover -s tools/tests

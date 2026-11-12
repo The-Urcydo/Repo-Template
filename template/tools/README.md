@@ -22,6 +22,7 @@ Plain `python3 tools/<name>.py`, no installs. Run any tool with `--help`. Comman
 | `new_adr.py` | Creates the next numbered ADR (lock-protected) |
 | `new_doc.py` | Creates a doc from its template |
 | `question.py` | Adds to or answers the human decision queue |
+| `template_status.py` | Says whether a newer release of the template this repo came from exists (`--check` exits 1 when behind); the weekly `template-update` workflow uses it |
 | `remove_module.py` | Cuts an optional module out cleanly |
 | `eval_harness.py` | Seeds throwaway sandboxes for golden tasks in `agents/evals/tasks/`, runs reference or agent commands, and grades post-conditions |
 | `modules.json` | Registry of optional modules and their paths |
