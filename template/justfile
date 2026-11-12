@@ -26,6 +26,10 @@ sync:
 template-status:
     python3 tools/template_status.py
 
+# Turn on the optional pre-commit health check for this clone (worktrees share it)
+hooks:
+    git config core.hooksPath .githooks
+
 # Unit tests for the tooling
 test:
     python3 -m unittest discover -s tools/tests

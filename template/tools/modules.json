@@ -27,9 +27,9 @@
       "paths": ["agents/evals"]
     },
     "github": {
-      "summary": "CI workflows, Dependabot config, pull-request template and CODEOWNERS.",
-      "paths": [".github/CODEOWNERS", ".github/dependabot.yml", ".github/pull_request_template.md", ".github/workflows/check.yml", ".github/workflows/template-update.yml"],
-      "removal_notes": "Without CI, run `python3 tools/check.py` and the unit tests yourself before merging. Dependabot updates stop too. The weekly template-update issue stops too."
+      "summary": "CI workflows, Dependabot config, pull-request template, CODEOWNERS and repository rulesets (with the how-to that applies them).",
+      "paths": [".github/CODEOWNERS", ".github/dependabot.yml", ".github/pull_request_template.md", ".github/rulesets", ".github/workflows/check.yml", ".github/workflows/template-update.yml", "docs/dev/how-to/protect-the-repo.md"],
+      "removal_notes": "Without CI, run `python3 tools/check.py` and the unit tests yourself before merging. Dependabot updates stop too. The weekly template-update issue stops too. Rulesets already imported on GitHub stay there; delete or disable them yourself. The ruleset files and this how-to are removed."
     }
   }
 }

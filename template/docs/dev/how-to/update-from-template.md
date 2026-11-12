@@ -15,7 +15,7 @@ Before you start: Copier is installed (`pipx install copier` or `pip install cop
 0. Optional: `python3 tools/template_status.py` says whether a newer release exists. With the `github` module a weekly workflow runs the same check and keeps at most one open issue when there is one; it never opens a pull request.
 1. Commit or stash all local changes: `git status` must be clean.
 2. Update: `copier update --trust`. Copier compares the template version you used with the latest tagged version and merges the difference. `--trust` lets it run the two sync tools as part of the update, which normally rebuild the generated files.
-3. Resolve conflicts. Copier leaves normal merge-conflict markers in files you also changed. Search for `<<<<<<<`, fix, and remove the markers.
+3. Resolve conflicts. Copier leaves normal merge-conflict markers in files you also changed. Fix each one and remove the markers; `python3 tools/check.py` reports every file that still has them (`conflict-marker`, with the line), so you do not need to search.
 4. Verify: `python3 tools/sync_indexes.py && python3 tools/sync_agents.py && python3 tools/check.py`. Always run this step after a template change that moves files: Copier's post-copy tasks can run before the final moves, so the generated indexes may be stale until you resync.
 5. Review the diff and commit.
 
@@ -24,5 +24,18 @@ Before you start: Copier is installed (`pipx install copier` or `pip install cop
 - Generated files conflict: do not merge them. Delete the conflicted generated file and re-run the sync tools; they rebuild it from sources.
 - A module you cut came back: `.copier-answers.yml` should say `profile: custom` and list the modules you kept. `remove_module.py --apply` writes this; fix it by hand if you cut a module manually, then cut it again.
 - You want a specific template version: `copier update --trust --vcs-ref <tag>`.
+
+## Updating across a release that moved files
+
+A release that moves what you own ships a migration that Copier runs for you (ADR 0008, `docs/decisions/0008-ship-a-migration-and-an-upgrade-test-with-every-breaking-release.md`). It needs `--trust`, runs only when your project crosses the release that carries the migration, and prints one `migrate: old -> new` line per file. Read the release notes first: the tag message names the break.
+
+From v0.2.0 to v0.3.0 the docs moved from `docs/{explanation,how-to,reference,tutorials}/` to `docs/dev/...`. The migration moves your own docs there with `git mv` and recomputes their simple inline relative links. It ships in the first tag after v0.3.0, so a project already on v0.3.0 is repaired by the same update. What it cannot do:
+
+- **Your edit next to a line the template also changed** (for example the `README.md` link to this guide) still conflicts. Resolve it by hand; `check.py` finds the markers.
+- **An edit to a shipped doc at its old path** (say a row you added to `docs/reference/glossary.md`) is not carried to `docs/dev/reference/glossary.md`. Recover it from git: `git show HEAD:docs/reference/glossary.md`, then re-apply your lines.
+- **Links from files that stay put** (your own ADRs, `README.md`) to a moved doc are not rewritten. `check.py` reports each as `broken-link`; edit the path to add `dev/`.
+- **A link written with a title or as a reference definition** is left alone. `check.py` reports it if it broke; rewrite it by hand. Simple inline links are the supported form.
+- **A file already at the new path** is never overwritten: the old copy stays and the migration says so on stderr. Compare the two and delete one.
+- **Ignored files** (`.DS_Store`, editor swap files) stay in the old folder; delete them yourself. Commit your own docs before the update (step 1) so they are moved.
 
 Why Copier and what `--trust` is for: `docs/decisions/0004-deliver-with-copier-and-cuttable-modules.md`.

@@ -27,6 +27,7 @@ _exclude:
   - "{% if 'infra' not in enabled_modules %}/infra{% endif %}"
   - "{% if 'evals' not in enabled_modules %}/agents/evals{% endif %}"
   - "{% if 'github' not in enabled_modules %}/.github{% endif %}"
+  - "{% if 'github' not in enabled_modules %}/docs/dev/how-to/protect-the-repo.md{% endif %}"
   - "{% if layout != 'workspace' %}/apps{% endif %}"
   - "{% if layout != 'workspace' %}/packages{% endif %}"
   - "{% if layout not in ['single', 'data-ml'] %}/src{% endif %}"
@@ -37,6 +38,22 @@ _exclude:
 _tasks:
   - command: "{{ _copier_python }} tools/sync_indexes.py"
   - command: "{{ _copier_python }} tools/sync_agents.py"
+
+# Run only by `copier update`, and only when the project's version is older than `version` and the new one is at
+# least `version`. A release that breaks the layout of a generated project adds an entry here and an upgrade test
+# in tests/test_template.py (ADR 0008). The scripts live in migrations/, outside template/, so they are never shipped.
+_migrations:
+  # v0.3.0 moved docs/{explanation,how-to,reference,tutorials}/ to docs/dev/. Copier's merge moves the files the
+  # template ships; this moves the project's own docs (before the merge) and then rebuilds the generated files,
+  # because `_tasks` run on the new tree before the project's own changes are applied. The gate is the first tag
+  # that ships this repair, not the broken tag: projects already on v0.3.0 must cross it too.
+  - version: "v0.3.1"
+    when: '{{ _stage == "before" }}'
+    command: '"{{ _copier_python }}" "{{ _copier_conf.src_path }}/migrations/docs_layout.py" .'
+  - version: "v0.3.1"
+    command: '"{{ _copier_python }}" tools/sync_indexes.py'
+  - version: "v0.3.1"
+    command: '"{{ _copier_python }}" tools/sync_agents.py'
 
 _message_after_copy: |
   Created {{ project_name }} (profile: {{ profile }}, layout: {{ layout }}).

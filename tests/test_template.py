@@ -429,6 +429,19 @@ def test_template_has_no_stray_artifacts():
     assert not empty, f"empty dirs are not tracked by git and will vanish: {empty}"
 
 
+@pytest.mark.parametrize("profile,layout", [("lean", "minimal"), ("full", "workspace")])
+def test_pre_commit_hook_ships_in_every_profile_executable_and_never_switched_on(tmp_path, profile, layout):
+    p = generate(tmp_path / "p", profile=profile, layout=layout)
+    hook = p / ".githooks" / "pre-commit"
+    assert hook.is_file() and os.access(hook, os.X_OK), "the hook must ship with its executable bit"
+    assert hook.read_text().startswith("#!/bin/sh\n")
+    assert "hooks:\n    git config core.hooksPath .githooks" in (p / "justfile").read_text()
+    git(p, "init", "-q")
+    r = subprocess.run(["git", "-C", str(p), "config", "--local", "--get", "core.hooksPath"], capture_output=True, text=True)
+    assert r.stdout.strip() == "", "the template must not turn the hook on by itself"
+    assert py(p, "tools/check.py", "--strict").returncode == 0
+
+
 def test_cursor_and_copilot_adapters_ship_disabled(full):
     targets = json.loads((full / "agents" / "adapters" / "targets.json").read_text(encoding="utf-8"))
     assert targets["cursor"]["enabled"] is False
@@ -469,4 +482,343 @@ def test_template_status_is_documented_where_every_tool_is(full):
     assert "`template_status.py" in commands and "tools/template_status.py" in commands.split("related_code:")[1].split("\n")[0]
     assert "template_status.py" in (full / "docs/dev/how-to/update-from-template.md").read_text(encoding="utf-8")
     r = py(full, "tools/template_status.py", "--check")  # a fresh local-source project: nothing to compare, never an error
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
+# --- settings as code: repository rulesets and the how-to that goes with them --------------------------------------
+RULESETS = TEMPLATE / "template" / ".github" / "rulesets"
+RULESET_KEYS = {"name", "target", "enforcement", "conditions", "rules", "bypass_actors"}  # what GitHub's importer reads
+PULL_REQUEST_PARAMS = {  # the parameters of a live ruleset's `pull_request` rule (read from the API, 2026-11-12)
+    "required_approving_review_count", "dismiss_stale_reviews_on_push", "required_reviewers", "require_code_owner_review",
+    "dismissal_restriction", "require_last_push_approval", "required_review_thread_resolution",
+    "require_extra_approval_for_unattributed_changes", "allowed_merge_methods",
+}
+HOW_TO = "docs/dev/how-to/protect-the-repo.md"
+
+
+def _ruleset(name: str) -> dict:
+    return json.loads((RULESETS / f"{name}.json").read_text(encoding="utf-8"))
+
+
+def test_shipped_rulesets_are_well_formed_json():
+    # Shape only: GitHub's import is the owner's dry run, not a test here.
+    files = sorted(RULESETS.glob("*.json"))
+    assert [f.stem for f in files] == ["protect-default-branch", "protect-release-tags"]
+    for f in files:
+        data = json.loads(f.read_text(encoding="utf-8"))
+        assert set(data) == RULESET_KEYS, f"{f.name}: {set(data) ^ RULESET_KEYS}"
+        assert data["name"] == f.stem and data["enforcement"] == "active"
+        assert data["bypass_actors"] == [], "no hidden bypass: the owner who needs one adds it knowingly"
+        assert {r["type"] for r in data["rules"]} <= {"deletion", "non_fast_forward", "update", "pull_request", "required_status_checks"}
+        assert len({r["type"] for r in data["rules"]}) == len(data["rules"]), "a rule type may appear only once"
+
+
+def test_default_branch_ruleset_works_for_a_solo_owner_and_requires_the_ci_job():
+    rs = _ruleset("protect-default-branch")
+    assert rs["target"] == "branch" and rs["conditions"]["ref_name"]["include"] == ["~DEFAULT_BRANCH"]
+    rules = {r["type"]: r.get("parameters", {}) for r in rs["rules"]}
+    assert {"deletion", "non_fast_forward", "pull_request", "required_status_checks"} == set(rules)
+    pr = rules["pull_request"]
+    assert set(pr) <= PULL_REQUEST_PARAMS, set(pr) - PULL_REQUEST_PARAMS
+    assert pr["required_approving_review_count"] == 0, "1 approval deadlocks a repository with one human"
+    assert pr["allowed_merge_methods"] == ["merge"] and pr["dismiss_stale_reviews_on_push"] is True
+    assert pr["require_extra_approval_for_unattributed_changes"] is False, \
+        "GitHub defaults this to true, which would make a team's Copilot PR need an extra review"
+    contexts = [c["context"] for c in rules["required_status_checks"]["required_status_checks"]]
+    yaml = pytest.importorskip("yaml")
+    jobs = yaml.safe_load((TEMPLATE / "template" / ".github" / "workflows" / "check.yml").read_text(encoding="utf-8"))["jobs"]
+    # GitHub reports a job's `name` when set, otherwise its id, as the required status context.
+    assert contexts == ["check"] and contexts[0] in jobs
+    assert jobs[contexts[0]].get("name", contexts[0]) == contexts[0], "rename the context when the job display name changes"
+
+
+def test_release_tag_ruleset_makes_published_tags_permanent():
+    rs = _ruleset("protect-release-tags")
+    assert rs["target"] == "tag" and rs["conditions"]["ref_name"]["include"] == ["refs/tags/v*"]
+    assert {r["type"] for r in rs["rules"]} == {"update", "deletion", "non_fast_forward"}
+
+
+def test_github_module_owns_the_rulesets_and_the_how_to(full):
+    modules = json.loads((TEMPLATE / "template" / "tools" / "modules.json").read_text(encoding="utf-8"))
+    github = modules["modules"]["github"]
+    assert ".github/rulesets" in github["paths"] and HOW_TO in github["paths"]
+    assert "ruleset" in github["removal_notes"].lower(), "cutting the module removes the rulesets too; say so"
+    repo_map = (full / "docs/dev/reference/repo-map.md").read_text(encoding="utf-8")
+    assert "rulesets" in repo_map.lower(), "the generated repo map must describe the module as it is now"
+
+
+def test_cutting_the_github_module_leaves_neither_rulesets_nor_how_to(full, tmp_path):
+    assert (full / ".github/rulesets/protect-default-branch.json").is_file() and (full / HOW_TO).is_file()
+    lean = generate(tmp_path / "lean", profile="lean")
+    assert not (lean / ".github").exists() and not (lean / HOW_TO).exists()
+    assert py(lean, "tools/check.py", "--strict").returncode == 0
+
+
+def test_the_how_to_names_every_setting_a_file_cannot_set(full):
+    text = (full / HOW_TO).read_text(encoding="utf-8")
+    lowered = text.lower()
+    for topic in ("Import a ruleset", "secret scanning", "push protection", "private vulnerability reporting", "Dependabot",
+                  "code scanning", "Workflow permissions", "release immutability"):
+        assert topic.lower() in lowered, topic
+    for fact in ("not enabled by default", "public repositories", "read repository contents and packages permissions",
+                 "merge commits", "scratch repository"):
+        assert fact in lowered, fact
+    assert "protect-default-branch.json" in text and "protect-release-tags.json" in text
+
+
+# --- upgrade across the docs layout move (ADR 0008) -------------------------------------------------------------
+MIGRATION = TEMPLATE / "migrations" / "docs_layout.py"
+OLD_TAG = "v0.2.0"  # the last release that shipped docs/{explanation,how-to,reference,tutorials}/
+BROKEN_TAG = "v0.3.0"  # the release that moved the folders without a migration
+
+
+def _have_tag(tag: str) -> bool:
+    r = subprocess.run(["git", "-C", str(TEMPLATE), "rev-parse", "--verify", "-q", f"{tag}^{{commit}}"], capture_output=True)
+    return r.returncode == 0
+
+
+def _require_tag(tag: str) -> None:
+    if _have_tag(tag):
+        return
+    why = f"tag {tag} not available (shallow clone): git fetch --depth=1 origin tag {tag}"
+    if os.environ.get("CI"):  # a CI that cannot see the tag must not silently lose the upgrade test
+        pytest.fail(why + "; CI needs `fetch-depth: 0` on the checkout")
+    pytest.skip(why)
+
+
+def _clear_tree(tpl: Path) -> None:
+    for child in tpl.iterdir():
+        if child.name != ".git":
+            shutil.rmtree(child) if child.is_dir() else child.unlink()
+
+
+def _add_release(tpl: Path, tag: str) -> None:
+    """Commit the tree that `tag` released in the real repo, then tag it in the throwaway repo."""
+    import io
+    import tarfile
+    _clear_tree(tpl)
+    old = subprocess.run(["git", "-C", str(TEMPLATE), "archive", tag], capture_output=True, check=True).stdout
+    with tarfile.open(fileobj=io.BytesIO(old)) as tf:
+        tf.extractall(tpl, **({"filter": "data"} if hasattr(tarfile, "data_filter") else {}))
+    git(tpl, "add", "-A")
+    git(tpl, "commit", "-qm", tag)
+    git(tpl, "tag", tag)
+
+
+_COPY_IGNORE = shutil.ignore_patterns(
+    ".git", "__pycache__", "*.pyc", ".pytest_cache", ".venv", ".mypy_cache", ".ruff_cache", ".DS_Store",
+)
+
+
+def _template_copy_ignore(directory: str, names: list[str]) -> set[str]:
+    """Copy the template repo, but not its own root tests/ and plans/: nested template/tests and
+    template/tools/tests are shipped to projects and must stay in the fixture."""
+    skip = set(_COPY_IGNORE(directory, names))
+    if Path(directory).resolve() == TEMPLATE:
+        skip |= {"tests", "plans"} & set(names)
+    return skip
+
+
+def _release_repo(tmp_path: Path, *tags: str) -> Path:
+    """A throwaway template repo: each released tag as it was, then the current tree tagged one version ahead.
+    Copier refuses to update to an untagged HEAD (it reads that as a downgrade), so the current tree needs a tag."""
+    tpl = tmp_path / "tpl"
+    tpl.mkdir()
+    git(tpl, "init", "-q")
+    for tag in tags:
+        _add_release(tpl, tag)
+    _clear_tree(tpl)
+    shutil.copytree(TEMPLATE, tpl, dirs_exist_ok=True, ignore=_template_copy_ignore)
+    git(tpl, "add", "-A")
+    git(tpl, "commit", "-qm", "current tree")
+    git(tpl, "tag", "v99.0.0")
+    return tpl
+
+
+def _doc(title: str, kind: str, body: str) -> str:
+    return f"---\ntitle: {title}\ntype: {kind}\nstatus: active\nsummary: Written by the project, not shipped by the template.\n---\n# {title}\n\n{body}\n"
+
+
+def test_update_across_the_docs_layout_move_keeps_the_projects_own_docs(tmp_path):
+    _require_tag(OLD_TAG)
+    tpl = _release_repo(tmp_path, OLD_TAG)
+    proj = generate(tmp_path / "proj", tpl, "--vcs-ref", OLD_TAG, profile="full")
+    git(proj, "init", "-q")
+    git(proj, "add", "-A")
+    git(proj, "commit", "-qm", "init")
+
+    # realistic local work: two docs of the project's own in the old folders, linking to each other and to shipped docs
+    (proj / "docs/how-to/deploy-to-staging.md").write_text(_doc(
+        "Deploy to staging", "how-to",
+        "See [commands](../reference/commands.md), [handoffs](../explanation/ownership-and-handoffs.md), "
+        "[the split](../decisions/0001-split-the-repo-by-volatility.md), [docs home](../INDEX.md) and "
+        "[the site](https://example.com/a/../b)."))
+    (proj / "docs/explanation/our-architecture.md").write_text(_doc(
+        "Our architecture", "explanation", "Deploy steps: [staging](../how-to/deploy-to-staging.md#steps)."))
+    agents_md = proj / "AGENTS.md"
+    agents_md.write_text(agents_md.read_text() + "\nOur rule: never deploy on Fridays.\n")
+    git(proj, "add", "-A")
+    git(proj, "commit", "-qm", "local work")
+
+    r = copier("update", "--defaults", "--trust", "-q", cwd=proj)
+    assert r.returncode == 0, f"{r.stdout}\n{r.stderr}"
+    assert "_commit: v99.0.0" in (proj / ".copier-answers.yml").read_text()
+    assert "migrate: docs/how-to/deploy-to-staging.md -> docs/dev/how-to/deploy-to-staging.md" in r.stdout, r.stdout
+
+    # the current template ships these; a fixture that drops a nested tests/ folder would hide their loss
+    assert (proj / "tools/tests/test_tools.py").is_file(), "the update deleted the shipped test suite"
+    assert (proj / "tests/README.md").is_file(), "the update deleted the shipped tests folder"
+
+    # the project's own docs moved with the layout, and nothing is left behind in the old folders
+    assert (proj / "docs/dev/how-to/deploy-to-staging.md").exists(), "own how-to was not moved"
+    assert (proj / "docs/dev/explanation/our-architecture.md").exists(), "own explanation was not moved"
+    stale = [p.relative_to(proj).as_posix() for d in ("explanation", "how-to", "reference", "tutorials")
+             for p in (proj / "docs" / d).rglob("*") if p.is_file()]
+    assert not stale, f"files left in the old layout: {stale}"
+
+    # relative links were recomputed from the new location; absolute URLs were left alone
+    how_to = (proj / "docs/dev/how-to/deploy-to-staging.md").read_text()
+    assert "(../reference/commands.md)" in how_to and "(../explanation/ownership-and-handoffs.md)" in how_to
+    assert "(../../decisions/0001-split-the-repo-by-volatility.md)" in how_to and "(../../INDEX.md)" in how_to
+    assert "(https://example.com/a/../b)" in how_to
+    assert "(../how-to/deploy-to-staging.md#steps)" in (proj / "docs/dev/explanation/our-architecture.md").read_text()
+
+    assert "never deploy on Fridays" in agents_md.read_text(), "local edit was lost"
+    assert "deploy-to-staging.md" in (proj / "docs/INDEX.md").read_text(), "generated index was not rebuilt after the move"
+    conflicts = [p for p in proj.rglob("*") if p.is_file() and ".git" not in p.parts
+                 and re.search(r"^(<{7} |>{7} |={7}$)", p.read_text(encoding="utf-8", errors="ignore"), re.M)]
+    assert not conflicts, conflicts
+    r = py(proj, "tools/check.py", "--strict")
+    assert r.returncode == 0, r.stdout
+
+    # the migration is idempotent: a second run on the migrated project changes nothing
+    r = py(proj, str(MIGRATION), ".")
+    assert r.returncode == 0 and not r.stdout.strip(), r.stdout + r.stderr
+
+
+def test_update_from_v0_3_0_repairs_the_docs_layout(tmp_path):
+    _require_tag(BROKEN_TAG)
+    tpl = _release_repo(tmp_path, BROKEN_TAG)
+    proj = generate(tmp_path / "proj", tpl, "--vcs-ref", BROKEN_TAG, profile="full")
+    git(proj, "init", "-q")
+    git(proj, "add", "-A")
+    git(proj, "commit", "-qm", "init")
+
+    # a project that crossed v0.3.0 before this migration shipped: its own docs are still in the old folders
+    (proj / "docs/how-to").mkdir(parents=True, exist_ok=True)
+    (proj / "docs/how-to/stranded.md").write_text(_doc(
+        "Stranded", "how-to", "See [the split](../decisions/0001-split-the-repo-by-volatility.md)."))
+    git(proj, "add", "-A")
+    git(proj, "commit", "-qm", "stranded doc")
+
+    r = copier("update", "--defaults", "--trust", "-q", cwd=proj)
+    assert r.returncode == 0, f"{r.stdout}\n{r.stderr}"
+    assert "_commit: v99.0.0" in (proj / ".copier-answers.yml").read_text()
+    assert "migrate: docs/how-to/stranded.md -> docs/dev/how-to/stranded.md" in r.stdout, r.stdout
+    assert (proj / "docs/dev/how-to/stranded.md").is_file(), "a project already on v0.3.0 was not repaired"
+    assert not (proj / "docs/how-to/stranded.md").exists()
+    moved = (proj / "docs/dev/how-to/stranded.md").read_text()
+    assert "(../../decisions/0001-split-the-repo-by-volatility.md)" in moved
+    assert "stranded.md" in (proj / "docs/INDEX.md").read_text(), "generated index was not rebuilt"
+    r = py(proj, "tools/check.py", "--strict")
+    assert r.returncode == 0, r.stdout
+
+
+def test_docs_layout_migration_never_overwrites_and_skips_what_the_template_ships(tmp_path):
+    proj = tmp_path / "p"
+    for rel, text in {
+        ".gitignore": ".DS_Store\n",
+        "docs/how-to/ours.md": "# ours\n",
+        "docs/how-to/add-a-role.md": "# shipped at the old path: the new template delivers its own copy\n",
+        "docs/how-to/taken.md": "# old copy\n",
+        "docs/how-to/fenced.md": "`````markdown\n```\n[example](../decisions/0001-split-the-repo-by-volatility.md)\n```\n`````\n",
+        "docs/dev/how-to/taken.md": "# already at the new path\n",
+        "docs/reference/INDEX-like.md": "<!-- GENERATED by tools/sync_indexes.py -->\n",
+        "docs/reference/notes.txt": "plain text moves too\n",
+        "docs/other/untouched.md": "# not one of the four folders\n",
+    }.items():
+        (proj / rel).parent.mkdir(parents=True, exist_ok=True)
+        (proj / rel).write_text(text)
+    git(proj, "init", "-q")
+    git(proj, "add", "-A")
+    git(proj, "commit", "-qm", "old layout")
+    # .DS_Store is ignored and must not abort the migration; draft.md is untracked but not ignored.
+    (proj / "docs/how-to/.DS_Store").write_bytes(b"\0\1")
+    (proj / "docs/how-to/draft.md").write_text("# draft\n")
+    r = py(proj, str(MIGRATION), str(proj))
+    assert r.returncode == 0, r.stderr
+    assert (proj / "docs/dev/how-to/ours.md").read_text() == "# ours\n"
+    assert (proj / "docs/dev/reference/notes.txt").exists()
+    assert (proj / "docs/how-to/add-a-role.md").exists() and not (proj / "docs/dev/how-to/add-a-role.md").exists()
+    assert (proj / "docs/reference/INDEX-like.md").exists(), "a generated file must be rebuilt, not moved"
+    assert (proj / "docs/dev/how-to/taken.md").read_text() == "# already at the new path\n"
+    assert (proj / "docs/how-to/taken.md").read_text() == "# old copy\n", "an existing target must never be overwritten"
+    assert "already exists" in r.stderr
+    assert (proj / "docs/how-to/.DS_Store").exists(), "an ignored file must be left alone, not abort the migration"
+    assert not (proj / "docs/dev/how-to/.DS_Store").exists()
+    assert (proj / "docs/dev/how-to/draft.md").read_text() == "# draft\n", "an untracked file must move and be staged"
+    assert "(../decisions/0001-split-the-repo-by-volatility.md)" in (proj / "docs/dev/how-to/fenced.md").read_text()
+    assert (proj / "docs/other/untouched.md").exists()
+    assert "migrate: docs/how-to/ours.md -> docs/dev/how-to/ours.md" in r.stdout
+    staged = git(proj, "diff", "--cached", "--name-status")
+    assert "docs/dev/how-to/ours.md" in staged, "moves must be staged: Copier snapshots the index after the before stage"
+    assert "docs/dev/how-to/draft.md" in staged, "an untracked move must be staged too"
+
+
+# --- shipped CI hardening (check.yml, dependabot.yml) ------------------------------------------------------------
+SHIPPED_GITHUB = TEMPLATE / "template" / ".github"
+
+
+def _shipped_workflow(name: str) -> dict:
+    yaml = pytest.importorskip("yaml")
+    data = yaml.safe_load((SHIPPED_GITHUB / "workflows" / name).read_text(encoding="utf-8"))
+    data["on"] = data.pop(True, data.get("on"))  # PyYAML reads the bare key `on` as the boolean True
+    return data
+
+
+def test_shipped_check_workflow_is_fast_safe_and_queue_ready():
+    wf = _shipped_workflow("check.yml")
+    assert {"push", "pull_request", "merge_group"} <= set(wf["on"]), "merge_group lets the check run in a merge queue"
+    assert wf["permissions"] == {"contents": "read"}
+    group = wf["concurrency"]
+    assert "pull_request.number" in group["group"] and "github.ref" in group["group"]
+    assert "pull_request" in str(group["cancel-in-progress"]), "only superseded pull request runs may be cancelled"
+    assert {"check", "workflow-lint"} <= set(wf["jobs"]), "the job id `check` is the status a ruleset requires"
+    for name, job in wf["jobs"].items():
+        assert 0 < job["timeout-minutes"] <= 30, f"{name} needs a timeout so a hung step cannot burn the runner for 6 hours"
+        extra = {k: v for k, v in job.get("permissions", {}).items() if v not in ("read",)}
+        assert not extra, f"{name} must not ask for more than read: {extra}"
+        assert all(step.get("with", {}).get("persist-credentials") is False
+                   for step in job["steps"] if str(step.get("uses", "")).startswith("actions/checkout@")), name
+
+
+def test_shipped_workflow_lint_job_pins_both_linters():
+    text = (SHIPPED_GITHUB / "workflows" / "check.yml").read_text(encoding="utf-8")
+    job = _shipped_workflow("check.yml")["jobs"]["workflow-lint"]
+    zizmor = [s for s in job["steps"] if str(s.get("uses", "")).startswith("zizmorcore/zizmor-action@")]
+    assert len(zizmor) == 1 and re.fullmatch(r"zizmorcore/zizmor-action@[0-9a-f]{40}", zizmor[0]["uses"])
+    assert zizmor[0]["with"]["advanced-security"] is False, "the SARIF upload needs security-events: write and GHAS"
+    assert re.fullmatch(r"\d+\.\d+\.\d+", str(zizmor[0]["with"]["version"])), "pin the zizmor version too"
+    assert re.search(r"^\s*sha256=[0-9a-f]{64}\s*$", text, re.M), "the actionlint download is pinned by checksum"
+    assert "sha256sum -c" in text and re.search(r"^\s*version=\d+\.\d+\.\d+\s*$", text, re.M)
+    assert not re.search(r"releases/latest|@main|@master", text)
+
+
+def test_shipped_dependabot_waits_a_week_before_a_new_release_is_proposed():
+    yaml = pytest.importorskip("yaml")
+    data = yaml.safe_load((SHIPPED_GITHUB / "dependabot.yml").read_text(encoding="utf-8"))
+    for entry in data["updates"]:
+        assert entry["cooldown"]["default-days"] >= 7, entry["package-ecosystem"]
+
+
+@pytest.mark.skipif(not shutil.which("actionlint"), reason="actionlint not installed")
+def test_shipped_workflows_pass_actionlint():
+    r = subprocess.run(["actionlint", "-color=false", *map(str, sorted((SHIPPED_GITHUB / "workflows").glob("*.yml")))],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
+@pytest.mark.skipif(not shutil.which("zizmor"), reason="zizmor not installed")
+def test_shipped_github_files_pass_zizmor_offline():
+    r = subprocess.run(["zizmor", "--offline", "--no-progress", "--format=plain", str(SHIPPED_GITHUB)], capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
