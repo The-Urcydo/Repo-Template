@@ -120,7 +120,7 @@ cd path/to/project             # must be a clean git repo
 copier update --trust
 ```
 
-Local edits are merged, and modules you cut stay cut. See `docs/dev/how-to/update-from-template.md` in a generated project. Copier builds from the newest release tag of this template, so improvements reach your project once a new tag exists. A release that renames files says so in its tag message and release notes: run the update on a clean repo and read the diff.
+Local edits are merged, and modules you cut stay cut. See `docs/dev/how-to/update-from-template.md` in a generated project. Copier builds from the newest release tag of this template, so improvements reach your project once a new tag exists. A release that renames files says so in its tag message and release notes and ships a migration for what your project owns (ADR 0008): run the update on a clean repo and read the diff.
 
 ## What it does not include
 
