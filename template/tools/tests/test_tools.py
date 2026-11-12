@@ -2380,5 +2380,64 @@ class AdapterTests(RepoTestCase):
         self.assertNotIn("Traceback", out)
 
 
+@unittest.skipUnless(shutil.which("git") and shutil.which("sh"), "needs git and sh")
+class PreCommitHookTests(RepoTestCase):
+    """The optional hook in .githooks/: the repo health check before every commit, never turned on by itself."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.git("init", "-q")
+        self.git("add", "-A")
+        self.git("commit", "-qm", "baseline", "--no-verify")  # the baseline predates the hook
+        self.git("config", "core.hooksPath", ".githooks")
+
+    def git(self, *args: str, **env: str) -> subprocess.CompletedProcess:
+        base = {k: v for k, v in os.environ.items() if k != "REPO_ROOT"}  # an outer REPO_ROOT would point the hook at another repo
+        return subprocess.run(
+            ["git", "-c", "user.email=t@t", "-c", "user.name=t", *args], cwd=self.repo, capture_output=True, text=True,
+            env={**base, "PYTHON": sys.executable, **env}, timeout=120,
+        )
+
+    def commit(self, *args: str, **env: str) -> subprocess.CompletedProcess:
+        (self.repo / "notes.txt").write_text("a change\n", encoding="utf-8")
+        self.git("add", "-A")
+        return self.git("commit", "-qm", "change", *args, **env)
+
+    def test_hook_is_a_posix_shell_script_and_executable(self) -> None:
+        hook = self.repo / ".githooks" / "pre-commit"
+        self.assertTrue(hook.read_text(encoding="utf-8").startswith("#!/bin/sh\n"))
+        self.assertTrue(os.access(hook, os.X_OK), "the hook must keep its executable bit")
+
+    def test_healthy_repo_commits(self) -> None:
+        r = self.commit()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_drifted_generated_file_blocks_the_commit_and_names_the_fix(self) -> None:
+        head = self.git("rev-parse", "HEAD").stdout
+        index = self.repo / "docs" / "INDEX.md"
+        index.write_text(index.read_text(encoding="utf-8") + "\nedited by hand\n", encoding="utf-8")
+        r = self.commit()
+        self.assertNotEqual(r.returncode, 0, "a drifted generated file must block the commit")
+        self.assertIn("generated-drift", r.stdout + r.stderr)
+        self.assertIn("tools/sync_indexes.py", r.stdout + r.stderr)
+        self.assertEqual(self.git("rev-parse", "HEAD").stdout, head, "nothing may be committed")
+        self.ok("sync_indexes")  # the printed fix works, and then the commit goes through
+        self.assertEqual(self.commit().returncode, 0)
+
+    def test_no_verify_skips_the_hook(self) -> None:
+        index = self.repo / "docs" / "INDEX.md"
+        index.write_text(index.read_text(encoding="utf-8") + "\nedited by hand\n", encoding="utf-8")
+        self.assertEqual(self.commit("--no-verify").returncode, 0)
+
+    def test_missing_python_skips_with_a_note_instead_of_blocking(self) -> None:
+        r = self.commit(PYTHON="definitely-not-a-python")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("skipping", r.stdout + r.stderr)
+
+    def test_just_hooks_recipe_turns_it_on(self) -> None:
+        recipe = (self.repo / "justfile").read_text(encoding="utf-8")
+        self.assertIn("hooks:\n    git config core.hooksPath .githooks", recipe)
+
+
 if __name__ == "__main__":
     unittest.main()
