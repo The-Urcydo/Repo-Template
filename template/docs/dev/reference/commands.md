@@ -48,6 +48,7 @@ Tools that create or move things also regenerate the indexes, so `docs/INDEX.md`
 | `item` `item-id` `handoff` `self-review` | error | A work item breaks the handoff rules, or `verified_by` matches the builder (`built_by`) |
 | `human-queue` | error / warn | Malformed question (error), or any open question waiting more than 7 days (warn). Only a question that may default can be answered with its `if_no_answer`; an irreversible decision or an ambiguous directive stays open until the human answers |
 | `generated-drift` `adapter-drift` | error | A generated file differs from its source: run the sync tools |
+| `conflict-marker` | error | A file still holds an unresolved merge conflict (an opening `<<<<<<<` line followed by a closing `>>>>>>>` line), usually left by `copier update` or a merge. Resolve it and remove the markers. Fenced code in Markdown, binary files, files over 1 MB and git-ignored files are not read |
 | `module-partial` | warn | A module is partly present |
 | `module-requires` | error | A module requires another module that is not installed |
 | `adapters` | error | `agents/adapters/targets.json` is not valid JSON |
