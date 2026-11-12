@@ -131,7 +131,8 @@ def test_no_unrendered_template_syntax_leaks(full):
         if not p.is_file() or ".git" in p.parts or p.name == "justfile" or p.suffix == ".pyc":
             continue
         text = p.read_text(encoding="utf-8", errors="ignore")
-        if "{{" in text or "{%" in text:
+        # `${{ ... }}` is a GitHub Actions expression, not a Jinja leak (Copier renders only *.jinja files)
+        if re.search(r"(?<!\$)\{\{", text) or "{%" in text:
             bad.append(p.relative_to(full).as_posix())
         assert ".jinja" not in p.name, p
         if p.suffix in (".md", ".json", ".yml") and "_templates" not in p.parts:
@@ -648,3 +649,62 @@ def test_docs_layout_migration_never_overwrites_and_skips_what_the_template_ship
     staged = git(proj, "diff", "--cached", "--name-status")
     assert "docs/dev/how-to/ours.md" in staged, "moves must be staged: Copier snapshots the index after the before stage"
     assert "docs/dev/how-to/draft.md" in staged, "an untracked move must be staged too"
+
+
+# --- shipped CI hardening (check.yml, dependabot.yml) ------------------------------------------------------------
+SHIPPED_GITHUB = TEMPLATE / "template" / ".github"
+
+
+def _shipped_workflow(name: str) -> dict:
+    yaml = pytest.importorskip("yaml")
+    data = yaml.safe_load((SHIPPED_GITHUB / "workflows" / name).read_text(encoding="utf-8"))
+    data["on"] = data.pop(True, data.get("on"))  # PyYAML reads the bare key `on` as the boolean True
+    return data
+
+
+def test_shipped_check_workflow_is_fast_safe_and_queue_ready():
+    wf = _shipped_workflow("check.yml")
+    assert {"push", "pull_request", "merge_group"} <= set(wf["on"]), "merge_group lets the check run in a merge queue"
+    assert wf["permissions"] == {"contents": "read"}
+    group = wf["concurrency"]
+    assert "pull_request.number" in group["group"] and "github.ref" in group["group"]
+    assert "pull_request" in str(group["cancel-in-progress"]), "only superseded pull request runs may be cancelled"
+    assert {"check", "workflow-lint"} <= set(wf["jobs"]), "the job id `check` is the status a ruleset requires"
+    for name, job in wf["jobs"].items():
+        assert 0 < job["timeout-minutes"] <= 30, f"{name} needs a timeout so a hung step cannot burn the runner for 6 hours"
+        extra = {k: v for k, v in job.get("permissions", {}).items() if v not in ("read",)}
+        assert not extra, f"{name} must not ask for more than read: {extra}"
+        assert all(step.get("with", {}).get("persist-credentials") is False
+                   for step in job["steps"] if str(step.get("uses", "")).startswith("actions/checkout@")), name
+
+
+def test_shipped_workflow_lint_job_pins_both_linters():
+    text = (SHIPPED_GITHUB / "workflows" / "check.yml").read_text(encoding="utf-8")
+    job = _shipped_workflow("check.yml")["jobs"]["workflow-lint"]
+    zizmor = [s for s in job["steps"] if str(s.get("uses", "")).startswith("zizmorcore/zizmor-action@")]
+    assert len(zizmor) == 1 and re.fullmatch(r"zizmorcore/zizmor-action@[0-9a-f]{40}", zizmor[0]["uses"])
+    assert zizmor[0]["with"]["advanced-security"] is False, "the SARIF upload needs security-events: write and GHAS"
+    assert re.fullmatch(r"\d+\.\d+\.\d+", str(zizmor[0]["with"]["version"])), "pin the zizmor version too"
+    assert re.search(r"^\s*sha256=[0-9a-f]{64}\s*$", text, re.M), "the actionlint download is pinned by checksum"
+    assert "sha256sum -c" in text and re.search(r"^\s*version=\d+\.\d+\.\d+\s*$", text, re.M)
+    assert not re.search(r"releases/latest|@main|@master", text)
+
+
+def test_shipped_dependabot_waits_a_week_before_a_new_release_is_proposed():
+    yaml = pytest.importorskip("yaml")
+    data = yaml.safe_load((SHIPPED_GITHUB / "dependabot.yml").read_text(encoding="utf-8"))
+    for entry in data["updates"]:
+        assert entry["cooldown"]["default-days"] >= 7, entry["package-ecosystem"]
+
+
+@pytest.mark.skipif(not shutil.which("actionlint"), reason="actionlint not installed")
+def test_shipped_workflows_pass_actionlint():
+    r = subprocess.run(["actionlint", "-color=false", *map(str, sorted((SHIPPED_GITHUB / "workflows").glob("*.yml")))],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
+@pytest.mark.skipif(not shutil.which("zizmor"), reason="zizmor not installed")
+def test_shipped_github_files_pass_zizmor_offline():
+    r = subprocess.run(["zizmor", "--offline", "--no-progress", "--format=plain", str(SHIPPED_GITHUB)], capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
