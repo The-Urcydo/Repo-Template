@@ -2344,7 +2344,10 @@ class TemplateStatusTests(RepoTestCase):
     def test_source_shorthands_become_urls_and_local_paths_have_none(self) -> None:
         url = self.ts.source_url
         self.assertEqual(url("gh:The-Urcydo/Repo-Template"), "https://github.com/The-Urcydo/Repo-Template.git")
+        self.assertEqual(url("gh:The-Urcydo/Repo-Template.git"), "https://github.com/The-Urcydo/Repo-Template.git")
+        self.assertEqual(url("gh:The-Urcydo/Repo-Template/"), "https://github.com/The-Urcydo/Repo-Template.git")
         self.assertEqual(url("gl:grp/proj"), "https://gitlab.com/grp/proj.git")
+        self.assertEqual(url("gl:grp/proj.git"), "https://gitlab.com/grp/proj.git")
         self.assertEqual(url("https://github.com/a/b"), "https://github.com/a/b")
         self.assertEqual(url("git+https://example.com/a/b.git"), "https://example.com/a/b.git")
         self.assertEqual(url("git@github.com:a/b.git"), "git@github.com:a/b.git")

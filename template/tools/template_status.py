@@ -46,7 +46,10 @@ def source_url(src: str) -> Optional[str]:
     src = src.strip()
     for prefix, base in SHORTHANDS.items():
         if src.startswith(prefix):
-            return f"{base}{src[len(prefix):]}.git"
+            name = src[len(prefix):].rstrip("/")
+            if name.endswith(".git"):
+                name = name[:-4]  # Copier records `gh:owner/repo.git` verbatim; do not add a second .git
+            return f"{base}{name}.git"
     if src.startswith("git+"):
         src = src[4:]
     return src if REMOTE_RE.match(src) else None
