@@ -453,7 +453,8 @@ def _ruleset(name: str) -> dict:
     return json.loads((RULESETS / f"{name}.json").read_text(encoding="utf-8"))
 
 
-def test_shipped_rulesets_are_well_formed_importable_json():
+def test_shipped_rulesets_are_well_formed_json():
+    # Shape only: GitHub's import is the owner's dry run, not a test here.
     files = sorted(RULESETS.glob("*.json"))
     assert [f.stem for f in files] == ["protect-default-branch", "protect-release-tags"]
     for f in files:
@@ -477,7 +478,9 @@ def test_default_branch_ruleset_works_for_a_solo_owner_and_requires_the_ci_job()
     contexts = [c["context"] for c in rules["required_status_checks"]["required_status_checks"]]
     yaml = pytest.importorskip("yaml")
     jobs = yaml.safe_load((TEMPLATE / "template" / ".github" / "workflows" / "check.yml").read_text(encoding="utf-8"))["jobs"]
-    assert contexts == ["check"] and set(contexts) <= set(jobs), "a required status must be a job the shipped workflow runs"
+    # GitHub reports a job's `name` when set, otherwise its id, as the required status context.
+    assert contexts == ["check"] and contexts[0] in jobs
+    assert jobs[contexts[0]].get("name", contexts[0]) == contexts[0], "rename the context when the job display name changes"
 
 
 def test_release_tag_ruleset_makes_published_tags_permanent():
@@ -486,10 +489,13 @@ def test_release_tag_ruleset_makes_published_tags_permanent():
     assert {r["type"] for r in rs["rules"]} == {"update", "deletion", "non_fast_forward"}
 
 
-def test_github_module_owns_the_rulesets_and_the_how_to():
+def test_github_module_owns_the_rulesets_and_the_how_to(full):
     modules = json.loads((TEMPLATE / "template" / "tools" / "modules.json").read_text(encoding="utf-8"))
-    paths = modules["modules"]["github"]["paths"]
-    assert ".github/rulesets" in paths and HOW_TO in paths
+    github = modules["modules"]["github"]
+    assert ".github/rulesets" in github["paths"] and HOW_TO in github["paths"]
+    assert "ruleset" in github["removal_notes"].lower(), "cutting the module removes the rulesets too; say so"
+    repo_map = (full / "docs/dev/reference/repo-map.md").read_text(encoding="utf-8")
+    assert "rulesets" in repo_map.lower(), "the generated repo map must describe the module as it is now"
 
 
 def test_cutting_the_github_module_leaves_neither_rulesets_nor_how_to(full, tmp_path):
@@ -499,9 +505,13 @@ def test_cutting_the_github_module_leaves_neither_rulesets_nor_how_to(full, tmp_
     assert py(lean, "tools/check.py", "--strict").returncode == 0
 
 
-def test_the_how_to_names_every_setting_a_file_cannot_set_and_marks_what_is_unverified(full):
+def test_the_how_to_names_every_setting_a_file_cannot_set(full):
     text = (full / HOW_TO).read_text(encoding="utf-8")
+    lowered = text.lower()
     for topic in ("Import a ruleset", "secret scanning", "push protection", "private vulnerability reporting", "Dependabot",
-                  "code scanning", "Workflow permissions", "release immutability", "not verified"):
-        assert topic.lower() in text.lower(), topic
+                  "code scanning", "Workflow permissions", "release immutability"):
+        assert topic.lower() in lowered, topic
+    for fact in ("not enabled by default", "public repositories", "read repository contents and packages permissions",
+                 "merge commits", "scratch repository"):
+        assert fact in lowered, fact
     assert "protect-default-branch.json" in text and "protect-release-tags.json" in text
