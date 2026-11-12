@@ -2322,9 +2322,10 @@ class PreCommitHookTests(RepoTestCase):
         self.git("config", "core.hooksPath", ".githooks")
 
     def git(self, *args: str, **env: str) -> subprocess.CompletedProcess:
+        base = {k: v for k, v in os.environ.items() if k != "REPO_ROOT"}  # an outer REPO_ROOT would point the hook at another repo
         return subprocess.run(
             ["git", "-c", "user.email=t@t", "-c", "user.name=t", *args], cwd=self.repo, capture_output=True, text=True,
-            env={**os.environ, "PYTHON": sys.executable, **env}, timeout=120,
+            env={**base, "PYTHON": sys.executable, **env}, timeout=120,
         )
 
     def commit(self, *args: str, **env: str) -> subprocess.CompletedProcess:
