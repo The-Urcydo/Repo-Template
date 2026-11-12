@@ -306,7 +306,7 @@ def check_top_level_readmes(root: Path, rep: Report) -> None:
 
 CONFLICT_MAX_BYTES = 1_000_000  # bigger files are data or builds, not something a person merges by hand
 CONFLICT_OPEN, CONFLICT_CLOSE = "<" * 7, ">" * 7  # built here so this file never holds a marker itself
-FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
+FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 
 
 def _scannable_files(root: Path) -> list[Path]:
@@ -329,14 +329,15 @@ def _scannable_files(root: Path) -> list[Path]:
 def _conflict_line(lines: list[str], fenced_md: bool) -> int | None:
     """1-based line of the first unresolved conflict: an opening marker with a closing one after it."""
     start: int | None = None
-    fence = ""
+    fence = ""  # the opening fence run, e.g. "```"; empty outside a fence
     for n, line in enumerate(lines, 1):
         if fenced_md:
             m = FENCE_RE.match(line)
             if m:
+                marker, rest = m.group(1), m.group(2)
                 if not fence:
-                    fence = m.group(1)[0]
-                elif m.group(1)[0] == fence:
+                    fence = marker
+                elif marker[0] == fence[0] and len(marker) >= len(fence) and not rest.strip():
                     fence = ""
                 continue
             if fence:

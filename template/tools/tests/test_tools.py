@@ -217,6 +217,12 @@ class HealthTests(RepoTestCase):
         p.write_text(p.read_text() + "\n```\n" + self.conflicted() + "```\n")
         self.ok("check")
 
+    def test_a_shorter_fence_does_not_close_a_longer_markdown_fence(self) -> None:
+        p = self.repo / "docs" / "dev" / "reference" / "glossary.md"
+        # A doc may show a fenced example (```) inside a longer fence (`````); the markers are still code, not a conflict.
+        p.write_text(p.read_text() + "\n`````markdown\n```\n" + self.conflicted() + "```\n`````\n")
+        self.ok("check")
+
     def test_a_heading_underline_or_an_unclosed_marker_is_not_a_conflict(self) -> None:
         (self.repo / "notes.txt").write_text("Title\n" + self.MID + "\n\ntext\n", encoding="utf-8")
         (self.repo / "lone.txt").write_text(f"{self.START}\nnever closed\n", encoding="utf-8")
