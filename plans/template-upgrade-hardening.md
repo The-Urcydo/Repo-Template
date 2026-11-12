@@ -197,6 +197,8 @@ A-1, A-2, B, C, D, E, in that order of value. They are independent PRs (not stac
 
 - 2026-11-12, independent reviewer/merger session (not an author of #45-#47): reviewed R2-R4 against section 5 and their descriptions. Evidence: root tests 50 (#45), 51 (#46), 50 (#47) with governance; each test red without its change; actionlint 1.7.12 clean on all workflows; zizmor 1.32.0 `--offline` clean on #46 and the merged tree (the other branches showed only the Dependabot cooldown that #46 fixes); re-derived the zizmor-action `v0.8.1` SHA `45d7276c...` and the actionlint 1.7.12 linux tarball sha256 `8aca8db9...`; merge simulation #46 -> #45 -> #47 clean, 53 root tests pass. Owner (`NguyenLoc231`) approved the latest heads; merged with merge commits #46 `6639c61`, #45 `9b57ee9`, #47 `b1275cc`. #45's upgrade coverage still depends on #40; #47's `breaking` and `ignore-for-release` labels are still missing. #44 was out of scope and untouched.
 
+- 2026-11-12, post-merge CI on `main` `b1275cc`: `test` (Python 3.9 and 3.13), `workflow-lint` and CodeQL all green.
+
 ## 10. Next steps
 
 1. Builder: nothing left in the approved plan except batch F (issue forms, template `.github/release.yml`, real `SECURITY.md` default), which the plan marks "later". Do not start F without the owner's go. Check section 9 and the board before taking anything.
