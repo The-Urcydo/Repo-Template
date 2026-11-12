@@ -1,5 +1,6 @@
 # Keeps the SHA-pinned actions in .github/workflows/ and the dev tools in requirements-dev.txt current.
-# Actions: one grouped pull request a week.
+# Actions: one grouped pull request a week. Every ecosystem has a cooldown: a release younger than 7 days is
+# not proposed, which is when most hijacked releases get caught.
 # pip: requirements-dev.txt has `>=` floors and CI still runs Python 3.9. By default Dependabot raises a
 # floor to every new release even when the range already allows it, and the newest pytest and copier no
 # longer install on 3.9. `increase-if-necessary` leaves a floor alone unless the new version needs it.
@@ -9,6 +10,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       actions:
         patterns: ["*"]
@@ -17,6 +20,8 @@ updates:
     schedule:
       interval: weekly
     versioning-strategy: increase-if-necessary
+    cooldown:
+      default-days: 7
     groups:
       dev-tools:
         patterns: ["*"]
