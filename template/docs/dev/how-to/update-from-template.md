@@ -26,13 +26,15 @@ Before you start: Copier is installed (`pipx install copier` or `pip install cop
 
 ## Updating across a release that moved files
 
-A release that moves what you own ships a migration that Copier runs for you (ADR 0008, `docs/decisions/0008-ship-a-migration-and-an-upgrade-test-with-every-breaking-release.md`). It needs `--trust`, runs only when your project crosses that release, and prints one `migrate: old -> new` line per file. Read the release notes first: the tag message names the break.
+A release that moves what you own ships a migration that Copier runs for you (ADR 0008, `docs/decisions/0008-ship-a-migration-and-an-upgrade-test-with-every-breaking-release.md`). It needs `--trust`, runs only when your project crosses the release that carries the migration, and prints one `migrate: old -> new` line per file. Read the release notes first: the tag message names the break.
 
-From v0.2.0 to v0.3.0 the docs moved from `docs/{explanation,how-to,reference,tutorials}/` to `docs/dev/...`. The migration moves your own docs there with `git mv` and recomputes their relative links. What it cannot do:
+From v0.2.0 to v0.3.0 the docs moved from `docs/{explanation,how-to,reference,tutorials}/` to `docs/dev/...`. The migration moves your own docs there with `git mv` and recomputes their simple inline relative links. It ships in the first tag after v0.3.0, so a project already on v0.3.0 is repaired by the same update. What it cannot do:
 
 - **Your edit next to a line the template also changed** (for example the `README.md` link to this guide) still conflicts. Resolve it by hand; `check.py` finds the markers.
 - **An edit to a shipped doc at its old path** (say a row you added to `docs/reference/glossary.md`) is not carried to `docs/dev/reference/glossary.md`. Recover it from git: `git show HEAD:docs/reference/glossary.md`, then re-apply your lines.
 - **Links from files that stay put** (your own ADRs, `README.md`) to a moved doc are not rewritten. `check.py` reports each as `broken-link`; edit the path to add `dev/`.
+- **A link written with a title or as a reference definition** is left alone. `check.py` reports it if it broke; rewrite it by hand. Simple inline links are the supported form.
 - **A file already at the new path** is never overwritten: the old copy stays and the migration says so on stderr. Compare the two and delete one.
+- **Ignored files** (`.DS_Store`, editor swap files) stay in the old folder; delete them yourself. Commit your own docs before the update (step 1) so they are moved.
 
 Why Copier and what `--trust` is for: `docs/decisions/0004-deliver-with-copier-and-cuttable-modules.md`.
