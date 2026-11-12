@@ -16,6 +16,7 @@ import argparse
 import datetime as dt
 import json
 import re
+import subprocess
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -301,6 +302,70 @@ def check_top_level_readmes(root: Path, rep: Report) -> None:
                 rep.error("folder-readme", r, f"front matter is missing '{k}'")
         if fm.get("status") == "placeholder":
             rep.info("placeholder", r, "unfilled placeholder: fill it or delete the folder")
+
+
+CONFLICT_MAX_BYTES = 1_000_000  # bigger files are data or builds, not something a person merges by hand
+CONFLICT_OPEN, CONFLICT_CLOSE = "<" * 7, ">" * 7  # built here so this file never holds a marker itself
+FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
+
+
+def _scannable_files(root: Path) -> list[Path]:
+    """Files worth reading for markers. In a git repo: tracked plus untracked-but-not-ignored (so .gitignore applies)."""
+    if (root / ".git").exists():
+        try:
+            r = subprocess.run(
+                ["git", "-C", str(root), "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+                capture_output=True, timeout=30,
+            )
+        except (OSError, subprocess.SubprocessError):
+            r = None
+        if r is not None and r.returncode == 0:
+            names = sorted(n for n in r.stdout.decode("utf-8", "replace").split("\0") if n)
+            return [root / n for n in names if not any(p in SKIP_DIRS for p in Path(n).parts)]
+    return [p for p in sorted(root.rglob("*")) if not any(q in SKIP_DIRS for q in p.relative_to(root).parts)]
+
+
+def _conflict_line(lines: list[str], fenced_md: bool) -> int | None:
+    """1-based line of the first unresolved conflict: an opening marker with a closing one after it."""
+    start: int | None = None
+    fence = ""
+    for n, line in enumerate(lines, 1):
+        if fenced_md:
+            m = FENCE_RE.match(line)
+            if m:
+                if not fence:
+                    fence = m.group(1)[0]
+                elif m.group(1)[0] == fence:
+                    fence = ""
+                continue
+            if fence:
+                continue
+        if start is None:
+            if line.startswith(CONFLICT_OPEN) and (len(line) == 7 or line[7] in " \t"):
+                start = n
+        elif line.startswith(CONFLICT_CLOSE) and (len(line) == 7 or line[7] in " \t"):
+            return start
+    return None
+
+
+def check_conflict_markers(root: Path, rep: Report) -> None:
+    """An update or a merge can leave conflict markers behind: fail loudly instead of waiting for a human search."""
+    for p in _scannable_files(root):
+        try:
+            if not p.is_file() or p.is_symlink() or p.stat().st_size > CONFLICT_MAX_BYTES:
+                continue
+            raw = p.read_bytes()
+            if b"\0" in raw[:8192]:
+                continue
+            text = raw.decode("utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        if CONFLICT_OPEN not in text:  # cheap exit for nearly every file
+            continue
+        line = _conflict_line(text.splitlines(), p.suffix.lower() in (".md", ".markdown"))
+        if line:
+            rep.error("conflict-marker", f"{p.relative_to(root).as_posix()}:{line}",
+                      "unresolved merge conflict: resolve it and remove the conflict markers")
 
 
 def check_workspace_packages(root: Path, rep: Report) -> None:
@@ -590,6 +655,7 @@ def run_all(root: Path) -> Report:
     check_modules(root, rep)
     adapters_ok = check_adapters_config(root, rep)
     check_generated(root, rep, adapters_ok)
+    check_conflict_markers(root, rep)
     return rep
 
 

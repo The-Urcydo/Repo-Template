@@ -14,7 +14,7 @@ Before you start: Copier is installed (`pipx install copier` or `pip install cop
 
 1. Commit or stash all local changes: `git status` must be clean.
 2. Update: `copier update --trust`. Copier compares the template version you used with the latest tagged version and merges the difference. `--trust` lets it run the two sync tools as part of the update, which normally rebuild the generated files.
-3. Resolve conflicts. Copier leaves normal merge-conflict markers in files you also changed. Search for `<<<<<<<`, fix, and remove the markers.
+3. Resolve conflicts. Copier leaves normal merge-conflict markers in files you also changed. Fix each one and remove the markers; `python3 tools/check.py` reports every file that still has them (`conflict-marker`, with the line), so you do not need to search.
 4. Verify: `python3 tools/sync_indexes.py && python3 tools/sync_agents.py && python3 tools/check.py`. Always run this step after a template change that moves files: Copier's post-copy tasks can run before the final moves, so the generated indexes may be stale until you resync.
 5. Review the diff and commit.
 
