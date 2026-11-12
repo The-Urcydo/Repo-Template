@@ -44,14 +44,15 @@ _tasks:
 _migrations:
   # v0.3.0 moved docs/{explanation,how-to,reference,tutorials}/ to docs/dev/. Copier's merge moves the files the
   # template ships; this moves the project's own docs (before the merge) and then rebuilds the generated files,
-  # because `_tasks` run on the new tree before the project's own changes are applied.
-  - version: "v0.3.0"
+  # because `_tasks` run on the new tree before the project's own changes are applied. The gate is the first tag
+  # that ships this repair, not the broken tag: projects already on v0.3.0 must cross it too.
+  - version: "v0.3.1"
     when: '{{ _stage == "before" }}'
-    command: "{{ _copier_python }} {{ _copier_conf.src_path }}/migrations/docs_layout.py ."
-  - version: "v0.3.0"
-    command: "{{ _copier_python }} tools/sync_indexes.py"
-  - version: "v0.3.0"
-    command: "{{ _copier_python }} tools/sync_agents.py"
+    command: '"{{ _copier_python }}" "{{ _copier_conf.src_path }}/migrations/docs_layout.py" .'
+  - version: "v0.3.1"
+    command: '"{{ _copier_python }}" tools/sync_indexes.py'
+  - version: "v0.3.1"
+    command: '"{{ _copier_python }}" tools/sync_agents.py'
 
 _message_after_copy: |
   Created {{ project_name }} (profile: {{ profile }}, layout: {{ layout }}).
