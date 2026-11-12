@@ -236,6 +236,28 @@ class HealthTests(RepoTestCase):
         (self.repo / "app.txt").write_text(self.conflicted(), encoding="utf-8")
         self.assertIn("app.txt", self.fails("check"))
 
+    def test_a_real_git_merge_conflict_is_reported_once(self) -> None:
+        def git(*args: str) -> None:
+            subprocess.run(["git", "-c", "user.email=t@example.com", "-c", "user.name=t", *args],
+                           cwd=self.repo, check=True, capture_output=True)
+
+        git("init", "-q", "-b", "main")
+        (self.repo / "app.txt").write_text("one\n", encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "base")
+        git("checkout", "-q", "-b", "other")
+        (self.repo / "app.txt").write_text("theirs\n", encoding="utf-8")
+        git("commit", "-q", "-am", "theirs")
+        git("checkout", "-q", "main")
+        (self.repo / "app.txt").write_text("ours\n", encoding="utf-8")
+        git("commit", "-q", "-am", "ours")
+        merged = subprocess.run(["git", "-c", "user.email=t@example.com", "-c", "user.name=t", "merge", "other"],
+                                cwd=self.repo, capture_output=True)
+        self.assertNotEqual(merged.returncode, 0, "the merge should conflict")  # leaves markers and unmerged index entries
+        out = self.fails("check")
+        self.assertEqual(out.count("conflict-marker"), 1, out)  # one line per file, not one per index stage
+        self.assertIn("app.txt:1", out)
+
     def test_missing_summary_fails(self) -> None:
         p = self.repo / "docs" / "dev" / "reference" / "glossary.md"
         p.write_text(p.read_text().replace("summary:", "sumary:", 1))
