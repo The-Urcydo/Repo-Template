@@ -1915,6 +1915,28 @@ class ConditionalScribeTests(RepoTestCase):
                       "--next", "update docs and changelog")
         self.assertIn("owner: scribe", out)
 
+    def test_light_item_can_skip_the_scribe_when_its_line_says_none(self) -> None:
+        item = self.new_item("quick-rename", "--light")
+        path = self.repo / "work" / "items" / f"{item}.md"
+        text = path.read_text(encoding="utf-8")
+        placeholder = "Docs for the scribe: _none, behavior unchanged, or the docs to update and the CHANGELOG.md line._"
+        self.assertIn(placeholder, text)
+        text = text.replace(placeholder, "Docs for the scribe: none, behavior unchanged.")
+        review_placeholder = "_Reviewer's verdict and evidence go here (a light item has no separate review.md)._"
+        self.assertIn(review_placeholder, text)
+        text = text.replace(review_placeholder, "approve: criterion 1 passes; ran `python3 tools/check.py`.")
+        path.write_text(text, encoding="utf-8")
+        self.ok("transition", item, "planned", "--next", "builder: rename it", "--by", "planner")
+        self.ok("transition", item, "in-progress", "--next", "building", "--by", "builder")
+        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "python3 tools/check.py", "--by", "builder")
+        out = self.ok(
+            "transition", item, "verified", "--by", "reviewer", "--owner", "orchestrator",
+            "--evidence", "python3 tools/check.py", "--next", "Orchestrator: mark done; no docs or changelog change",
+        )
+        self.assertIn("owner: orchestrator", out)
+        self.ok("transition", item, "done", "--by", "orchestrator")
+        self.ok("check")
+
     def test_charters_protocols_and_the_skill_agree_on_the_docs_line_and_the_routing(self) -> None:
         def read(rel: str) -> str:
             return (self.repo / rel).read_text(encoding="utf-8")
@@ -1923,7 +1945,9 @@ class ConditionalScribeTests(RepoTestCase):
         for rel in (
             "agents/roles/builder/ROLE.md", "agents/roles/reviewer/ROLE.md", "agents/roles/scribe/ROLE.md",
             "agents/roles/orchestrator/ROLE.md", "agents/roles/reviewer/skills/verify-work/SKILL.md",
-            "agents/protocols/handoff.md", "agents/protocols/definition-of-done.md", "agents/README.md",
+            "agents/protocols/handoff.md", "agents/protocols/definition-of-done.md", "agents/protocols/review.md",
+            "agents/README.md", "work/_templates/review.md", "work/_templates/light-item.md",
+            "docs/dev/tutorials/first-work-item.md",
         ):
             self.assertIn(line, read(rel), rel)
         # the reviewer's charter and its skill say the same thing: skip with --owner, and a missing line means the scribe
@@ -1936,6 +1960,19 @@ class ConditionalScribeTests(RepoTestCase):
         self.assertIn("scribe", row)
         # the row must name the override itself: "hand to orchestrator" was already in it before this change
         self.assertIn("--owner orchestrator", row)
+        self.assertIn("and the diff agrees", row)
+        # the scribe's fallback and the review template must say the same thing as the charters
+        self.assertIn("when it needs none", read("agents/roles/scribe/ROLE.md"))
+        self.assertIn("skip this step", read("agents/roles/scribe/ROLE.md"))
+        self.assertNotIn("docs updated", read("agents/protocols/review.md"))
+        self.assertIn("unless this review routes", read("work/_templates/review.md"))
+        # a light item carries the line too, and the roles know it
+        self.assertIn("## Docs for the scribe", read("work/_templates/light-item.md"))
+        for rel in (
+            "agents/protocols/handoff.md", "agents/roles/builder/ROLE.md", "agents/roles/reviewer/ROLE.md",
+            "agents/roles/scribe/ROLE.md", "agents/roles/orchestrator/ROLE.md",
+        ):
+            self.assertIn("light item", read(rel), rel)
 
 
 class QueueTests(RepoTestCase):

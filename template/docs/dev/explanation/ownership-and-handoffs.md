@@ -17,7 +17,7 @@ When several agents run at once, the damage comes from overlap: two agents rewri
 
 If you need a change in a path you do not own, write it in the handoff `next_action` for the owner. Do not make the change yourself.
 
-`handoff.md` is the exception to one writer per path: whoever holds the item keeps it current, because the memory must be writable by the role that has the context. To change something you do not own, name the owner and the change in the handoff, or give the owner a light item (see `agents/protocols/handoff.md`). The root `AGENTS.md` has no role owner: it belongs to the human.
+`handoff.md` is the exception to one writer per path: whoever holds the item keeps it current, because the memory must be writable by the role that has the context. To change something you do not own, name the owner and the change in the handoff, or give the owner a light item (see `agents/protocols/handoff.md`). One line is reserved: the builder's `Docs for the scribe:` line stays in place, and later roles route on it without rewriting it. The root `AGENTS.md` has no role owner: it belongs to the human.
 
 ## Independent review
 

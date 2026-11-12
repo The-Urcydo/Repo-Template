@@ -53,7 +53,7 @@ Body sections: **Current state** (one paragraph), **Decisions made** (so nobody 
 
 ### Docs for the scribe
 
-Before an item goes to `in-review`, the builder ends **Current state** with one line, every time:
+Before an item goes to `in-review`, the builder writes one line, every time: at the end of **Current state** for a full item, or in the light item's `## Docs for the scribe` section.
 
 - `Docs for the scribe: none, behavior unchanged.` when no behavior changed and no doc describes what was touched;
 - otherwise `Docs for the scribe: <the docs to update, and the CHANGELOG.md line>`.
@@ -62,7 +62,7 @@ The reviewer routes on that line when it approves. A `none` that the diff suppor
 
 ## Who writes what
 
-`handoff.md` is the one item file every role edits: whoever holds the item keeps its body current by hand and changes its front matter through `transition.py`. Every other item file belongs to the roles that list it in `item_files`.
+`handoff.md` is the one item file every role edits: whoever holds the item keeps its body current by hand and changes its front matter through `transition.py`. For a light item, the single file is the handoff. Every other item file belongs to the roles that list it in `item_files`.
 
 To change only the next step, owner or evidence without moving the status: `python3 tools/transition.py <id> --next "..." [--owner ROLE] [--evidence "..."]` (or pass the current status name).
 
@@ -72,10 +72,10 @@ Need a file you do not own changed? If it belongs to the same work, name the own
 
 ## Light items
 
-A task under about an hour can be a single file, `work/items/<id>.md`, with the same front matter and a short body. It skips `review.md` but not the evidence rule. Create one with `python3 tools/new_item.py <slug> --light`.
+A task under about an hour can be a single file, `work/items/<id>.md`, with the same front matter and a short body. It skips `review.md` but not the evidence rule. Create one with `python3 tools/new_item.py <slug> --light`. The builder writes the `Docs for the scribe:` line in its `## Docs for the scribe` section; the reviewer routes on it and writes the verdict in `## Review`.
 
 ## Starting a session
 
 1. Read `AGENTS.md`, then find your item on `work/ACTIVE.md`.
-2. Read its `handoff.md`. Respect `do_not`. If `status` is `stale`, re-verify before trusting it.
+2. Read its `handoff.md` (a light item's single file). Respect `do_not`. If `status` is `stale`, re-verify before trusting it.
 3. Do the `next_action`. Update the handoff as you go; move the status when done.

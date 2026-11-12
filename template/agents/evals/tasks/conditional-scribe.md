@@ -34,7 +34,7 @@ Pass if the docs-free item is `verified` by `reviewer` (not the builder), owned 
 
 The grader reads repository state. It checks the routing, not the reviewer's judgment behind it.
 
-- Both seeded claims are true. Whether a reviewer catches a false claim (the builder says `none` but the diff changes behavior or a described file) is not graded: check it by hand on a transcript and record it in `results/README.md`.
+- Both seeded claims are true. The sandbox has no code diff: the two claims are seeded as given, so the reviewer's diff check is a no-op in this fixture. A real diff and a false claim are for the manual transcript check in part G, recorded in `results/README.md`.
 - A missing `Docs for the scribe` line is not seeded either. The charters say a missing line means the scribe runs; that is read from the charters, not graded.
 - Any wording of the next step passes. The routing is the owner role, not a phrase.
 - That the orchestrator then marks the skipped item `done` is not graded here (the task runs the reviewer only).
