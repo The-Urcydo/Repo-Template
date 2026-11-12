@@ -436,3 +436,16 @@ def test_cursor_and_copilot_adapters_ship_disabled(full):
     assert not (full / ".cursor").exists()
     assert not (full / ".github" / "copilot-instructions.md").exists()
     assert not (full / ".gemini").exists()
+
+
+@pytest.mark.parametrize("profile,layout", [("lean", "minimal"), ("full", "workspace")])
+def test_pre_commit_hook_ships_in_every_profile_executable_and_never_switched_on(tmp_path, profile, layout):
+    p = generate(tmp_path / "p", profile=profile, layout=layout)
+    hook = p / ".githooks" / "pre-commit"
+    assert hook.is_file() and os.access(hook, os.X_OK), "the hook must ship with its executable bit"
+    assert hook.read_text().startswith("#!/bin/sh\n")
+    assert "hooks:\n    git config core.hooksPath .githooks" in (p / "justfile").read_text()
+    git(p, "init", "-q")
+    r = subprocess.run(["git", "-C", str(p), "config", "--local", "--get", "core.hooksPath"], capture_output=True, text=True)
+    assert r.stdout.strip() == "", "the template must not turn the hook on by itself"
+    assert py(p, "tools/check.py", "--strict").returncode == 0

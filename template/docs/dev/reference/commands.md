@@ -25,6 +25,10 @@ All tools are `python3 tools/<name>.py`, standard library only. Every tool suppo
 | `remove_module.py [name] [--apply]` | module paths, `.copier-answers.yml` | Without a name lists modules; without `--apply` is a dry run |
 | `eval_harness.py [--list] [--verify-fixtures] [--task ID] [--cmd "..."]` | temp sandboxes | Seeds throwaway sandboxes for golden tasks in `agents/evals/tasks/`, runs reference or external agent commands, and grades post-conditions. A task whose front matter has `needs_role: <role>` is listed only while `agents/roles/<role>/` exists |
 
+## Git hook
+
+`.githooks/pre-commit` runs `sync_indexes.py --check`, `sync_agents.py --check` and `check.py` and blocks the commit when one fails, printing the fix. It is off until you run `just hooks` (`git config core.hooksPath .githooks`); the setting is per clone and shared by its worktrees. `PYTHON=<interpreter>` picks another Python; with none found the hook says so and lets the commit through. `git commit --no-verify` skips it. CI runs the same checks.
+
 Tools that create or move things also regenerate the indexes, so `docs/INDEX.md`, `work/ACTIVE.md` and `agents/ROSTER.md` may change as a side effect.
 
 ## Check codes
