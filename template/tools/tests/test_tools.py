@@ -194,6 +194,76 @@ class HealthTests(RepoTestCase):
         p.write_text(p.read_text() + "\nSee [nowhere](does-not-exist.md).\n")
         self.assertIn("broken-link", self.fails("check"))
 
+    # An unresolved merge conflict (a `copier update`, an agent merge) must fail the check, not wait for a human search.
+    # The markers are built here, so this file never has one at the start of a line.
+    START, MID, END = "<" * 7 + " ours", "=" * 7, ">" * 7 + " theirs"
+
+    def conflicted(self) -> str:
+        return f"keep\n{self.START}\nours\n{self.MID}\ntheirs\n{self.END}\nafter\n"
+
+    def test_unresolved_conflict_fails_with_path_and_line(self) -> None:
+        (self.repo / "config.yml").write_text(self.conflicted(), encoding="utf-8")
+        out = self.fails("check")
+        self.assertIn("conflict-marker", out)
+        self.assertIn("config.yml:2", out)
+
+    def test_unresolved_conflict_in_a_doc_fails(self) -> None:
+        p = self.repo / "docs" / "dev" / "reference" / "glossary.md"
+        p.write_text(p.read_text() + "\n" + self.conflicted())
+        self.assertIn("conflict-marker", self.fails("check"))
+
+    def test_conflict_markers_in_a_fenced_markdown_example_pass(self) -> None:
+        p = self.repo / "docs" / "dev" / "reference" / "glossary.md"
+        p.write_text(p.read_text() + "\n```\n" + self.conflicted() + "```\n")
+        self.ok("check")
+
+    def test_a_shorter_fence_does_not_close_a_longer_markdown_fence(self) -> None:
+        p = self.repo / "docs" / "dev" / "reference" / "glossary.md"
+        # A doc may show a fenced example (```) inside a longer fence (`````); the markers are still code, not a conflict.
+        p.write_text(p.read_text() + "\n`````markdown\n```\n" + self.conflicted() + "```\n`````\n")
+        self.ok("check")
+
+    def test_a_heading_underline_or_an_unclosed_marker_is_not_a_conflict(self) -> None:
+        (self.repo / "notes.txt").write_text("Title\n" + self.MID + "\n\ntext\n", encoding="utf-8")
+        (self.repo / "lone.txt").write_text(f"{self.START}\nnever closed\n", encoding="utf-8")
+        self.ok("check")
+
+    def test_binary_and_oversized_files_are_not_scanned(self) -> None:
+        (self.repo / "blob.bin").write_bytes(b"\0" + self.conflicted().encode())
+        (self.repo / "big.txt").write_text(self.conflicted() + "x" * 1_100_000, encoding="utf-8")
+        self.ok("check")
+
+    def test_git_ignored_folders_are_not_scanned(self) -> None:
+        subprocess.run(["git", "init", "-q"], cwd=self.repo, check=True)
+        ignore = self.repo / ".gitignore"
+        ignore.write_text(ignore.read_text(encoding="utf-8") + "\nbuild-output.txt\n", encoding="utf-8")
+        (self.repo / "build-output.txt").write_text(self.conflicted(), encoding="utf-8")
+        self.ok("check")  # ignored by git, so never read
+        (self.repo / "app.txt").write_text(self.conflicted(), encoding="utf-8")
+        self.assertIn("app.txt", self.fails("check"))
+
+    def test_a_real_git_merge_conflict_is_reported_once(self) -> None:
+        def git(*args: str) -> None:
+            subprocess.run(["git", "-c", "user.email=t@example.com", "-c", "user.name=t", *args],
+                           cwd=self.repo, check=True, capture_output=True)
+
+        git("init", "-q", "-b", "main")
+        (self.repo / "app.txt").write_text("one\n", encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "base")
+        git("checkout", "-q", "-b", "other")
+        (self.repo / "app.txt").write_text("theirs\n", encoding="utf-8")
+        git("commit", "-q", "-am", "theirs")
+        git("checkout", "-q", "main")
+        (self.repo / "app.txt").write_text("ours\n", encoding="utf-8")
+        git("commit", "-q", "-am", "ours")
+        merged = subprocess.run(["git", "-c", "user.email=t@example.com", "-c", "user.name=t", "merge", "other"],
+                                cwd=self.repo, capture_output=True)
+        self.assertNotEqual(merged.returncode, 0, "the merge should conflict")  # leaves markers and unmerged index entries
+        out = self.fails("check")
+        self.assertEqual(out.count("conflict-marker"), 1, out)  # one line per file, not one per index stage
+        self.assertIn("app.txt:1", out)
+
     def test_missing_summary_fails(self) -> None:
         p = self.repo / "docs" / "dev" / "reference" / "glossary.md"
         p.write_text(p.read_text().replace("summary:", "sumary:", 1))
@@ -2308,6 +2378,65 @@ class AdapterTests(RepoTestCase):
         out = self.fails("check")
         self.assertIn("use_when", out)
         self.assertNotIn("Traceback", out)
+
+
+@unittest.skipUnless(shutil.which("git") and shutil.which("sh"), "needs git and sh")
+class PreCommitHookTests(RepoTestCase):
+    """The optional hook in .githooks/: the repo health check before every commit, never turned on by itself."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.git("init", "-q")
+        self.git("add", "-A")
+        self.git("commit", "-qm", "baseline", "--no-verify")  # the baseline predates the hook
+        self.git("config", "core.hooksPath", ".githooks")
+
+    def git(self, *args: str, **env: str) -> subprocess.CompletedProcess:
+        base = {k: v for k, v in os.environ.items() if k != "REPO_ROOT"}  # an outer REPO_ROOT would point the hook at another repo
+        return subprocess.run(
+            ["git", "-c", "user.email=t@t", "-c", "user.name=t", *args], cwd=self.repo, capture_output=True, text=True,
+            env={**base, "PYTHON": sys.executable, **env}, timeout=120,
+        )
+
+    def commit(self, *args: str, **env: str) -> subprocess.CompletedProcess:
+        (self.repo / "notes.txt").write_text("a change\n", encoding="utf-8")
+        self.git("add", "-A")
+        return self.git("commit", "-qm", "change", *args, **env)
+
+    def test_hook_is_a_posix_shell_script_and_executable(self) -> None:
+        hook = self.repo / ".githooks" / "pre-commit"
+        self.assertTrue(hook.read_text(encoding="utf-8").startswith("#!/bin/sh\n"))
+        self.assertTrue(os.access(hook, os.X_OK), "the hook must keep its executable bit")
+
+    def test_healthy_repo_commits(self) -> None:
+        r = self.commit()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_drifted_generated_file_blocks_the_commit_and_names_the_fix(self) -> None:
+        head = self.git("rev-parse", "HEAD").stdout
+        index = self.repo / "docs" / "INDEX.md"
+        index.write_text(index.read_text(encoding="utf-8") + "\nedited by hand\n", encoding="utf-8")
+        r = self.commit()
+        self.assertNotEqual(r.returncode, 0, "a drifted generated file must block the commit")
+        self.assertIn("generated-drift", r.stdout + r.stderr)
+        self.assertIn("tools/sync_indexes.py", r.stdout + r.stderr)
+        self.assertEqual(self.git("rev-parse", "HEAD").stdout, head, "nothing may be committed")
+        self.ok("sync_indexes")  # the printed fix works, and then the commit goes through
+        self.assertEqual(self.commit().returncode, 0)
+
+    def test_no_verify_skips_the_hook(self) -> None:
+        index = self.repo / "docs" / "INDEX.md"
+        index.write_text(index.read_text(encoding="utf-8") + "\nedited by hand\n", encoding="utf-8")
+        self.assertEqual(self.commit("--no-verify").returncode, 0)
+
+    def test_missing_python_skips_with_a_note_instead_of_blocking(self) -> None:
+        r = self.commit(PYTHON="definitely-not-a-python")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("skipping", r.stdout + r.stderr)
+
+    def test_just_hooks_recipe_turns_it_on(self) -> None:
+        recipe = (self.repo / "justfile").read_text(encoding="utf-8")
+        self.assertIn("hooks:\n    git config core.hooksPath .githooks", recipe)
 
 
 if __name__ == "__main__":

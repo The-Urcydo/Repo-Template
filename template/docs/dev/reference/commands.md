@@ -25,6 +25,10 @@ All tools are `python3 tools/<name>.py`, standard library only. Every tool suppo
 | `remove_module.py [name] [--apply]` | module paths, `.copier-answers.yml` | Without a name lists modules; without `--apply` is a dry run |
 | `eval_harness.py [--list] [--verify-fixtures] [--task ID] [--cmd "..."]` | temp sandboxes | Seeds throwaway sandboxes for golden tasks in `agents/evals/tasks/`, runs reference or external agent commands, and grades post-conditions. A task whose front matter has `needs_role: <role>` is listed only while `agents/roles/<role>/` exists |
 
+## Git hook
+
+`.githooks/pre-commit` runs `sync_indexes.py --check`, `sync_agents.py --check` and `check.py` and blocks the commit when one fails, printing the fix. It is off until you run `just hooks` (`git config core.hooksPath .githooks`); the setting is per clone and shared by its worktrees. `PYTHON=<interpreter>` picks another Python; with none found the hook says so and lets the commit through. `git commit --no-verify` skips it. With the `github` module, CI is the gate.
+
 Tools that create or move things also regenerate the indexes, so `docs/INDEX.md`, `work/ACTIVE.md` and `agents/ROSTER.md` may change as a side effect.
 
 ## Check codes
@@ -44,6 +48,7 @@ Tools that create or move things also regenerate the indexes, so `docs/INDEX.md`
 | `item` `item-id` `handoff` `self-review` | error | A work item breaks the handoff rules, or `verified_by` matches the builder (`built_by`) |
 | `human-queue` | error / warn | Malformed question (error), or any open question waiting more than 7 days (warn). Only a question that may default can be answered with its `if_no_answer`; an irreversible decision or an ambiguous directive stays open until the human answers |
 | `generated-drift` `adapter-drift` | error | A generated file differs from its source: run the sync tools |
+| `conflict-marker` | error | A file still holds an unresolved merge conflict (an opening `<<<<<<<` line followed by a closing `>>>>>>>` line), usually left by `copier update` or a merge. Resolve it and remove the markers. Fenced code in Markdown, binary files, files over 1 MB and git-ignored files are not read |
 | `module-partial` | warn | A module is partly present |
 | `module-requires` | error | A module requires another module that is not installed |
 | `adapters` | error | `agents/adapters/targets.json` is not valid JSON |

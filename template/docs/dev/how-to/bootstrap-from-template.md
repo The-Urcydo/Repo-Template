@@ -26,6 +26,7 @@ Before you start: the repo was generated with `copier copy --trust` and you are 
 8. When the first code lands, fill in the code-folder READMEs your layout generated (`docs/dev/reference/repo-map.md` lists them) and set their `status` to `active`. With the `minimal` layout there are none: give every folder you add a `README.md` with `summary` and `owner_role`.
 9. Regenerate and verify: `python3 tools/sync_indexes.py && python3 tools/sync_agents.py && python3 tools/check.py`.
 10. Commit. From now on CI (if you kept the `github` module) runs `check.py --strict`.
+11. Optional: turn on the pre-commit health check with `just hooks` (or `git config core.hooksPath .githooks`). It runs `check.py` and both sync checks in about 0.3 s before each commit, works in every worktree of the clone, and `git commit --no-verify` skips it once.
 
 ## If something goes wrong
 
