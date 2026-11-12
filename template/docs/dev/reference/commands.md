@@ -3,7 +3,7 @@ title: Command reference
 type: reference
 status: active
 summary: Every tool in tools/ with its arguments, what it changes, and its exit behavior.
-related_code: [tools/check.py, tools/new_item.py, tools/transition.py, tools/item_file.py, tools/archive_item.py, tools/new_adr.py, tools/new_doc.py, tools/question.py, tools/remove_module.py, tools/sync_indexes.py, tools/sync_agents.py, tools/worktree.py, tools/eval_harness.py]
+related_code: [tools/check.py, tools/new_item.py, tools/transition.py, tools/item_file.py, tools/archive_item.py, tools/new_adr.py, tools/new_doc.py, tools/question.py, tools/remove_module.py, tools/template_status.py, tools/sync_indexes.py, tools/sync_agents.py, tools/worktree.py, tools/eval_harness.py]
 ---
 # Command reference
 
@@ -22,6 +22,7 @@ All tools are `python3 tools/<name>.py`, standard library only. Every tool suppo
 | `new_adr.py "Title" [--status proposed\|accepted] [--supersedes NNNN] [--decider NAME]` | `docs/decisions/` | Number allocated under a lock; `--supersedes` accepts `3`, `0003`, or `ADR-0003` |
 | `new_doc.py <type> "Title" [--summary S] [--audience dev\|user]` | `docs/` | Types: `tutorial how-to reference explanation runbook postmortem` (last two need the `operations` module). The first four go to `docs/<audience>/<type folder>/`, default audience `dev`; `--audience` is refused for the last two |
 | `question.py ask ...` / `answer Q-0001 "text"` / `list` | `work/HUMAN.md` | `ask` needs `--asked-by` (a known role) `--recommended --if-no-answer --cost`; optional `--options --item` |
+| `template_status.py [--check]` | nothing | Reads `.copier-answers.yml` and asks the template's git remote for its newest `vX.Y.Z` tag. Prints one line (`up to date`, `behind: ...`, or `unknown: ...`); exits 0 unless `--check` and behind. A local, private or unreachable source is `unknown`, never an error |
 | `remove_module.py [name] [--apply]` | module paths, `.copier-answers.yml` | Without a name lists modules; without `--apply` is a dry run |
 | `eval_harness.py [--list] [--verify-fixtures] [--task ID] [--cmd "..."]` | temp sandboxes | Seeds throwaway sandboxes for golden tasks in `agents/evals/tasks/`, runs reference or external agent commands, and grades post-conditions. A task whose front matter has `needs_role: <role>` is listed only while `agents/roles/<role>/` exists |
 

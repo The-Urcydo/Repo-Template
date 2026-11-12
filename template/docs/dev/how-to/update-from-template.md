@@ -12,6 +12,7 @@ Before you start: Copier is installed (`pipx install copier` or `pip install cop
 
 ## Steps
 
+0. Optional: `python3 tools/template_status.py` says whether a newer release exists. With the `github` module a weekly workflow runs the same check and keeps at most one open issue when there is one; it never opens a pull request.
 1. Commit or stash all local changes: `git status` must be clean.
 2. Update: `copier update --trust`. Copier compares the template version you used with the latest tagged version and merges the difference. `--trust` lets it run the two sync tools as part of the update, which normally rebuild the generated files.
 3. Resolve conflicts. Copier leaves normal merge-conflict markers in files you also changed. Fix each one and remove the markers; `python3 tools/check.py` reports every file that still has them (`conflict-marker`, with the line), so you do not need to search.

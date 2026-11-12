@@ -2380,6 +2380,92 @@ class AdapterTests(RepoTestCase):
         self.assertNotIn("Traceback", out)
 
 
+class TemplateStatusTests(RepoTestCase):
+    """tools/template_status.py: is a newer template release available? No network is used: the 'remote' is a local git repo."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        import template_status
+        self.ts = template_status
+        self.upstream = Path(self._tmp.name) / "upstream"
+        self.upstream.mkdir()
+        self.git_in(self.upstream, "init", "-q")
+        (self.upstream / "f.txt").write_text("x", encoding="utf-8")
+        self.git_in(self.upstream, "add", "-A")
+        self.git_in(self.upstream, "commit", "-qm", "c1")
+        for tag in ("v0.1.0", "v0.2.0", "v0.10.0", "v1.0.0-rc1", "release-9", "v0.2"):
+            self.git_in(self.upstream, "tag", tag)
+
+    def git_in(self, cwd: Path, *args: str) -> None:
+        r = subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t", *args], cwd=cwd, capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+    def answers(self, src: str, commit: str) -> None:
+        (self.repo / ".copier-answers.yml").write_text(
+            f"# Changes here will be overwritten by Copier\n_commit: {commit}\n_src_path: {src}\nproject_name: X\n", encoding="utf-8")
+
+    def status(self, *args: str) -> subprocess.CompletedProcess:
+        return run(self.repo, "template_status", *args)
+
+    def test_parses_the_answers_file_and_ignores_comments_and_quotes(self) -> None:
+        got = self.ts.parse_answers("# c\n_commit: 'v0.3.0'\n_src_path: \"gh:a/b\"\nname: A: B\nlist:\n  - x\n")
+        self.assertEqual((got["_commit"], got["_src_path"], got["name"]), ("v0.3.0", "gh:a/b", "A: B"))
+
+    def test_source_shorthands_become_urls_and_local_paths_have_none(self) -> None:
+        url = self.ts.source_url
+        self.assertEqual(url("gh:The-Urcydo/Repo-Template"), "https://github.com/The-Urcydo/Repo-Template.git")
+        self.assertEqual(url("gh:The-Urcydo/Repo-Template.git"), "https://github.com/The-Urcydo/Repo-Template.git")
+        self.assertEqual(url("gh:The-Urcydo/Repo-Template/"), "https://github.com/The-Urcydo/Repo-Template.git")
+        self.assertEqual(url("gl:grp/proj"), "https://gitlab.com/grp/proj.git")
+        self.assertEqual(url("gl:grp/proj.git"), "https://gitlab.com/grp/proj.git")
+        self.assertEqual(url("https://github.com/a/b"), "https://github.com/a/b")
+        self.assertEqual(url("git+https://example.com/a/b.git"), "https://example.com/a/b.git")
+        self.assertEqual(url("git@github.com:a/b.git"), "git@github.com:a/b.git")
+        for local in (".", "/srv/template", "../tpl", "~/tpl", "C:\\tpl"):
+            self.assertIsNone(url(local), local)
+
+    def test_only_plain_release_tags_count_and_they_compare_as_numbers(self) -> None:
+        self.assertEqual(self.ts.latest_release(["v0.2.0", "v0.10.0", "v0.9.9", "v1.0.0-rc1", "v0.2", "x"]), "v0.10.0")
+        self.assertIsNone(self.ts.latest_release(["v1.0.0-rc1", "nightly"]))
+        self.assertEqual(self.ts.release_of("v0.3.0-39-ge31e9ee"), "v0.3.0")
+        self.assertIsNone(self.ts.release_of("e31e9ee"))
+
+    def test_behind_prints_the_fix_and_only_check_fails(self) -> None:
+        self.answers("file://" + str(self.upstream), "v0.1.0")
+        r = self.status()
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("behind: v0.10.0 available", r.stdout)
+        self.assertIn("v0.1.0", r.stdout)
+        self.assertIn("copier update --trust", r.stdout)
+        self.assertEqual(self.status("--check").returncode, 1)
+
+    def test_up_to_date_including_a_build_ahead_of_its_tag(self) -> None:
+        for commit in ("v0.10.0", "v0.10.0-4-gabc1234"):
+            self.answers("file://" + str(self.upstream), commit)
+            r = self.status("--check")
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertIn("up to date", r.stdout)
+
+    def test_unreachable_local_unknown_and_missing_sources_never_fail(self) -> None:
+        cases = {
+            "unreachable": ("file:///definitely/not/here", "v0.1.0"),
+            "local": (str(self.upstream), "v0.1.0"),
+            "no release": ("file://" + str(self.upstream), "e31e9ee"),
+        }
+        for name, (src, commit) in cases.items():
+            self.answers(src, commit)
+            r = self.status("--check")
+            self.assertEqual(r.returncode, 0, f"{name}: {r.stdout}{r.stderr}")
+            self.assertIn("unknown", r.stdout, name)
+        (self.repo / ".copier-answers.yml").unlink()
+        r = self.status("--check")
+        self.assertEqual(r.returncode, 0)
+        self.assertIn("not generated from a template", r.stdout)
+
+    def test_just_recipe_exists(self) -> None:
+        self.assertIn("template-status:\n    python3 tools/template_status.py", (self.repo / "justfile").read_text(encoding="utf-8"))
+
+
 @unittest.skipUnless(shutil.which("git") and shutil.which("sh"), "needs git and sh")
 class PreCommitHookTests(RepoTestCase):
     """The optional hook in .githooks/: the repo health check before every commit, never turned on by itself."""
