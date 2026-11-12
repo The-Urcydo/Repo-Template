@@ -131,7 +131,8 @@ def test_no_unrendered_template_syntax_leaks(full):
         if not p.is_file() or ".git" in p.parts or p.name == "justfile" or p.suffix == ".pyc":
             continue
         text = p.read_text(encoding="utf-8", errors="ignore")
-        if "{{" in text or "{%" in text:
+        # `${{ ... }}` is a GitHub Actions expression, not a Jinja leak (Copier renders only *.jinja files)
+        if re.search(r"(?<!\$)\{\{", text) or "{%" in text:
             bad.append(p.relative_to(full).as_posix())
         assert ".jinja" not in p.name, p
         if p.suffix in (".md", ".json", ".yml") and "_templates" not in p.parts:
