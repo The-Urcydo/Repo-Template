@@ -131,7 +131,8 @@ def test_no_unrendered_template_syntax_leaks(full):
         if not p.is_file() or ".git" in p.parts or p.name == "justfile" or p.suffix == ".pyc":
             continue
         text = p.read_text(encoding="utf-8", errors="ignore")
-        if "{{" in text or "{%" in text:
+        # `${{ ... }}` is a GitHub Actions expression, not a Jinja leak (Copier renders only *.jinja files)
+        if re.search(r"(?<!\$)\{\{", text) or "{%" in text:
             bad.append(p.relative_to(full).as_posix())
         assert ".jinja" not in p.name, p
         if p.suffix in (".md", ".json", ".yml") and "_templates" not in p.parts:
@@ -436,3 +437,32 @@ def test_cursor_and_copilot_adapters_ship_disabled(full):
     assert not (full / ".cursor").exists()
     assert not (full / ".github" / "copilot-instructions.md").exists()
     assert not (full / ".gemini").exists()
+
+
+# --- template update notifier (tools/template_status.py + .github/workflows/template-update.yml) ---------------------
+def test_template_update_workflow_is_weekly_and_can_only_open_an_issue():
+    yaml = pytest.importorskip("yaml")
+    path = TEMPLATE / "template" / ".github" / "workflows" / "template-update.yml"
+    text = path.read_text(encoding="utf-8")
+    wf = yaml.safe_load(text)
+    triggers = wf.get("on", wf.get(True))  # PyYAML reads the bare key `on` as True
+    assert set(triggers) == {"schedule", "workflow_dispatch"}, "no push or pull_request trigger: it must not run on code"
+    assert re.fullmatch(r"\d+ \d+ \* \* \d", triggers["schedule"][0]["cron"]), "weekly, at an off-peak minute"
+    assert wf["permissions"] == {"contents": "read"}
+    (job,) = wf["jobs"].values()
+    assert job["permissions"] == {"contents": "read", "issues": "write"}, "an issue is the only write it may do"
+    assert 0 < job["timeout-minutes"] <= 15
+    assert not re.search(r"gh pr |git push|git commit|pull-requests:|copier update", text), "the notifier opens an issue, never a PR (decision 6)"
+    assert "python3 tools/template_status.py --check" in text and "gh issue create" in text
+    assert "github.event" not in text, "no event data reaches the shell"
+    assert ".github/workflows/template-update.yml" in json.loads(
+        (TEMPLATE / "template" / "tools" / "modules.json").read_text(encoding="utf-8"))["modules"]["github"]["paths"]
+
+
+def test_template_status_is_documented_where_every_tool_is(full):
+    assert "template_status.py" in (full / "tools" / "README.md").read_text(encoding="utf-8")
+    commands = (full / "docs/dev/reference/commands.md").read_text(encoding="utf-8")
+    assert "`template_status.py" in commands and "tools/template_status.py" in commands.split("related_code:")[1].split("\n")[0]
+    assert "template_status.py" in (full / "docs/dev/how-to/update-from-template.md").read_text(encoding="utf-8")
+    r = py(full, "tools/template_status.py", "--check")  # a fresh local-source project: nothing to compare, never an error
+    assert r.returncode == 0, r.stdout + r.stderr
