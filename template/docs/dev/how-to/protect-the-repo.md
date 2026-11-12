@@ -26,7 +26,7 @@ Before you start: the repo is on GitHub, you are an admin of it, and you kept th
 
 Neither ruleset names a bypass actor: nobody can skip the rules, you included. To cut a release tag you do not need a bypass. To fix a wrong tag, set the ruleset to **Disabled**, fix it, set it back to **Active**.
 
-Why 0 approvals: a repository with one human cannot approve its own pull request, so a required approval would block every merge. The required `check` is the gate, plus the review your process asks for (`docs/dev/how-to/update-from-template.md` and the review rules in `AGENTS.md`).
+Why 0 approvals: a repository with one human cannot approve its own pull request, so a required approval would block every merge. The required `check` is the gate, plus whatever review your process asks for (see `AGENTS.md`).
 
 ### A stricter variant
 
@@ -46,7 +46,7 @@ Do each once per repository (or once per organization, where GitHub offers that)
 | Setting | Where | Status |
 |---|---|---|
 | Secret scanning and push protection | **Settings**, **Advanced Security** (GitHub's Enterprise Server 3.20 documentation: enable "Secret Protection" if shown, then "Secret scanning", then push protection) | Verified against the Enterprise Server 3.20 docs; labels on github.com may differ |
-| Private vulnerability reporting | **Settings**, under security | **Not verified:** GitHub's own sources give two different paths. Search the settings for "private vulnerability reporting". It is what the security policy tells reporters to use |
+| Private vulnerability reporting | **Settings**, under security | **Not verified:** GitHub's own sources give two different paths. Search the settings for "private vulnerability reporting" |
 | Dependabot alerts and security updates | **Settings**, **Advanced Security**: alerts are on for public repos; click **Enable** next to "Dependabot security updates" | Verified against the Enterprise Server 3.20 docs |
 | Code scanning | **Settings**, **Advanced Security**, next to "CodeQL analysis" choose **Set up**, then **Default**, then **Enable CodeQL** | Verified against the Enterprise Server 3.20 docs |
 | Workflow permissions read-only | **Settings**, **Actions**, **General**, under "Workflow permissions" choose "Read repository contents permission", **Save** | Verified for the organization page; the repository page is assumed to match. Every workflow here also sets `permissions:` itself |
@@ -56,7 +56,7 @@ Turn release immutability on once the project publishes releases: a release's ta
 
 ## If something goes wrong
 
-- The import fails: open the JSON in the importer's error message; a field GitHub does not know is rejected. Compare with a ruleset exported from another repository.
+- The import fails: read the importer's message. GitHub rejects a field it does not know. Compare with a ruleset exported from another repository.
 - The `check` status is not offered or never turns green: the ruleset waits for a status called `check`. Run the workflow once on a pull request, and keep the job id `check` in `.github/workflows/check.yml`.
 - You are locked out of merging: change the ruleset's enforcement to **Disabled** while you fix it. Do not leave it disabled.
 - These files were never imported on GitHub by the template's authors: they follow the shape of a live ruleset, but the first import is yours. Tell the template if it fails.
