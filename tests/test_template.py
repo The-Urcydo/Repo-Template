@@ -436,3 +436,72 @@ def test_cursor_and_copilot_adapters_ship_disabled(full):
     assert not (full / ".cursor").exists()
     assert not (full / ".github" / "copilot-instructions.md").exists()
     assert not (full / ".gemini").exists()
+
+
+# --- settings as code: repository rulesets and the how-to that goes with them --------------------------------------
+RULESETS = TEMPLATE / "template" / ".github" / "rulesets"
+RULESET_KEYS = {"name", "target", "enforcement", "conditions", "rules", "bypass_actors"}  # what GitHub's importer reads
+PULL_REQUEST_PARAMS = {  # the parameters of a live ruleset's `pull_request` rule (read from the API, 2026-11-12)
+    "required_approving_review_count", "dismiss_stale_reviews_on_push", "required_reviewers", "require_code_owner_review",
+    "dismissal_restriction", "require_last_push_approval", "required_review_thread_resolution",
+    "require_extra_approval_for_unattributed_changes", "allowed_merge_methods",
+}
+HOW_TO = "docs/dev/how-to/protect-the-repo.md"
+
+
+def _ruleset(name: str) -> dict:
+    return json.loads((RULESETS / f"{name}.json").read_text(encoding="utf-8"))
+
+
+def test_shipped_rulesets_are_well_formed_importable_json():
+    files = sorted(RULESETS.glob("*.json"))
+    assert [f.stem for f in files] == ["protect-default-branch", "protect-release-tags"]
+    for f in files:
+        data = json.loads(f.read_text(encoding="utf-8"))
+        assert set(data) == RULESET_KEYS, f"{f.name}: {set(data) ^ RULESET_KEYS}"
+        assert data["name"] == f.stem and data["enforcement"] == "active"
+        assert data["bypass_actors"] == [], "no hidden bypass: the owner who needs one adds it knowingly"
+        assert {r["type"] for r in data["rules"]} <= {"deletion", "non_fast_forward", "update", "pull_request", "required_status_checks"}
+        assert len({r["type"] for r in data["rules"]}) == len(data["rules"]), "a rule type may appear only once"
+
+
+def test_default_branch_ruleset_works_for_a_solo_owner_and_requires_the_ci_job():
+    rs = _ruleset("protect-default-branch")
+    assert rs["target"] == "branch" and rs["conditions"]["ref_name"]["include"] == ["~DEFAULT_BRANCH"]
+    rules = {r["type"]: r.get("parameters", {}) for r in rs["rules"]}
+    assert {"deletion", "non_fast_forward", "pull_request", "required_status_checks"} == set(rules)
+    pr = rules["pull_request"]
+    assert set(pr) <= PULL_REQUEST_PARAMS, set(pr) - PULL_REQUEST_PARAMS
+    assert pr["required_approving_review_count"] == 0, "1 approval deadlocks a repository with one human"
+    assert pr["allowed_merge_methods"] == ["merge"] and pr["dismiss_stale_reviews_on_push"] is True
+    contexts = [c["context"] for c in rules["required_status_checks"]["required_status_checks"]]
+    yaml = pytest.importorskip("yaml")
+    jobs = yaml.safe_load((TEMPLATE / "template" / ".github" / "workflows" / "check.yml").read_text(encoding="utf-8"))["jobs"]
+    assert contexts == ["check"] and set(contexts) <= set(jobs), "a required status must be a job the shipped workflow runs"
+
+
+def test_release_tag_ruleset_makes_published_tags_permanent():
+    rs = _ruleset("protect-release-tags")
+    assert rs["target"] == "tag" and rs["conditions"]["ref_name"]["include"] == ["refs/tags/v*"]
+    assert {r["type"] for r in rs["rules"]} == {"update", "deletion", "non_fast_forward"}
+
+
+def test_github_module_owns_the_rulesets_and_the_how_to():
+    modules = json.loads((TEMPLATE / "template" / "tools" / "modules.json").read_text(encoding="utf-8"))
+    paths = modules["modules"]["github"]["paths"]
+    assert ".github/rulesets" in paths and HOW_TO in paths
+
+
+def test_cutting_the_github_module_leaves_neither_rulesets_nor_how_to(full, tmp_path):
+    assert (full / ".github/rulesets/protect-default-branch.json").is_file() and (full / HOW_TO).is_file()
+    lean = generate(tmp_path / "lean", profile="lean")
+    assert not (lean / ".github").exists() and not (lean / HOW_TO).exists()
+    assert py(lean, "tools/check.py", "--strict").returncode == 0
+
+
+def test_the_how_to_names_every_setting_a_file_cannot_set_and_marks_what_is_unverified(full):
+    text = (full / HOW_TO).read_text(encoding="utf-8")
+    for topic in ("Import a ruleset", "secret scanning", "push protection", "private vulnerability reporting", "Dependabot",
+                  "code scanning", "Workflow permissions", "release immutability", "not verified"):
+        assert topic.lower() in text.lower(), topic
+    assert "protect-default-branch.json" in text and "protect-release-tags.json" in text
