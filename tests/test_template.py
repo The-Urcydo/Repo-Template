@@ -436,3 +436,202 @@ def test_cursor_and_copilot_adapters_ship_disabled(full):
     assert not (full / ".cursor").exists()
     assert not (full / ".github" / "copilot-instructions.md").exists()
     assert not (full / ".gemini").exists()
+
+
+# --- upgrade across the docs layout move (ADR 0008) -------------------------------------------------------------
+MIGRATION = TEMPLATE / "migrations" / "docs_layout.py"
+OLD_TAG = "v0.2.0"  # the last release that shipped docs/{explanation,how-to,reference,tutorials}/
+BROKEN_TAG = "v0.3.0"  # the release that moved the folders without a migration
+
+
+def _have_tag(tag: str) -> bool:
+    r = subprocess.run(["git", "-C", str(TEMPLATE), "rev-parse", "--verify", "-q", f"{tag}^{{commit}}"], capture_output=True)
+    return r.returncode == 0
+
+
+def _require_tag(tag: str) -> None:
+    if _have_tag(tag):
+        return
+    why = f"tag {tag} not available (shallow clone): git fetch --depth=1 origin tag {tag}"
+    if os.environ.get("CI"):  # a CI that cannot see the tag must not silently lose the upgrade test
+        pytest.fail(why + "; CI needs `fetch-depth: 0` on the checkout")
+    pytest.skip(why)
+
+
+def _clear_tree(tpl: Path) -> None:
+    for child in tpl.iterdir():
+        if child.name != ".git":
+            shutil.rmtree(child) if child.is_dir() else child.unlink()
+
+
+def _add_release(tpl: Path, tag: str) -> None:
+    """Commit the tree that `tag` released in the real repo, then tag it in the throwaway repo."""
+    import io
+    import tarfile
+    _clear_tree(tpl)
+    old = subprocess.run(["git", "-C", str(TEMPLATE), "archive", tag], capture_output=True, check=True).stdout
+    with tarfile.open(fileobj=io.BytesIO(old)) as tf:
+        tf.extractall(tpl, **({"filter": "data"} if hasattr(tarfile, "data_filter") else {}))
+    git(tpl, "add", "-A")
+    git(tpl, "commit", "-qm", tag)
+    git(tpl, "tag", tag)
+
+
+_COPY_IGNORE = shutil.ignore_patterns(
+    ".git", "__pycache__", "*.pyc", ".pytest_cache", ".venv", ".mypy_cache", ".ruff_cache", ".DS_Store",
+)
+
+
+def _template_copy_ignore(directory: str, names: list[str]) -> set[str]:
+    """Copy the template repo, but not its own root tests/ and plans/: nested template/tests and
+    template/tools/tests are shipped to projects and must stay in the fixture."""
+    skip = set(_COPY_IGNORE(directory, names))
+    if Path(directory).resolve() == TEMPLATE:
+        skip |= {"tests", "plans"} & set(names)
+    return skip
+
+
+def _release_repo(tmp_path: Path, *tags: str) -> Path:
+    """A throwaway template repo: each released tag as it was, then the current tree tagged one version ahead.
+    Copier refuses to update to an untagged HEAD (it reads that as a downgrade), so the current tree needs a tag."""
+    tpl = tmp_path / "tpl"
+    tpl.mkdir()
+    git(tpl, "init", "-q")
+    for tag in tags:
+        _add_release(tpl, tag)
+    _clear_tree(tpl)
+    shutil.copytree(TEMPLATE, tpl, dirs_exist_ok=True, ignore=_template_copy_ignore)
+    git(tpl, "add", "-A")
+    git(tpl, "commit", "-qm", "current tree")
+    git(tpl, "tag", "v99.0.0")
+    return tpl
+
+
+def _doc(title: str, kind: str, body: str) -> str:
+    return f"---\ntitle: {title}\ntype: {kind}\nstatus: active\nsummary: Written by the project, not shipped by the template.\n---\n# {title}\n\n{body}\n"
+
+
+def test_update_across_the_docs_layout_move_keeps_the_projects_own_docs(tmp_path):
+    _require_tag(OLD_TAG)
+    tpl = _release_repo(tmp_path, OLD_TAG)
+    proj = generate(tmp_path / "proj", tpl, "--vcs-ref", OLD_TAG, profile="full")
+    git(proj, "init", "-q")
+    git(proj, "add", "-A")
+    git(proj, "commit", "-qm", "init")
+
+    # realistic local work: two docs of the project's own in the old folders, linking to each other and to shipped docs
+    (proj / "docs/how-to/deploy-to-staging.md").write_text(_doc(
+        "Deploy to staging", "how-to",
+        "See [commands](../reference/commands.md), [handoffs](../explanation/ownership-and-handoffs.md), "
+        "[the split](../decisions/0001-split-the-repo-by-volatility.md), [docs home](../INDEX.md) and "
+        "[the site](https://example.com/a/../b)."))
+    (proj / "docs/explanation/our-architecture.md").write_text(_doc(
+        "Our architecture", "explanation", "Deploy steps: [staging](../how-to/deploy-to-staging.md#steps)."))
+    agents_md = proj / "AGENTS.md"
+    agents_md.write_text(agents_md.read_text() + "\nOur rule: never deploy on Fridays.\n")
+    git(proj, "add", "-A")
+    git(proj, "commit", "-qm", "local work")
+
+    r = copier("update", "--defaults", "--trust", "-q", cwd=proj)
+    assert r.returncode == 0, f"{r.stdout}\n{r.stderr}"
+    assert "_commit: v99.0.0" in (proj / ".copier-answers.yml").read_text()
+    assert "migrate: docs/how-to/deploy-to-staging.md -> docs/dev/how-to/deploy-to-staging.md" in r.stdout, r.stdout
+
+    # the current template ships these; a fixture that drops a nested tests/ folder would hide their loss
+    assert (proj / "tools/tests/test_tools.py").is_file(), "the update deleted the shipped test suite"
+    assert (proj / "tests/README.md").is_file(), "the update deleted the shipped tests folder"
+
+    # the project's own docs moved with the layout, and nothing is left behind in the old folders
+    assert (proj / "docs/dev/how-to/deploy-to-staging.md").exists(), "own how-to was not moved"
+    assert (proj / "docs/dev/explanation/our-architecture.md").exists(), "own explanation was not moved"
+    stale = [p.relative_to(proj).as_posix() for d in ("explanation", "how-to", "reference", "tutorials")
+             for p in (proj / "docs" / d).rglob("*") if p.is_file()]
+    assert not stale, f"files left in the old layout: {stale}"
+
+    # relative links were recomputed from the new location; absolute URLs were left alone
+    how_to = (proj / "docs/dev/how-to/deploy-to-staging.md").read_text()
+    assert "(../reference/commands.md)" in how_to and "(../explanation/ownership-and-handoffs.md)" in how_to
+    assert "(../../decisions/0001-split-the-repo-by-volatility.md)" in how_to and "(../../INDEX.md)" in how_to
+    assert "(https://example.com/a/../b)" in how_to
+    assert "(../how-to/deploy-to-staging.md#steps)" in (proj / "docs/dev/explanation/our-architecture.md").read_text()
+
+    assert "never deploy on Fridays" in agents_md.read_text(), "local edit was lost"
+    assert "deploy-to-staging.md" in (proj / "docs/INDEX.md").read_text(), "generated index was not rebuilt after the move"
+    conflicts = [p for p in proj.rglob("*") if p.is_file() and ".git" not in p.parts
+                 and re.search(r"^(<{7} |>{7} |={7}$)", p.read_text(encoding="utf-8", errors="ignore"), re.M)]
+    assert not conflicts, conflicts
+    r = py(proj, "tools/check.py", "--strict")
+    assert r.returncode == 0, r.stdout
+
+    # the migration is idempotent: a second run on the migrated project changes nothing
+    r = py(proj, str(MIGRATION), ".")
+    assert r.returncode == 0 and not r.stdout.strip(), r.stdout + r.stderr
+
+
+def test_update_from_v0_3_0_repairs_the_docs_layout(tmp_path):
+    _require_tag(BROKEN_TAG)
+    tpl = _release_repo(tmp_path, BROKEN_TAG)
+    proj = generate(tmp_path / "proj", tpl, "--vcs-ref", BROKEN_TAG, profile="full")
+    git(proj, "init", "-q")
+    git(proj, "add", "-A")
+    git(proj, "commit", "-qm", "init")
+
+    # a project that crossed v0.3.0 before this migration shipped: its own docs are still in the old folders
+    (proj / "docs/how-to").mkdir(parents=True, exist_ok=True)
+    (proj / "docs/how-to/stranded.md").write_text(_doc(
+        "Stranded", "how-to", "See [the split](../decisions/0001-split-the-repo-by-volatility.md)."))
+    git(proj, "add", "-A")
+    git(proj, "commit", "-qm", "stranded doc")
+
+    r = copier("update", "--defaults", "--trust", "-q", cwd=proj)
+    assert r.returncode == 0, f"{r.stdout}\n{r.stderr}"
+    assert "_commit: v99.0.0" in (proj / ".copier-answers.yml").read_text()
+    assert "migrate: docs/how-to/stranded.md -> docs/dev/how-to/stranded.md" in r.stdout, r.stdout
+    assert (proj / "docs/dev/how-to/stranded.md").is_file(), "a project already on v0.3.0 was not repaired"
+    assert not (proj / "docs/how-to/stranded.md").exists()
+    moved = (proj / "docs/dev/how-to/stranded.md").read_text()
+    assert "(../../decisions/0001-split-the-repo-by-volatility.md)" in moved
+    assert "stranded.md" in (proj / "docs/INDEX.md").read_text(), "generated index was not rebuilt"
+    r = py(proj, "tools/check.py", "--strict")
+    assert r.returncode == 0, r.stdout
+
+
+def test_docs_layout_migration_never_overwrites_and_skips_what_the_template_ships(tmp_path):
+    proj = tmp_path / "p"
+    for rel, text in {
+        ".gitignore": ".DS_Store\n",
+        "docs/how-to/ours.md": "# ours\n",
+        "docs/how-to/add-a-role.md": "# shipped at the old path: the new template delivers its own copy\n",
+        "docs/how-to/taken.md": "# old copy\n",
+        "docs/how-to/fenced.md": "`````markdown\n```\n[example](../decisions/0001-split-the-repo-by-volatility.md)\n```\n`````\n",
+        "docs/dev/how-to/taken.md": "# already at the new path\n",
+        "docs/reference/INDEX-like.md": "<!-- GENERATED by tools/sync_indexes.py -->\n",
+        "docs/reference/notes.txt": "plain text moves too\n",
+        "docs/other/untouched.md": "# not one of the four folders\n",
+    }.items():
+        (proj / rel).parent.mkdir(parents=True, exist_ok=True)
+        (proj / rel).write_text(text)
+    git(proj, "init", "-q")
+    git(proj, "add", "-A")
+    git(proj, "commit", "-qm", "old layout")
+    # .DS_Store is ignored and must not abort the migration; draft.md is untracked but not ignored.
+    (proj / "docs/how-to/.DS_Store").write_bytes(b"\0\1")
+    (proj / "docs/how-to/draft.md").write_text("# draft\n")
+    r = py(proj, str(MIGRATION), str(proj))
+    assert r.returncode == 0, r.stderr
+    assert (proj / "docs/dev/how-to/ours.md").read_text() == "# ours\n"
+    assert (proj / "docs/dev/reference/notes.txt").exists()
+    assert (proj / "docs/how-to/add-a-role.md").exists() and not (proj / "docs/dev/how-to/add-a-role.md").exists()
+    assert (proj / "docs/reference/INDEX-like.md").exists(), "a generated file must be rebuilt, not moved"
+    assert (proj / "docs/dev/how-to/taken.md").read_text() == "# already at the new path\n"
+    assert (proj / "docs/how-to/taken.md").read_text() == "# old copy\n", "an existing target must never be overwritten"
+    assert "already exists" in r.stderr
+    assert (proj / "docs/how-to/.DS_Store").exists(), "an ignored file must be left alone, not abort the migration"
+    assert not (proj / "docs/dev/how-to/.DS_Store").exists()
+    assert (proj / "docs/dev/how-to/draft.md").read_text() == "# draft\n", "an untracked file must move and be staged"
+    assert "(../decisions/0001-split-the-repo-by-volatility.md)" in (proj / "docs/dev/how-to/fenced.md").read_text()
+    assert (proj / "docs/other/untouched.md").exists()
+    assert "migrate: docs/how-to/ours.md -> docs/dev/how-to/ours.md" in r.stdout
+    staged = git(proj, "diff", "--cached", "--name-status")
+    assert "docs/dev/how-to/ours.md" in staged, "moves must be staged: Copier snapshots the index after the before stage"
+    assert "docs/dev/how-to/draft.md" in staged, "an untracked move must be staged too"
