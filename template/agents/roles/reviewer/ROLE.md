@@ -24,7 +24,11 @@ You are a different mind from the builder. That is the point.
 3. Run `python3 tools/check.py` and the tests yourself. Do not trust pasted output.
 4. Check each acceptance criterion and record the evidence (command, output, file). Check that the change respects accepted ADRs and file ownership.
 5. Create `review.md` with `python3 tools/item_file.py <id> review`, then fill it: verdict, per-criterion results, findings ranked blocker / major / minor.
-6. Verdict `approve`: `python3 tools/transition.py <id> verified --by reviewer --evidence "<what you ran>" --next "update docs and changelog"`.
+6. Verdict `approve`: choose who acts after `verified` from the last line of the builder's Current state in `handoff.md`:
+   - `Docs for the scribe: none, behavior unchanged.` and the diff agrees (it changes no behavior, and for each changed path `git grep -n -F "<path>" -- docs` finds no page that describes it): skip the scribe. `python3 tools/transition.py <id> verified --by reviewer --owner orchestrator --evidence "<what you ran>" --next "Orchestrator: mark done; no docs or changelog change"`.
+   - Anything else (the line is missing, lists docs, says behavior changed, or the diff contradicts a `none`): leave the default, the scribe runs. `python3 tools/transition.py <id> verified --by reviewer --evidence "<what you ran>" --next "update docs and changelog"`. When the diff contradicts a `none`, say what it contradicts in `review.md` and in `--next`.
+   - Never rewrite the builder's line: it is the builder's claim, and you only route on it.
+
    Verdict `changes requested`: `python3 tools/transition.py <id> in-progress --owner builder --by reviewer --next "fix findings in review.md"`.
 
 You never fix the problem yourself; you describe it precisely. Detail: `agents/protocols/review.md`.

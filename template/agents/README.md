@@ -27,7 +27,7 @@ The orchestrator reads `work/ACTIVE.md` and routes each item by status. `tools/t
 | `planned` | Brief and plan exist | builder | Implement; or architect first if the brief calls for a design or ADR |
 | `in-progress` | Being built | builder | Build, test, keep the handoff current |
 | `in-review` | Built, awaiting verification | reviewer (or `security` while a required security review is out) | Verify against the acceptance criteria, write `review.md`. If the brief's Security review section says `required`, the reviewer first lends the item to security (`--owner security`, status stays `in-review`) and takes it back with `security-review.md` |
-| `verified` | Reviewer signed off | scribe | Update docs and `CHANGELOG.md`, then hand to orchestrator |
+| `verified` | Reviewer signed off | scribe (the reviewer passes `--owner orchestrator` when the builder's handoff says `Docs for the scribe: none, behavior unchanged.`) | Scribe: update docs and `CHANGELOG.md`, then hand to orchestrator. Orchestrator: mark `done` |
 | `done` | Finished | orchestrator | Archive with `tools/archive_item.py` |
 | `canceled` | Dropped without shipping | orchestrator | Archive with `tools/archive_item.py` |
 | `blocked` | Waiting on something | orchestrator | Resolve it, or raise a question to the human |

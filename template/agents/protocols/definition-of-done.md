@@ -18,11 +18,14 @@ An item is done only when all of these are true. The tools check the mechanical 
 - [ ] Status changes used `transition.py --by <role>`, and `built_by`/`verified_by` are different roles.
 - [ ] No file was changed outside the role's ownership without the owner's handoff.
 - [ ] No accepted ADR was contradicted. If one had to change, a superseding ADR exists.
+- [ ] The builder ended the handoff's Current state with a `Docs for the scribe:` line, and the reviewer checked it against the diff.
 
-## For items that change behavior
+## For items that change behavior, or whose handoff lists docs
 
 - [ ] Affected docs are updated (the scribe's job) and `CHANGELOG.md` has a line under `[Unreleased]`.
 - [ ] Generated files are in sync: `python3 tools/sync_indexes.py && python3 tools/sync_agents.py`.
+
+An item whose builder wrote `Docs for the scribe: none, behavior unchanged.` and whose review agreed skips the scribe: it needs no docs and no changelog line, and the orchestrator marks it `done` (`agents/protocols/handoff.md`).
 
 ## For full items
 

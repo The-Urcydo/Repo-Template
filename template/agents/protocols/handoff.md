@@ -51,6 +51,15 @@ updated: 2026-11-02
 
 Body sections: **Current state** (one paragraph), **Decisions made** (so nobody re-litigates), **Dead ends already tried**. It is current state, not a diary; history lives in git. `do_not` binds the next role: replace it with your own list when you hand on.
 
+### Docs for the scribe
+
+Before an item goes to `in-review`, the builder ends **Current state** with one line, every time:
+
+- `Docs for the scribe: none, behavior unchanged.` when no behavior changed and no doc describes what was touched;
+- otherwise `Docs for the scribe: <the docs to update, and the CHANGELOG.md line>`.
+
+The reviewer routes on that line when it approves. A `none` that the diff supports skips the scribe: `transition.py <id> verified --by reviewer --owner orchestrator ...`, and the orchestrator marks the item `done`. Anything else (a missing line, listed docs, a changed behavior, a `none` the diff contradicts) keeps the default owner, the scribe. The tools do not read the line: a missing line costs one scribe session, never a skipped doc. Nobody rewrites another role's line.
+
 ## Who writes what
 
 `handoff.md` is the one item file every role edits: whoever holds the item keeps its body current by hand and changes its front matter through `transition.py`. Every other item file belongs to the roles that list it in `item_files`.

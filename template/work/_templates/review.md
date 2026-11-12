@@ -19,7 +19,7 @@ _approve | changes requested | reject_, with one sentence on why.
 - [ ] No accepted ADR contradicted
 - [ ] No file changed outside its owner's remit
 - [ ] Generated files in sync
-- [ ] Docs and changelog updated where behavior changed
+- [ ] The builder's `Docs for the scribe` line holds against the diff (the scribe updates docs and changelog after this review)
 
 ## Findings
 

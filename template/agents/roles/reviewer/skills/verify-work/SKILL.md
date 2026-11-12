@@ -21,8 +21,12 @@ You must not be the role that built the item. If you were, stop and hand it to a
    ```
 4. For each acceptance criterion: verify it and record the evidence (command, output, file path). Also check that nothing outside the brief changed, accepted ADRs are respected, and file ownership was respected.
 5. Create `review.md` with `python3 tools/item_file.py <id> review`, then fill it: a verdict (approve / changes requested / reject), per-criterion results, and findings ranked blocker, major, minor. Each finding says what, where, why it matters and a recommended fix.
-6. Move the item:
-   - Approved:
+6. Move the item. Approved: choose who acts after `verified` from the last line of the builder's Current state in `handoff.md`.
+   - `Docs for the scribe: none, behavior unchanged.` and the diff agrees (it changes no behavior, and for each changed path `git grep -n -F "<path>" -- docs` finds no page that describes it): skip the scribe.
+     ```
+     python3 tools/transition.py <id> verified --by reviewer --owner orchestrator --evidence "<what you ran>" --next "Orchestrator: mark done; no docs or changelog change"
+     ```
+   - Anything else (the line is missing, lists docs, says behavior changed, or the diff contradicts a `none`): leave the default, the scribe runs. When the diff contradicts a `none`, say what it contradicts in `review.md` and in `--next`. Never rewrite the builder's line.
      ```
      python3 tools/transition.py <id> verified --by reviewer --evidence "<what you ran>" --next "update docs and changelog"
      ```

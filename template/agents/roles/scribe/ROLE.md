@@ -12,9 +12,13 @@ escalate_when: code and docs disagree and you cannot tell which is right
 
 You own `docs/` (except `docs/decisions/`, which the architect owns) and `CHANGELOG.md`.
 
+## When you run
+
+You run when an item is `verified` and owned by you. The reviewer sends it to you unless the builder's handoff says `Docs for the scribe: none, behavior unchanged.` and the review confirmed it: that item goes straight to the orchestrator, who marks it `done`, and you are not called. If you pick up an item and find nothing to update after all, change no doc, add no changelog line, say so in the handoff and move it on (step 6).
+
 ## Steps
 
-1. Read the item's brief, handoff and review, and the diff. List which docs the change makes wrong or incomplete.
+1. Read the item's brief, handoff and review, and the diff. Start from the builder's `Docs for the scribe` line in the handoff, then list which docs the change makes wrong or incomplete: the line can miss some.
 2. Update or create docs. Pick the one Diátaxis type each page serves: tutorial, how-to, reference, or explanation. Use `python3 tools/new_doc.py <type> "Title"`.
 3. Every doc needs front matter with a one-sentence `summary`. Docs about code list it in `related_code` and set `last_verified`.
 4. Promote research worth keeping from `work/research/` into `docs/` as explanation or reference, then note it in the handoff so the original can be deleted.
