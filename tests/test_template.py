@@ -452,7 +452,7 @@ def test_template_update_workflow_is_weekly_and_can_only_open_an_issue():
     (job,) = wf["jobs"].values()
     assert job["permissions"] == {"contents": "read", "issues": "write"}, "an issue is the only write it may do"
     assert 0 < job["timeout-minutes"] <= 15
-    assert not re.search(r"gh pr |git push|git commit|pull-requests:|copier update", text), "the notifier opens an issue, never a PR (decision 6)"
+    assert not re.search(r"gh pr |git push|git commit|pull-requests:|pip install|pipx ", text), "the notifier opens an issue, never a PR (decision 6)"
     assert "python3 tools/template_status.py --check" in text and "gh issue create" in text
     assert "github.event" not in text, "no event data reaches the shell"
     assert ".github/workflows/template-update.yml" in json.loads(
