@@ -40,7 +40,7 @@ Escalation: stop and ask the owner before anything irreversible, high-risk or am
 |---|---|---|---|---|
 | A-1 | `conflict-marker` rule in `check.py` | #39 | in-review | judges (`tools/`, tests) |
 | A-2 | `_migrations` docs-layout migration, upgrade test, ADR 0008, update how-to | #40 | in-review | judges; ADR needs owner acceptance |
-| B | `.githooks/pre-commit` + `just hooks` | - | planned | judges (tools tests) |
+| B | `.githooks/pre-commit` + `just hooks` | #41 | in-review | judges (tools tests) |
 | C | Shipped CI hardening (`cooldown`, `concurrency`, `timeout-minutes`, `merge_group`, workflow-lint job) | - | planned | CI files: owner approval |
 | D | Ruleset JSON + repo-settings how-to | - | planned | owner dry-run of the import |
 | E | `tools/template_status.py` + weekly notifier workflow | - | planned | CI file + `tools/`: owner approval |
@@ -174,8 +174,10 @@ A-1, A-2, B, C, D, E, in that order of value. They are independent PRs (not stac
 
 - 2026-11-12, Claude session (builder, A-2): built exactly the corrected spec and opened **PR #40** (3 commits from `main` `e889c9f`: tests first, then script + `_migrations`, then ADR 0008 + docs). Evidence: root suite 91 passed (230 s), governance 49 passed; the two new tests also pass on Copier 9.4.0. Deviations from the spec, all small: (1) the upgrade test builds its throwaway template repo from `git archive v0.2.0` plus the current tree tagged `v99.0.0` (no clone, so it works in a shallow checkout that has the `v0.2.0` tag; it skips when the tag is missing). (2) The script skips fenced code blocks when it rewrites links, and preserves bytes (no newline translation). (3) `OWNED` was checked equal to `git ls-tree v0.2.0` (19 names). Limits measured by hand and documented in the how-to and ADR 0008: an edit to a shipped doc at its old path (a glossary row) is silently dropped by the rename (recover from git); an own ADR linking to a moved doc gets one `broken-link`. Owner questions are in the PR (ADR acceptance, whether to extend link rewriting to non-shipped files outside the four folders, ADR number collision with a project's own 0008). The shipped tag is not cut by this PR.
 
+- 2026-11-12, Claude session (builder, B): opened **PR #41** (`feat/pre-commit-hook`, from `main` `e889c9f`). Hook measured at 0.24 s; works in a second worktree (hand-checked). Finding: the root test runner exports `REPO_ROOT`, the tools honour it, so a hook run by git inside the shipped test checked the original project, and the drift test failed in the full run while passing alone; the shipped test now drops `REPO_ROOT` from the hook's environment. Lesson for C, D, E: any shipped test that spawns a process which runs the tools must not inherit `REPO_ROOT`. Root suite 91 passed (242 s), governance 49. I wrote the tests first but did not run them red (stated in the PR).
+
 ## 10. Next steps
 
-1. Builder: B next (own branch from `main`), then C, D, E in order. Check section 9 and the board before taking a batch.
-2. Reviewer: PR #40 (A-2) is waiting for an independent review too: generate at `v0.2.0` by hand, update, confirm the migration output and `check.py --strict`, try Copier 9.4.0. PR #39 (A-1) is waiting for an independent review against its spec in section 5 (root rule 4): run the root suite, generate a full-profile project from the branch and run its checks, try a real conflict, and comment on the PR. Then add a log line here.
+1. Builder: C next (own branch from `main`), then D, E in order. Check section 9 and the board before taking a batch.
+2. Reviewer: PR #41 (B): enable the hook in a generated repo, try a drifted commit, a clean commit, `--no-verify`, a second worktree. PR #40 (A-2) is waiting for an independent review too: generate at `v0.2.0` by hand, update, confirm the migration output and `check.py --strict`, try Copier 9.4.0. PR #39 (A-1) is waiting for an independent review against its spec in section 5 (root rule 4): run the root suite, generate a full-profile project from the branch and run its checks, try a real conflict, and comment on the PR. Then add a log line here.
 3. Planner: keep section 3 true; after each batch merges, mark it `merged`; when everything is `done` or `dropped`, tell the owner this PR can be closed.
