@@ -477,8 +477,12 @@ def _doc(title: str, kind: str, body: str) -> str:
     return f"---\ntitle: {title}\ntype: {kind}\nstatus: active\nsummary: Written by the project, not shipped by the template.\n---\n# {title}\n\n{body}\n"
 
 
-@pytest.mark.skipif(not _have_tag(OLD_TAG), reason=f"tag {OLD_TAG} not available (shallow clone): git fetch --depth=1 origin tag {OLD_TAG}")
 def test_update_across_the_docs_layout_move_keeps_the_projects_own_docs(tmp_path):
+    if not _have_tag(OLD_TAG):
+        why = f"tag {OLD_TAG} not available (shallow clone): git fetch --depth=1 origin tag {OLD_TAG}"
+        if os.environ.get("CI"):  # a CI that cannot see the tag must not silently lose the upgrade test
+            pytest.fail(why + "; CI needs `fetch-depth: 0` on the checkout")
+        pytest.skip(why)
     tpl = _release_repo(tmp_path, OLD_TAG)
     proj = generate(tmp_path / "proj", tpl, "--vcs-ref", OLD_TAG, profile="full")
     git(proj, "init", "-q")
