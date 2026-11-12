@@ -320,7 +320,8 @@ def _scannable_files(root: Path) -> list[Path]:
         except (OSError, subprocess.SubprocessError):
             r = None
         if r is not None and r.returncode == 0:
-            names = sorted(n for n in r.stdout.decode("utf-8", "replace").split("\0") if n)
+            # a set: git lists a conflicted file once per index stage
+            names = sorted({n for n in r.stdout.decode("utf-8", "replace").split("\0") if n})
             return [root / n for n in names if not any(p in SKIP_DIRS for p in Path(n).parts)]
     return [p for p in sorted(root.rglob("*")) if not any(q in SKIP_DIRS for q in p.relative_to(root).parts)]
 
