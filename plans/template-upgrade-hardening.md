@@ -39,7 +39,7 @@ Escalation: stop and ask the owner before anything irreversible, high-risk or am
 | Batch | Topic | PR | Status | Gate |
 |---|---|---|---|---|
 | A-1 | `conflict-marker` rule in `check.py` | #39 | merged | judges (`tools/`, tests) |
-| A-2 | `_migrations` docs-layout migration, upgrade test, ADR 0008, update how-to | #40 | in-review | judges; ADR needs owner acceptance |
+| A-2 | `_migrations` docs-layout migration, upgrade test, ADR 0008, update how-to | #40 | merged | judges; ADR needs owner acceptance |
 | B | `.githooks/pre-commit` + `just hooks` | #41 | in-review | judges (tools tests) |
 | C | Shipped CI hardening (`cooldown`, `concurrency`, `timeout-minutes`, `merge_group`, workflow-lint job) | #42 | in-review | CI files: owner approval |
 | D | Ruleset JSON + repo-settings how-to | #43 | in-review | owner dry-run of the import |
@@ -202,6 +202,8 @@ A-1, A-2, B, C, D, E, in that order of value. They are independent PRs (not stac
 - 2026-11-12, Claude session (reviewer, E): reviewed #44 at `9bc98d8` and pushed fixes to `5c9e0bc` (three fix commits, plus current `main` `b1275cc` with #45-#47 merged in). Ran the root suite (95 passed), governance 49, generated project `check.py --strict` and shipped tests 203, actionlint 1.7.12, zizmor 1.32.0, the real remote and fake-gh scenarios. Found and fixed: `gh:`/`gl:` sources ending in `.git` became `.git.git` (now tested); the issue body linked `docs/decisions/0008`, absent from a behind project (now points at the release notes); dedupe by exact title opened a second issue (now one open issue by label, owner chose A). Docs/module notes polished. Owner approval of the final head and the new scheduled workflow is pending; not merged.
 
 - 2026-11-12, reviewer/merger session (A-1/A-2, did not write either PR): reviewed #39 at `7192ee8` and #40 at `71d8fd0`. Fixed before merge: (1) #39's fence tracking closed a longer Markdown fence on a shorter inner one, so a doc showing conflict markers inside a longer fenced example was a false positive; now it tracks the opening run, length and trailing whitespace, with a regression test. (2) #40's upgrade fixture used `ignore_patterns("tests")`, which dropped `template/tests/` and `template/tools/tests/`; the update deleted the shipped tests and the test still passed; fixed and asserted. (3) A `.DS_Store` or other ignored file in an old docs folder made `git mv` abort the migration; it now moves only git-visible paths, skips ignored files and moves+stages untracked non-ignored files. (4) With `version: "v0.3.0"`, a project already on `v0.3.0` never ran the migration; the gate is now `v0.3.1` and `test_update_from_v0_3_0_repairs_the_docs_layout` proves the repair. (5) #39 and #40 conflicted on step 3 of `update-from-template.md`; the resolution keeps #39's step 3 and #40's new section. Evidence: #39 CI green and generated `HealthTests` 32 OK; #40 full suite 92 passed, Copier 9.4.0 targeted 3 passed, merged tree 96 passed on the integration branch, 3 targeted + 49 governance after the main merge. #39 merged as `e58d7e4`; #40 final head `71d8fd0` waits for owner reapproval after the merge push.
+
+- 2026-11-12, same reviewer/merger session: owner approved #40 at `71d8fd0` as `NguyenLoc231`; merged as `d64f7ad`. The merged `main` tree is identical to the integration branch (96 tests passed). ADR 0008 remains `proposed`; the owner approved the PR but did not ask to change its status. Main CI is running; the #39 merge run passed on `e58d7e4`.
 
 ## 10. Next steps
 
