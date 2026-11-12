@@ -199,6 +199,8 @@ A-1, A-2, B, C, D, E, in that order of value. They are independent PRs (not stac
 
 - 2026-11-12, post-merge CI on `main` `b1275cc`: `test` (Python 3.9 and 3.13), `workflow-lint` and CodeQL all green.
 
+- 2026-11-12, Claude session (reviewer, E): reviewed #44 at `9bc98d8` and pushed fixes to `5c9e0bc` (three fix commits, plus current `main` `b1275cc` with #45-#47 merged in). Ran the root suite (95 passed), governance 49, generated project `check.py --strict` and shipped tests 203, actionlint 1.7.12, zizmor 1.32.0, the real remote and fake-gh scenarios. Found and fixed: `gh:`/`gl:` sources ending in `.git` became `.git.git` (now tested); the issue body linked `docs/decisions/0008`, absent from a behind project (now points at the release notes); dedupe by exact title opened a second issue (now one open issue by label, owner chose A). Docs/module notes polished. Owner approval of the final head and the new scheduled workflow is pending; not merged.
+
 ## 10. Next steps
 
 1. Builder: nothing left in the approved plan except batch F (issue forms, template `.github/release.yml`, real `SECURITY.md` default), which the plan marks "later". Do not start F without the owner's go. Check section 9 and the board before taking anything.
