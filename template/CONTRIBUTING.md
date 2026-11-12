@@ -21,6 +21,7 @@ Every status change goes through `python3 tools/transition.py`, which enforces t
 - Commit messages: imperative mood, one logical change, mention the item id.
 - Never commit secrets. `.env` files are ignored; keep real values out of the repo.
 - Merge only after the item is `verified`.
+- With the `github` module, `.github/workflows/check.yml` runs two jobs: `check` (the health check and the tooling tests) and `workflow-lint` (actionlint and zizmor on the workflows). A newer push to a pull request cancels its older run. Dependabot waits 7 days before it proposes a new release. Bump the two pinned linters by hand.
 
 ## Before you hand off
 

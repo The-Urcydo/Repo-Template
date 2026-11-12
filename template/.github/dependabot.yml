@@ -1,5 +1,6 @@
 # Keeps the SHA-pinned actions in .github/workflows/ current. One grouped pull request a week.
-# Add an entry per package ecosystem your project uses (npm, pip, cargo, ...).
+# Add an entry per package ecosystem your project uses (npm, pip, cargo, ...), each with a cooldown:
+# a release younger than 7 days is not proposed, which is when most hijacked releases get caught.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -9,3 +10,5 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+    cooldown:
+      default-days: 7
