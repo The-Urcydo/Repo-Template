@@ -1,0 +1,26 @@
+# Release notes: Releases, "Generate release notes" groups the merged pull requests by label.
+# A pull request without a label lands in "Other changes". Label a change `breaking` when a generated project
+# must do something after `copier update` (such a release also ships a migration and an upgrade test).
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+  categories:
+    - title: Breaking changes
+      labels:
+        - breaking
+    - title: Features
+      labels:
+        - enhancement
+    - title: Fixes
+      labels:
+        - bug
+    - title: Documentation
+      labels:
+        - documentation
+    - title: Dependencies
+      labels:
+        - dependencies
+    - title: Other changes
+      labels:
+        - "*"
