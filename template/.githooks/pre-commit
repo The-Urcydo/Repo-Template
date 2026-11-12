@@ -2,11 +2,11 @@
 # Optional pre-commit hook: the repo health check before every commit (about 0.3 s).
 # Turn it on once per clone, worktrees included (they share the setting): `just hooks`
 # or `git config core.hooksPath .githooks`. Nothing turns it on for you.
-# Skip it once with `git commit --no-verify`. CI runs the same checks, so it is the real gate.
+# Skip it once with `git commit --no-verify`. With the `github` module, CI is the real gate.
 cd "$(git rev-parse --show-toplevel)" || exit 0
 py=${PYTHON:-python3}
 if ! command -v "$py" >/dev/null 2>&1 || [ ! -f tools/check.py ]; then
-  echo "pre-commit: no $py or no tools/check.py here, skipping the health check (CI still runs it)" >&2
+  echo "pre-commit: no $py or no tools/check.py here, skipping the health check (CI, if present, still runs it)" >&2
   exit 0
 fi
 status=0

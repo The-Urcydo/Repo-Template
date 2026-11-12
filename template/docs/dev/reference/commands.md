@@ -27,7 +27,7 @@ All tools are `python3 tools/<name>.py`, standard library only. Every tool suppo
 
 ## Git hook
 
-`.githooks/pre-commit` runs `sync_indexes.py --check`, `sync_agents.py --check` and `check.py` and blocks the commit when one fails, printing the fix. It is off until you run `just hooks` (`git config core.hooksPath .githooks`); the setting is per clone and shared by its worktrees. `PYTHON=<interpreter>` picks another Python; with none found the hook says so and lets the commit through. `git commit --no-verify` skips it. CI runs the same checks.
+`.githooks/pre-commit` runs `sync_indexes.py --check`, `sync_agents.py --check` and `check.py` and blocks the commit when one fails, printing the fix. It is off until you run `just hooks` (`git config core.hooksPath .githooks`); the setting is per clone and shared by its worktrees. `PYTHON=<interpreter>` picks another Python; with none found the hook says so and lets the commit through. `git commit --no-verify` skips it. With the `github` module, CI is the gate.
 
 Tools that create or move things also regenerate the indexes, so `docs/INDEX.md`, `work/ACTIVE.md` and `agents/ROSTER.md` may change as a side effect.
 

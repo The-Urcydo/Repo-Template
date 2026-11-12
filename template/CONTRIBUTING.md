@@ -30,7 +30,7 @@ python3 tools/check.py
 python3 -m unittest discover -s tools/tests    # when you changed tools/
 ```
 
-Optional: `just hooks` (or `git config core.hooksPath .githooks`) runs the health check before every commit, in every worktree of the clone. It is never on by default, and `git commit --no-verify` skips it once; CI is the gate.
+Optional: `just hooks` (or `git config core.hooksPath .githooks`) runs the health check before every commit, in every worktree of the clone. It is never on by default, and `git commit --no-verify` skips it once; with the `github` module, CI is the gate.
 
 ## Changing the harness itself
 
