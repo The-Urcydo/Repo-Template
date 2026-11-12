@@ -489,6 +489,8 @@ def test_default_branch_ruleset_works_for_a_solo_owner_and_requires_the_ci_job()
     assert set(pr) <= PULL_REQUEST_PARAMS, set(pr) - PULL_REQUEST_PARAMS
     assert pr["required_approving_review_count"] == 0, "1 approval deadlocks a repository with one human"
     assert pr["allowed_merge_methods"] == ["merge"] and pr["dismiss_stale_reviews_on_push"] is True
+    assert pr["require_extra_approval_for_unattributed_changes"] is False, \
+        "GitHub defaults this to true, which would make a team's Copilot PR need an extra review"
     contexts = [c["context"] for c in rules["required_status_checks"]["required_status_checks"]]
     yaml = pytest.importorskip("yaml")
     jobs = yaml.safe_load((TEMPLATE / "template" / ".github" / "workflows" / "check.yml").read_text(encoding="utf-8"))["jobs"]

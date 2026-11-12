@@ -40,7 +40,9 @@ For a team (at least two accounts that can approve), edit the imported ruleset, 
 - `require_last_push_approval`: `true` (the approval must come after the last push, so nobody approves and then adds code)
 - `required_review_thread_resolution`: `true`
 
-Keep `dismiss_stale_reviews_on_push` on. If you add more required checks, use the name GitHub reports for the job: the `name:` value if set, otherwise the job id.
+Keep `dismiss_stale_reviews_on_push` on. The shipped JSON sets `require_extra_approval_for_unattributed_changes` to `false`; GitHub's default is `true`, which would make a Copilot-authored pull request need one more approval when `required_approving_review_count` is non-zero. Set it to `true` if you want that.
+
+If you add more required checks, use the name GitHub reports for the job: the `name:` value if set, otherwise the job id.
 
 ## Settings no file can set
 
