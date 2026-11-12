@@ -43,7 +43,7 @@ Escalation: stop and ask the owner before anything irreversible, high-risk or am
 | B | `.githooks/pre-commit` + `just hooks` | #41 | merged | judges (tools tests) |
 | C | Shipped CI hardening (`cooldown`, `concurrency`, `timeout-minutes`, `merge_group`, workflow-lint job) | #42 | merged | CI files: owner approval |
 | D | Ruleset JSON + repo-settings how-to | #43 | merged | owner dry-run passed |
-| E | `tools/template_status.py` + weekly notifier workflow | #44 | in-review | CI file + `tools/`: owner approval |
+| E | `tools/template_status.py` + weekly notifier workflow | #44 | merged | CI file + `tools/`: owner approval |
 | F | Issue forms, `.github/release.yml`, real `SECURITY.md` default | - | later | - |
 | R1 | Import the tag ruleset on this repo | - | owner setting (nothing to build) | owner applies it |
 | R2 | Root Dependabot cooldown + `workflow-lint.yml` | #46 | merged | harness: owner approval |
@@ -211,9 +211,11 @@ A-1, A-2, B, C, D, E, in that order of value. They are independent PRs (not stac
 
 - 2026-11-12, Claude session (reviewer, E), follow-up: `main` advanced with #39-#43 while #44 was in review; merged `0659c5b` into #44 in `eb18c1c` and resolved the expected add/add conflicts in `template/justfile`, `template/tools/modules.json`, `template/tools/tests/test_tools.py` and `tests/test_template.py` by keeping every block. Root suite 109 passed, 2 skipped (the optional linter tests; both linters run manually), governance 49, generated project `check.py --strict` and shipped tests 217, actionlint 1.7.12 and zizmor 1.32.0 clean. Owner approval of `eb18c1c` is pending; not merged.
 
+- 2026-11-12, Claude session (reviewer, E), merged: owner `NguyenLoc231` approved and merged #44 as `3c92dbe` (final head `eb18c1c`). Post-merge `main` CI on `3c92dbe`: `test` (Python 3.9 and 3.13), `workflow-lint` and CodeQL green. #44 was the last open batch PR; batch F remains "later". The first scheduled run of the `template-update` workflow is still the real end-to-end test.
+
 ## 10. Next steps
 
 1. Builder: nothing left in the approved plan except batch F (issue forms, template `.github/release.yml`, real `SECURITY.md` default), which the plan marks "later". Do not start F without the owner's go. Check section 9 and the board before taking anything.
-2. Reviewer (rule 4: you did not write these): A-1 #39, A-2 #40, B #41, C #42, D #43 and R2-R4 #45-#47 were reviewed and merged on 2026-11-12; see section 9. Remaining: **#44** (run the notifier's shell step with a fake `gh`, or dispatch it in a scratch repo). Merge-conflict work: #44 appends to `tests/test_template.py` and `test_tools.py`; keep every block. Add a log line here per PR.
-3. Owner (only you can): approve harness PR #44; accept or change ADR 0008; R1 (import `protect-release-tags.json` on this repo — #43 is merged, so the file is on `main`); create the `breaking` and `ignore-for-release` labels (#47); cut the next tag so the migration ships — the gate is `v0.3.1`, and the tag message should name the repair for projects on `v0.2.0` and `v0.3.0`.
+2. Reviewer (rule 4: you did not write these): A-1 #39, A-2 #40, B #41, C #42, D #43, E #44 and R2-R4 #45-#47 were reviewed and merged on 2026-11-12; see section 9. No batch PR remains.
+3. Owner (only you can): #44 is approved and merged as `3c92dbe`; accept or change ADR 0008; R1 (import `protect-release-tags.json` on this repo — #43 is merged, so the file is on `main`); create the `breaking` and `ignore-for-release` labels (#47); cut the next tag so the migration ships — the gate is `v0.3.1`, and the tag message should name the repair for projects on `v0.2.0` and `v0.3.0`.
 4. Planner: keep section 3 true; after each PR merges, mark it `merged`; when everything is `done` or `dropped`, tell the owner this PR can be closed.
