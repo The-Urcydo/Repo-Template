@@ -19,6 +19,7 @@ concurrency:
 
 jobs:
   notify:
+    name: Check for a newer template release
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -42,12 +43,13 @@ jobs:
           [ -n "$latest" ] || { echo "could not read the version from: $message"; exit 1; }
           title="Update from the template: ${latest} is available"
           gh label create template-update --description "A newer template release is available" --color 0E8A16 2>/dev/null || true
-          if gh issue list --label template-update --state open --json title --jq '.[].title' | grep -qxF "$title"; then
-            echo "an open issue already says so"
+          open=$(gh issue list --label template-update --state open --json number --jq '.[].number')
+          if [ -n "$open" ]; then
+            echo "an open issue already exists; not opening another"
             exit 0
           fi
           gh issue create --label template-update --title "$title" --body "$message
 
-          Steps: clean working tree, then \`copier update --trust\`, resolve conflicts, then \`python3 tools/check.py --strict\`. Read the release notes first: a release that moves files ships a migration (docs/decisions/0008). Full guide: docs/dev/how-to/update-from-template.md.
+          Steps: clean working tree, then \`copier update --trust\`, resolve conflicts, then \`python3 tools/check.py --strict\`. Read the template's release notes first: a release that moves files ships a migration. Full guide: docs/dev/how-to/update-from-template.md.
 
           Opened by .github/workflows/template-update.yml. Close this issue when the update is merged."

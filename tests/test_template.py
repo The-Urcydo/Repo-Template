@@ -452,8 +452,12 @@ def test_template_update_workflow_is_weekly_and_can_only_open_an_issue():
     (job,) = wf["jobs"].values()
     assert job["permissions"] == {"contents": "read", "issues": "write"}, "an issue is the only write it may do"
     assert 0 < job["timeout-minutes"] <= 15
+    checkout = next(s for s in job["steps"] if str(s.get("uses", "")).startswith("actions/checkout@"))
+    assert checkout["with"].get("persist-credentials") is False
     assert not re.search(r"gh pr |git push|git commit|pull-requests:|pip install|pipx ", text), "the notifier opens an issue, never a PR (decision 6)"
     assert "python3 tools/template_status.py --check" in text and "gh issue create" in text
+    assert "gh issue list --label template-update --state open" in text, "dedupe by the label, not one issue per version"
+    assert "docs/decisions/0008" not in text, "do not link a doc a behind project may not have"
     assert "github.event" not in text, "no event data reaches the shell"
     assert ".github/workflows/template-update.yml" in json.loads(
         (TEMPLATE / "template" / "tools" / "modules.json").read_text(encoding="utf-8"))["modules"]["github"]["paths"]
