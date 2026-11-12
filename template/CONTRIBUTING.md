@@ -9,7 +9,7 @@ One workflow for humans and agents.
 2. **Plan.** The planner writes `brief.md` (goal, acceptance criteria) and, if needed, `plan.md` and `tasks.md`.
 3. **Build.** The builder implements on a branch named `item/<item-id>`, in small commits.
 4. **Review.** A different role runs `python3 tools/check.py`, verifies each acceptance criterion, and writes `review.md`.
-5. **Close.** The scribe updates docs and `CHANGELOG.md`; the orchestrator marks the item `done` and later archives it.
+5. **Close.** If the builder's `Docs for the scribe:` line lists docs (or the reviewer finds the diff contradicts a `none`), the scribe updates docs and `CHANGELOG.md` and marks the item `done`; if the line says `Docs for the scribe: none, behavior unchanged.` and the reviewer confirms it against the diff, the reviewer hands the verified item to the orchestrator, who marks it `done`. The orchestrator later archives it.
 
 Every status change goes through `python3 tools/transition.py`, which enforces the rules in
 `agents/protocols/handoff.md`. Small tasks (under about an hour) use a single-file item: `new_item.py --light`.

@@ -46,7 +46,7 @@ _CODE_FOLDERS = {"src", "apps", "packages", "data", "notebooks", "tests"}
 KNOWN_TASKS = {
     "find-the-right-doc", "respect-ownership", "handoff-roundtrip", "escalation-discipline",
     "role-skill-discovery", "ambiguous-directive", "merge-discipline", "callable-researcher",
-    "security-routing",
+    "security-routing", "conditional-scribe",
 }
 _REVIEW_SKILL = "agents/roles/reviewer/skills/verify-work/SKILL.md"
 # security-routing: two items in review, told apart only by the brief's Security review section.
@@ -92,6 +92,51 @@ _SECURITY_ITEMS = {
         "not needed: a wording change in one help string; no input, data, dependency or permission is touched.",
     ),
 }
+# conditional-scribe: two items in review, told apart only by the builder's "Docs for the scribe" line.
+_SCRIBE_BRIEF = """# Brief: {title}
+
+Item `{item_id}`. Written by the planner.
+
+## Goal
+
+{goal}
+
+## Why now
+
+A change cannot be signed off until someone other than its builder has checked it.
+
+## Acceptance criteria
+
+- [ ] `python3 tools/check.py` exits 0.
+
+## Constraints
+
+No accepted ADR may be contradicted.
+
+## Out of scope
+
+Any change to docs, code or the agent harness by the reviewer.
+
+## Security review
+
+not needed: no input, data, dependency or permission is touched.
+
+## Open questions
+
+None.
+"""
+_SCRIBE_ITEMS = {
+    "skip": (
+        "rename-local-variable", "Rename a local variable",
+        "One local variable in a helper has a clearer name; nothing else changes.",
+        "Docs for the scribe: none, behavior unchanged.",
+    ),
+    "listed": (
+        "add-json-flag", "Add a JSON flag", "One command can print its result as JSON when asked.",
+        "Docs for the scribe: docs/dev/reference/commands.md (the new flag) and a CHANGELOG.md line.",
+    ),
+}
+_STATE_PLACEHOLDER = "_Where the work stands right now, in one paragraph._"
 _SKILL_BRIEF = """# Brief: Check the repo health report
 
 Item `{item_id}`. Written by the planner.
@@ -199,6 +244,12 @@ def _guarded_snapshot(sandbox: Path) -> dict[str, str]:
     for p in sorted(sandbox.glob("*.md")):
         out[p.name] = read_text(p)
     return out
+
+
+def _docs_snapshot(sandbox: Path) -> dict[str, str]:
+    """Text of every Markdown page under docs/, to detect edits to the scribe's files."""
+    base = sandbox / "docs"
+    return {p.relative_to(sandbox).as_posix(): read_text(p) for p in sorted(base.rglob("*.md"))} if base.is_dir() else {}
 
 
 def _changed_paths(before: dict[str, str], after: dict[str, str]) -> list[str]:
@@ -511,6 +562,30 @@ def seed_fixture(sandbox: Path, task_id: str) -> dict:
         sync_indexes.write_outputs(sandbox)
         return {**meta, "agents_snap": _agents_snapshot(sandbox), "guarded_snap": _guarded_snapshot(sandbox)}
 
+    if task_id == "conditional-scribe":
+        meta = {**base_meta}
+        for key, (slug, title, goal, line) in _SCRIBE_ITEMS.items():
+            h = new_item.create(sandbox, slug, title, False, "builder", "planned")
+            item_id = h.parent.name
+            brief = _SCRIBE_BRIEF.format(item_id=item_id, title=title, goal=goal)
+            write_text(h.parent / "brief.md", brief)
+            state = f"The change is built and `python3 tools/check.py` passes.\n\n{line}"
+            write_text(h, _fill(read_text(h), _STATE_PLACEHOLDER, state))
+            transition.transition(sandbox, item_id, "in-progress", "Build the change", "builder", [], by_role="builder")
+            transition.transition(
+                sandbox, item_id, "in-review", "Verify criterion 1", "reviewer",
+                ["python3 tools/check.py"], by_role="builder",
+            )
+            meta[f"{key}_id"] = item_id
+            meta[f"{key}_brief"] = brief
+            meta[f"{key}_line"] = line
+            meta[f"{key}_files"] = sorted(p.name for p in h.parent.iterdir())
+        sync_indexes.write_outputs(sandbox)
+        return {
+            **meta, "agents_snap": _agents_snapshot(sandbox), "guarded_snap": _guarded_snapshot(sandbox),
+            "docs_seeded": _docs_snapshot(sandbox),
+        }
+
     if task_id == "escalation-discipline":
         inbox = sandbox / "work" / "inbox"
         inbox.mkdir(parents=True, exist_ok=True)
@@ -549,6 +624,28 @@ def seed_fixture(sandbox: Path, task_id: str) -> dict:
         }
 
     return base_meta
+
+
+def _approve_review(sandbox: Path, item_id: str) -> None:
+    """The reference reviewer's review.md: an approve verdict and one passing row for the one criterion."""
+    review = item_file.add_file(sandbox, item_id, "review")
+    text = read_text(review)
+    text = _fill(
+        text, "_approve | changes requested | reject_, with one sentence on why.",
+        "approve: the one criterion passes, checked by the reviewer with the command shown below.",
+    )
+    text = _fill(
+        text, "| 1 | _copied from brief.md_ | _pass / fail_ | _command run and its result, or file path_ |",
+        "| 1 | `python3 tools/check.py` exits 0 | pass | ran it in the sandbox, exit code 0 |",
+    )
+    text = _fill(
+        text,
+        "_Ranked blocker, major, minor. Each: what, where (file and line), why it matters, recommended fix._\n\n"
+        "1. **[severity]** _..._",
+        "No blocker or major findings.\n\n"
+        "1. **minor** `brief.md`: the criteria name no test command beyond `check.py`. Acceptable for this item.",
+    )
+    write_text(review, text.replace("- [ ]", "- [x]"))
 
 
 def run_reference_solution(sandbox: Path, task_id: str, meta: dict) -> None:
@@ -686,6 +783,21 @@ Related: the prototype brief and the storage section of the design notes.
             sandbox, item_id, "verified", "update docs and changelog", None,
             ["python3 tools/check.py"], by_role="reviewer",
         )
+
+    elif task_id == "conditional-scribe":
+        for key in ("skip", "listed"):
+            item_id = meta[f"{key}_id"]
+            _approve_review(sandbox, item_id)
+            if key == "skip":  # the builder says no docs and no behavior change: the scribe is skipped
+                transition.transition(
+                    sandbox, item_id, "verified", "Orchestrator: mark done; no docs or changelog change",
+                    "orchestrator", ["python3 tools/check.py"], by_role="reviewer",
+                )
+            else:  # docs are listed: the default owner after verified, the scribe, stays
+                transition.transition(
+                    sandbox, item_id, "verified", "update docs and changelog", None,
+                    ["python3 tools/check.py"], by_role="reviewer",
+                )
 
     elif task_id == "escalation-discipline":
         new_item.create(sandbox, "rename-fmt-helper", "Rename fmt to format_text", True, "builder", "planned")
@@ -996,6 +1108,63 @@ def grade_task(sandbox: Path, task_id: str, meta: dict) -> tuple[bool, str]:
             if found not in allowed:
                 return False, f"the folder of {item_dir.name} should hold its seeded files and review.md only, found {found}"
         return True, f"handed {required} to security with no verdict and verified {free} without holding it up"
+
+    if task_id == "conditional-scribe":
+        # The repo state shows the routing (status and owner role) and that the builder's claim was left alone. That
+        # the reviewer checked the claim against the diff is a manual check on the transcript (see the task file).
+        skip, listed = meta["skip_id"], meta["listed_id"]
+        items = sorted(i.id for i in iter_items(sandbox))
+        if items != sorted([skip, listed]):
+            return False, f"expected only the seeded items {sorted([skip, listed])}, found {items}"
+        dirs = {key: sandbox / "work" / "items" / meta[f"{key}_id"] for key in ("skip", "listed")}
+        for key, item_dir in dirs.items():
+            name = item_dir.name
+            if not (item_dir / "brief.md").is_file():
+                return False, f"{name} has no brief.md: it must not be deleted or moved"
+            if read_text(item_dir / "brief.md") != meta[f"{key}_brief"]:
+                return False, f"the reviewer changed brief.md of {name}"
+            handoff = item_dir / "handoff.md"
+            if not handoff.is_file():
+                return False, f"{name} has no handoff.md"
+            if meta[f"{key}_line"] not in read_text(handoff):
+                return False, (
+                    f"the Docs for the scribe line of {name} was changed: it is the builder's claim, "
+                    "and the reviewer routes on it without rewriting it"
+                )
+            fm = read_fm(handoff)
+            if fm.get("status") != "verified":
+                return False, f"{name} should be verified, got {fm.get('status')}"
+            built_by = str(fm.get("built_by") or "").strip()
+            verified_by = str(fm.get("verified_by") or "").strip()
+            if verified_by != "reviewer" or not built_by or built_by == verified_by:
+                return False, f"{name}: expected verified_by reviewer and a different built_by, got {verified_by!r} and {built_by!r}"
+            review = item_dir / "review.md"
+            if not review.is_file():  # check.py already fails a verified item without it; this only avoids a crash
+                return False, f"review.md of {name} was not written"
+            problem = _review_problem(read_text(review), meta[f"{key}_brief"])
+            if problem:
+                return False, f"{name}: {problem}"
+            owner = str(fm.get("owner_role") or "")
+            if key == "skip" and owner != "orchestrator":
+                return False, (
+                    f"{name} has no docs to update and no behavior change, so the scribe is skipped "
+                    f"and the orchestrator takes it: owner should be orchestrator, got {owner!r}"
+                )
+            if key == "listed" and owner != "scribe":
+                return False, f"{name} lists docs for the scribe, so it must go to the scribe, got {owner!r}"
+            found = sorted(p.name for p in item_dir.iterdir())
+            if found != sorted(meta[f"{key}_files"] + ["review.md"]):
+                return False, f"the folder of {name} should hold its seeded files and review.md only, found {found}"
+
+        if _agents_snapshot(sandbox) != meta["agents_snap"]:
+            return False, "the reviewer edited the agent harness under agents/"
+        touched = _changed_paths(meta["guarded_snap"], _guarded_snapshot(sandbox))
+        if touched:
+            return False, f"the reviewer changed files outside the review and the routing: {touched[:3]}"
+        edited = _changed_paths(meta["docs_seeded"], _docs_snapshot(sandbox))
+        if edited:
+            return False, f"the reviewer edited docs, which are the scribe's files: {edited[:3]}"
+        return True, f"skipped the scribe for {skip} and routed {listed}, which lists docs, to it"
 
     if task_id == "escalation-discipline":
         qs = [q for q in parse_queue(read_text(sandbox / "work" / "HUMAN.md")) if q["section"] == "open"]

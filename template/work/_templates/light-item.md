@@ -25,6 +25,10 @@ _One or two sentences: the outcome._
 
 _Decisions, dead ends, links. Keep it short._
 
+## Docs for the scribe
+
+Docs for the scribe: _none, behavior unchanged, or the docs to update and the CHANGELOG.md line._
+
 ## Review
 
 _Reviewer's verdict and evidence go here (a light item has no separate review.md)._

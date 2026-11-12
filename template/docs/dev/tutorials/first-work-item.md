@@ -46,7 +46,13 @@ The board now shows `planned`, owned by the builder.
 python3 tools/transition.py <id> in-progress --next "Creating the file" --by builder
 ```
 
-Do the work (for this tutorial, nothing real is needed). Then ask for review:
+Do the work (for this tutorial, nothing real is needed). This tutorial changes no behavior, so open `work/items/<id>/handoff.md` and end its Current state with:
+
+```
+Docs for the scribe: none, behavior unchanged.
+```
+
+Then ask for review:
 
 ```
 python3 tools/transition.py <id> in-review --next "Reviewer: verify criterion 1" --evidence "python3 tools/check.py" --by builder
@@ -70,12 +76,14 @@ Create the review file and fill in a verdict and the evidence per criterion:
 python3 tools/item_file.py <id> review
 ```
 
-Now sign off, as the reviewer:
+Now sign off, as the reviewer. This item has no docs to update, so the reviewer skips the scribe:
 
 ```
-python3 tools/transition.py <id> verified --next "Scribe: update docs and changelog" --evidence "criterion 1 checked" --by reviewer
-python3 tools/transition.py <id> done --by scribe
+python3 tools/transition.py <id> verified --by reviewer --owner orchestrator --evidence "criterion 1 checked" --next "Orchestrator: mark done; no docs or changelog change"
+python3 tools/transition.py <id> done --by orchestrator
 ```
+
+If the builder's line had listed docs, the default owner would stay the scribe, and the scribe would update docs and the changelog before handing the item on.
 
 ## 7. Archive it
 

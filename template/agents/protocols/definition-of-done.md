@@ -18,16 +18,23 @@ An item is done only when all of these are true. The tools check the mechanical 
 - [ ] Status changes used `transition.py --by <role>`, and `built_by`/`verified_by` are different roles.
 - [ ] No file was changed outside the role's ownership without the owner's handoff.
 - [ ] No accepted ADR was contradicted. If one had to change, a superseding ADR exists.
+- [ ] The `Docs for the scribe:` routing is settled: the reviewer checked the builder's line against the diff, or a missing line sent the item to the scribe.
 
-## For items that change behavior
+The builder writes the line at the end of Current state (a full item) or in the light item's `## Docs for the scribe` section. A missing line is a builder miss, not a blocked item: the reviewer sends the item to the scribe.
+
+## For items that change behavior, or whose builder listed docs
 
 - [ ] Affected docs are updated (the scribe's job) and `CHANGELOG.md` has a line under `[Unreleased]`.
 - [ ] Generated files are in sync: `python3 tools/sync_indexes.py && python3 tools/sync_agents.py`.
+
+An item whose builder wrote `Docs for the scribe: none, behavior unchanged.` and whose review agreed skips the scribe: it needs no docs and no changelog line, and the orchestrator marks it `done` (`agents/protocols/handoff.md`). A light item's line in its `## Docs for the scribe` section has the same effect.
 
 ## For full items
 
 - [ ] `review.md` exists, written by a role other than the builder, with a verdict and per-criterion evidence.
 - [ ] No blocker or major finding is left open.
+
+A light item has no `review.md`: the reviewer writes the verdict and evidence in its `## Review` section.
 
 ## Not done if
 

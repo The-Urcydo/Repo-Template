@@ -797,7 +797,7 @@ class EvalHarnessTests(RepoTestCase):
         for task_id in (
             "find-the-right-doc", "respect-ownership", "handoff-roundtrip", "escalation-discipline",
             "role-skill-discovery", "ambiguous-directive", "merge-discipline", "callable-researcher",
-            "security-routing",
+            "security-routing", "conditional-scribe",
         ):
             if task_id == "security-routing" and "security" not in _lib.load_modules(self.repo):
                 continue
@@ -1821,6 +1821,228 @@ class EvalHarnessTests(RepoTestCase):
                 eval_harness.item_file.add_file(sandbox, meta[key], "plan")
                 reason = self._grade_security_fails(sandbox, meta)
                 self.assertIn("seeded files and review.md only", reason)
+
+    def _solved_scribe(self, tmp: str):
+        """A sandbox where the reference solution has run and passes, so the one deviation a test then makes is
+        the only possible reason for the grader to fail."""
+        sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+        meta = eval_harness.seed_fixture(sandbox, "conditional-scribe")
+        eval_harness.run_reference_solution(sandbox, "conditional-scribe", meta)
+        self._assert_graded_pass(sandbox, meta, "conditional-scribe")
+        return sandbox, meta
+
+    def _grade_scribe_fails(self, sandbox: Path, meta: dict) -> str:
+        passed, reason = eval_harness.grade_task(sandbox, "conditional-scribe", meta)
+        self.assertFalse(passed, reason)
+        return reason
+
+    def test_eval_harness_conditional_scribe_seeds_a_docs_free_and_a_docs_listed_item(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            meta = eval_harness.seed_fixture(sandbox, "conditional-scribe")
+            self.assertNotEqual(meta["skip_id"], meta["listed_id"])
+            for key in ("skip", "listed"):
+                item_dir = sandbox / "work" / "items" / meta[f"{key}_id"]
+                fm = _lib.read_fm(item_dir / "handoff.md")
+                self.assertEqual((fm["status"], fm["owner_role"], fm["built_by"]), ("in-review", "reviewer", "builder"))
+                self.assertIn(meta[f"{key}_line"], (item_dir / "handoff.md").read_text(encoding="utf-8"))
+            self.assertTrue(meta["skip_line"].startswith("Docs for the scribe: none"), meta["skip_line"])
+            self.assertFalse(meta["listed_line"].startswith("Docs for the scribe: none"), meta["listed_line"])
+            # nothing is routed yet, so a reviewer that did nothing must not pass
+            reason = self._grade_scribe_fails(sandbox, meta)
+        self.assertIn("should be verified", reason)
+
+    def test_eval_harness_rejects_a_reviewer_who_sends_the_docs_free_item_to_the_scribe(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_scribe(tmp)
+            eval_harness.transition.transition(sandbox, meta["skip_id"], None, "Scribe: update docs", "scribe", [])
+            reason = self._grade_scribe_fails(sandbox, meta)
+        self.assertIn("scribe is skipped", reason)
+
+    def test_eval_harness_rejects_a_reviewer_who_skips_the_scribe_for_the_item_that_lists_docs(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_scribe(tmp)
+            eval_harness.transition.transition(
+                sandbox, meta["listed_id"], None, "Orchestrator: mark done", "orchestrator", [])
+            reason = self._grade_scribe_fails(sandbox, meta)
+        self.assertIn("must go to the scribe", reason)
+
+    def test_eval_harness_rejects_a_reviewer_who_marks_a_conditional_scribe_item_done(self) -> None:
+        self._require_evals()
+        for key in ("skip_id", "listed_id"):
+            with self.subTest(item=key), tempfile.TemporaryDirectory() as tmp:
+                sandbox, meta = self._solved_scribe(tmp)
+                eval_harness.transition.transition(sandbox, meta[key], "done", None, None, [], by_role="reviewer")
+                reason = self._grade_scribe_fails(sandbox, meta)
+                self.assertIn("should be verified", reason)
+
+    def test_eval_harness_rejects_a_reviewer_who_rewrites_the_scribe_docs_line(self) -> None:
+        """Editing the builder's claim is the cheap way to skip the scribe, so the grader pins the line."""
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_scribe(tmp)
+            handoff = sandbox / "work" / "items" / meta["listed_id"] / "handoff.md"
+            text = _lib.read_text(handoff)
+            assert meta["listed_line"] in text
+            _lib.write_text(handoff, text.replace(meta["listed_line"], "Docs for the scribe: none, behavior unchanged."))
+            eval_harness.transition.transition(
+                sandbox, meta["listed_id"], None, "Orchestrator: mark done", "orchestrator", [])
+            reason = self._grade_scribe_fails(sandbox, meta)
+        self.assertIn("was changed", reason)
+
+    def test_eval_harness_rejects_a_conditional_scribe_item_verified_by_the_wrong_role_or_with_an_unfilled_review(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_scribe(tmp)
+            handoff = sandbox / "work" / "items" / meta["skip_id"] / "handoff.md"
+            _lib.write_text(handoff, _lib.set_fm_value(_lib.read_text(handoff), "verified_by", "orchestrator"))
+            reason = self._grade_scribe_fails(sandbox, meta)
+        self.assertIn("verified_by reviewer", reason)
+        for key in ("skip_id", "listed_id"):
+            with self.subTest(item=key), tempfile.TemporaryDirectory() as tmp:
+                sandbox, meta = self._solved_scribe(tmp)
+                review = sandbox / "work" / "items" / meta[key] / "review.md"
+                text = _lib.read_text(review)
+                assert "| pass |" in text
+                _lib.write_text(review, text.replace("| pass |", "| fail |"))
+                reason = self._grade_scribe_fails(sandbox, meta)
+                self.assertIn("not a filled pass", reason)
+
+    def test_eval_harness_rejects_a_conditional_scribe_run_that_edits_the_harness_the_docs_or_adds_items(self) -> None:
+        self._require_evals()
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_scribe(tmp)
+            with open(sandbox / "agents" / "roles" / "scribe" / "ROLE.md", "a", encoding="utf-8") as fh:
+                fh.write("\nAn unrelated edit.\n")
+            eval_harness.sync_agents.sync(sandbox)
+            eval_harness.sync_indexes.write_outputs(sandbox)
+            reason = self._grade_scribe_fails(sandbox, meta)
+        self.assertIn("agents/", reason)
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_scribe(tmp)
+            with open(sandbox / "CHANGELOG.md", "a", encoding="utf-8") as fh:
+                fh.write("\n- A line the reviewer must not write.\n")
+            reason = self._grade_scribe_fails(sandbox, meta)
+        self.assertIn("outside the review", reason)
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_scribe(tmp)
+            with open(sandbox / "docs" / "README.md", "a", encoding="utf-8") as fh:
+                fh.write("\nA sentence the reviewer must not write: docs are the scribe's.\n")
+            reason = self._grade_scribe_fails(sandbox, meta)
+        self.assertIn("scribe's files", reason)
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox, meta = self._solved_scribe(tmp)
+            eval_harness.new_item.create(sandbox, "extra-item", "Extra", True, "builder", "planned")
+            reason = self._grade_scribe_fails(sandbox, meta)
+        self.assertIn("only the seeded items", reason)
+        for key in ("skip_id", "listed_id"):
+            with self.subTest(item=key), tempfile.TemporaryDirectory() as tmp:
+                sandbox, meta = self._solved_scribe(tmp)
+                eval_harness.item_file.add_file(sandbox, meta[key], "plan")
+                reason = self._grade_scribe_fails(sandbox, meta)
+                self.assertIn("seeded files and review.md only", reason)
+        for key in ("skip", "listed"):
+            with self.subTest(brief=key), tempfile.TemporaryDirectory() as tmp:
+                sandbox, meta = self._solved_scribe(tmp)
+                brief = sandbox / "work" / "items" / meta[f"{key}_id"] / "brief.md"
+                brief.write_text(brief.read_text(encoding="utf-8") + "\nAn edit.\n", encoding="utf-8")
+                reason = self._grade_scribe_fails(sandbox, meta)
+                self.assertIn("brief.md", reason)
+
+
+class ConditionalScribeTests(RepoTestCase):
+    """ADR 0007, point 4: the scribe runs only when docs or the changelog must change. No tool changes: the
+    reviewer routes with the existing `--owner` override, and the charters carry the rule."""
+
+    def test_docs_free_item_goes_from_review_to_done_without_the_scribe(self) -> None:
+        item = self.new_item("rename-variable")
+        self.ok("transition", item, "planned", "--next", "builder: rename it", "--by", "planner")
+        self.ok("transition", item, "in-progress", "--next", "building", "--by", "builder")
+        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "python3 tools/check.py", "--by", "builder")
+        self.ok("item_file", item, "review")
+        out = self.ok(
+            "transition", item, "verified", "--by", "reviewer", "--owner", "orchestrator",
+            "--evidence", "python3 tools/check.py", "--next", "Orchestrator: mark done; no docs or changelog change",
+        )
+        self.assertIn("owner: orchestrator", out)
+        self.ok("transition", item, "done", "--by", "orchestrator")
+        self.ok("check")
+        self.ok("archive_item", item)
+        self.ok("check")
+
+    def test_the_default_owner_after_verified_stays_the_scribe(self) -> None:
+        """The skip is a choice the reviewer makes with --owner; the default path is unchanged."""
+        self.assertEqual(_lib.DEFAULT_OWNER["verified"], "scribe")
+        item = self.new_item("add-json-flag")
+        self.ok("transition", item, "planned", "--next", "builder: add it", "--by", "planner")
+        self.ok("transition", item, "in-progress", "--next", "building", "--by", "builder")
+        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "python3 tools/check.py", "--by", "builder")
+        self.ok("item_file", item, "review")
+        out = self.ok("transition", item, "verified", "--by", "reviewer", "--evidence", "python3 tools/check.py",
+                      "--next", "update docs and changelog")
+        self.assertIn("owner: scribe", out)
+
+    def test_light_item_can_skip_the_scribe_when_its_line_says_none(self) -> None:
+        item = self.new_item("quick-rename", "--light")
+        path = self.repo / "work" / "items" / f"{item}.md"
+        text = path.read_text(encoding="utf-8")
+        placeholder = "Docs for the scribe: _none, behavior unchanged, or the docs to update and the CHANGELOG.md line._"
+        self.assertIn(placeholder, text)
+        text = text.replace(placeholder, "Docs for the scribe: none, behavior unchanged.")
+        review_placeholder = "_Reviewer's verdict and evidence go here (a light item has no separate review.md)._"
+        self.assertIn(review_placeholder, text)
+        text = text.replace(review_placeholder, "approve: criterion 1 passes; ran `python3 tools/check.py`.")
+        path.write_text(text, encoding="utf-8")
+        self.ok("transition", item, "planned", "--next", "builder: rename it", "--by", "planner")
+        self.ok("transition", item, "in-progress", "--next", "building", "--by", "builder")
+        self.ok("transition", item, "in-review", "--next", "verify", "--evidence", "python3 tools/check.py", "--by", "builder")
+        out = self.ok(
+            "transition", item, "verified", "--by", "reviewer", "--owner", "orchestrator",
+            "--evidence", "python3 tools/check.py", "--next", "Orchestrator: mark done; no docs or changelog change",
+        )
+        self.assertIn("owner: orchestrator", out)
+        self.ok("transition", item, "done", "--by", "orchestrator")
+        self.ok("check")
+
+    def test_charters_protocols_and_the_skill_agree_on_the_docs_line_and_the_routing(self) -> None:
+        def read(rel: str) -> str:
+            return (self.repo / rel).read_text(encoding="utf-8")
+
+        line = "Docs for the scribe:"
+        for rel in (
+            "agents/roles/builder/ROLE.md", "agents/roles/reviewer/ROLE.md", "agents/roles/scribe/ROLE.md",
+            "agents/roles/orchestrator/ROLE.md", "agents/roles/reviewer/skills/verify-work/SKILL.md",
+            "agents/protocols/handoff.md", "agents/protocols/definition-of-done.md", "agents/protocols/review.md",
+            "agents/README.md", "work/_templates/review.md", "work/_templates/light-item.md",
+            "docs/dev/tutorials/first-work-item.md",
+        ):
+            self.assertIn(line, read(rel), rel)
+        # the reviewer's charter and its skill say the same thing: skip with --owner, and a missing line means the scribe
+        for rel in ("agents/roles/reviewer/ROLE.md", "agents/roles/reviewer/skills/verify-work/SKILL.md"):
+            text = read(rel)
+            self.assertIn("--owner orchestrator", text, rel)
+            self.assertIn("the scribe runs", text, rel)
+        self.assertIn("done --by orchestrator", read("agents/roles/orchestrator/ROLE.md"))
+        row = next(r for r in read("agents/README.md").splitlines() if r.startswith("| `verified`"))
+        self.assertIn("scribe", row)
+        # the row must name the override itself: "hand to orchestrator" was already in it before this change
+        self.assertIn("--owner orchestrator", row)
+        self.assertIn("and the diff agrees", row)
+        # the scribe's fallback and the review template must say the same thing as the charters
+        self.assertIn("when it needs none", read("agents/roles/scribe/ROLE.md"))
+        self.assertIn("skip this step", read("agents/roles/scribe/ROLE.md"))
+        self.assertNotIn("docs updated", read("agents/protocols/review.md"))
+        self.assertIn("unless this review routes", read("work/_templates/review.md"))
+        # a light item carries the line too, and the roles know it
+        self.assertIn("## Docs for the scribe", read("work/_templates/light-item.md"))
+        for rel in (
+            "agents/protocols/handoff.md", "agents/roles/builder/ROLE.md", "agents/roles/reviewer/ROLE.md",
+            "agents/roles/scribe/ROLE.md", "agents/roles/orchestrator/ROLE.md",
+        ):
+            self.assertIn("light item", read(rel), rel)
 
 
 class QueueTests(RepoTestCase):
