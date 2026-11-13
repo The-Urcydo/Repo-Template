@@ -2,6 +2,7 @@ name: workflow-lint
 
 # Lints this repository's workflows: syntax and shell mistakes (actionlint), injection, excess permissions and
 # unpinned actions (zizmor). The same job ships to generated projects in template/.github/workflows/check.yml.
+# It lints the shipped workflows (template/.github) too: the root tests that do so skip when the linters are absent.
 
 on:
   push:
@@ -36,8 +37,9 @@ jobs:
           curl -sSfL -o "$RUNNER_TEMP/actionlint.tar.gz" "https://github.com/rhysd/actionlint/releases/download/v${version}/actionlint_${version}_linux_amd64.tar.gz"
           echo "${sha256}  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
-          "$RUNNER_TEMP/actionlint" -color
+          "$RUNNER_TEMP/actionlint" -color .github/workflows/*.yml template/.github/workflows/*.yml
       - uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
         with:
+          inputs: . template/.github # the default (.) audits only this repo's own files, not the workflows it ships
           advanced-security: false # the default uploads SARIF and needs security-events: write
           version: 1.32.0
