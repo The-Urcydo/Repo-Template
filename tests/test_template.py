@@ -125,6 +125,55 @@ def test_roster_lists_role_and_shared_skills(full):
     assert "roles/scribe/skills/write-doc" not in text, "write-doc is shared, not scribe-only"
 
 
+_COMMAND_RE = re.compile(r"python3 tools/\w+\.py[^`\n]*")
+
+
+def _commands(text: str) -> set[str]:
+    """Every `python3 tools/<x>.py ...` command in a text, whether inline or in a code block."""
+    return {re.sub(r"\s+", " ", m.group(0)).strip().rstrip(".,;:)") for m in _COMMAND_RE.finditer(text)}
+
+
+def repeated_commands(role_dir: Path) -> dict[str, set[str]]:
+    """For each skill of one role: the commands that the role's charter body also contains."""
+    charter = (role_dir / "ROLE.md").read_text(encoding="utf-8").split("\n---\n", 1)[1]
+    in_charter = _commands(charter)
+    out: dict[str, set[str]] = {}
+    for skill in sorted(p for p in (role_dir / "skills").glob("*") if p.is_dir()):
+        text = "\n".join(f.read_text(encoding="utf-8") for f in sorted(skill.rglob("*.md")))
+        out[skill.name] = in_charter & _commands(text)
+    return out
+
+
+def test_a_role_and_its_own_skills_never_repeat_a_command(full):
+    # One fact, one home: the charter owns the commands that move an item, the skill owns the method.
+    repeated = {}
+    for role in sorted(p for p in (full / "agents" / "roles").iterdir() if p.is_dir()):
+        for skill, cmds in repeated_commands(role).items():
+            if cmds:
+                repeated[f"{role.name}/{skill}"] = sorted(cmds)
+    assert not repeated, f"commands written in both a charter and its own skill: {repeated}"
+
+
+def test_the_repeat_check_sees_a_repeated_command_and_nothing_else(tmp_path):
+    role = tmp_path / "r"
+    (role / "skills" / "s").mkdir(parents=True)
+    (role / "skills" / "s" / "references").mkdir()
+    (role / "ROLE.md").write_text(
+        "---\nrole: r\n---\n# R\n\nHand over with `python3 tools/transition.py <id> --owner x --next \"go\"`.\n"
+        "Then run `python3 tools/check.py`.\n", encoding="utf-8")
+    (role / "skills" / "s" / "SKILL.md").write_text(
+        "---\nname: s\n---\n# S\n\n```\npython3 tools/transition.py <id> --owner x --next \"go\"\n```\n", encoding="utf-8")
+    assert repeated_commands(role) == {"s": {'python3 tools/transition.py <id> --owner x --next "go"'}}
+    # the same script with other flags is another command; so is a command only in the skill
+    (role / "skills" / "s" / "SKILL.md").write_text(
+        "---\nname: s\n---\n# S\n\n`python3 tools/transition.py <id> --owner y`\n`python3 tools/item_file.py <id> review`\n",
+        encoding="utf-8")
+    assert repeated_commands(role) == {"s": set()}
+    # a repeat that lives in the skill's references/ counts too
+    (role / "skills" / "s" / "references" / "more.md").write_text("Run `python3 tools/check.py`.\n", encoding="utf-8")
+    assert repeated_commands(role) == {"s": {"python3 tools/check.py"}}
+
+
 def test_no_unrendered_template_syntax_leaks(full):
     bad = []
     for p in full.rglob("*"):
