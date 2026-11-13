@@ -452,6 +452,27 @@ def test_cursor_and_copilot_adapters_ship_disabled(full):
     assert not (full / ".gemini").exists()
 
 
+# --- the security policy a project starts with --------------------------------------------------------------------------
+
+def test_shipped_security_policy_works_out_of_the_box_but_stays_flagged_until_finished(full, tmp_path):
+    text = (full / "SECURITY.md").read_text(encoding="utf-8")
+    lowered = text.lower()
+    assert "do not open a public issue" in lowered
+    assert "private vulnerability reporting" in lowered and "report a vulnerability" in lowered
+    assert "public" in lowered and "settings" in lowered, "say it is for public repositories and the owner switches it on"
+    assert not re.search(r"[\w.+-]+@[\w-]+\.[\w.]+", text), "an invented address would be published by mistake"
+    assert not re.search(r"\b\d+\s*(hours?|days?|weeks?)\b", lowered), "the template must not promise a response time"
+    for heading in ("## Reporting a vulnerability", "## Supported versions", "## What to expect"):
+        assert heading in text, heading
+    assert re.search(r"\bTODO\b", text) and "<fill" in text, "an unfilled policy must stay listed by check.py --stubs"
+    assert "SECURITY.md" in py(full, "tools/check.py", "--stubs").stdout
+    done = tmp_path / "done"
+    shutil.copytree(full, done, symlinks=True)
+    finished = re.sub(r"(?m)^TODO:.*\n\n", "", text).replace("<fill: a contact address or private channel>", "the maintainers' private channel")
+    (done / "SECURITY.md").write_text(finished, encoding="utf-8")
+    assert "SECURITY.md" not in py(done, "tools/check.py", "--stubs").stdout, "filling the two markers must clear the flag"
+
+
 # --- template update notifier (tools/template_status.py + .github/workflows/template-update.yml) ---------------------
 def test_template_update_workflow_is_weekly_and_can_only_open_an_issue():
     yaml = pytest.importorskip("yaml")
@@ -822,24 +843,3 @@ def test_shipped_workflows_pass_actionlint():
 def test_shipped_github_files_pass_zizmor_offline():
     r = subprocess.run(["zizmor", "--offline", "--no-progress", "--format=plain", str(SHIPPED_GITHUB)], capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
-
-
-# --- the security policy a project starts with --------------------------------------------------------------------------
-
-def test_shipped_security_policy_works_out_of_the_box_but_stays_flagged_until_finished(full, tmp_path):
-    text = (full / "SECURITY.md").read_text(encoding="utf-8")
-    lowered = text.lower()
-    assert "do not open a public issue" in lowered
-    assert "private vulnerability reporting" in lowered and "report a vulnerability" in lowered
-    assert "public" in lowered and "settings" in lowered, "say it is for public repositories and the owner switches it on"
-    assert not re.search(r"[\w.+-]+@[\w-]+\.[\w.]+", text), "an invented address would be published by mistake"
-    assert not re.search(r"\b\d+\s*(hours?|days?|weeks?)\b", lowered), "the template must not promise a response time"
-    for heading in ("## Reporting a vulnerability", "## Supported versions", "## What to expect"):
-        assert heading in text, heading
-    assert re.search(r"\bTODO\b", text) and "<fill" in text, "an unfilled policy must stay listed by check.py --stubs"
-    assert "SECURITY.md" in py(full, "tools/check.py", "--stubs").stdout
-    done = tmp_path / "done"
-    shutil.copytree(full, done, symlinks=True)
-    finished = re.sub(r"(?m)^TODO:.*\n\n", "", text).replace("<fill: a contact address or private channel>", "the maintainers' private channel")
-    (done / "SECURITY.md").write_text(finished, encoding="utf-8")
-    assert "SECURITY.md" not in py(done, "tools/check.py", "--stubs").stdout, "filling the two markers must clear the flag"
