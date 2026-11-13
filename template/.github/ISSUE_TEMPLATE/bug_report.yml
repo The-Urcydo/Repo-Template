@@ -1,0 +1,38 @@
+name: Bug report
+description: Something does not work as it should
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not report a security vulnerability here. If this project has a security policy, follow it.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, and what did you see?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The commands, files or inputs that trigger it, in order.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: A release tag, or the output of `git rev-parse --short HEAD`.
+  - type: textarea
+    id: output
+    attributes:
+      label: Logs or output
+      description: Paste the error text. It is formatted as code for you.
+      render: shell

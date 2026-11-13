@@ -1,0 +1,26 @@
+# Release notes: on GitHub, "Generate release notes" groups merged pull requests by label. A pull request without
+# a label lands in "Other changes". Create the labels `breaking` and `ignore-for-release` once (Issues, Labels) to
+# use them: label a change `breaking` when people using this project must do something after upgrading.
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+  categories:
+    - title: Breaking changes
+      labels:
+        - breaking
+    - title: Features
+      labels:
+        - enhancement
+    - title: Fixes
+      labels:
+        - bug
+    - title: Documentation
+      labels:
+        - documentation
+    - title: Dependencies
+      labels:
+        - dependencies
+    - title: Other changes
+      labels:
+        - "*"
