@@ -167,6 +167,8 @@ gh release create vX.Y.Z --verify-tag --notes-from-tag
 
 Tag on the merge commit, after the pull requests you want to ship have merged. The tag message (the summary and the detail paragraph) becomes the [release notes](https://github.com/The-Urcydo/Repo-Template/releases): list what changed for generated projects and say when an update renames files. `--notes-from-tag` reads that message, so write it for the people updating their projects.
 
+Before you tag, compare the pins in `template/.github/workflows/` with `.github/workflows/`. Dependabot here watches only this repo's own workflows, so the action commit SHAs and the `actionlint` and `zizmor` versions that ship to projects are bumped by hand. `workflow-lint` lints both sets.
+
 ## Known limits
 
 - The multi-agent workflows are exercised with fixtures and reference solutions, not yet with real parallel agent runs across separate sessions. Treat role handoffs as validated by the harness, not by production mileage.
