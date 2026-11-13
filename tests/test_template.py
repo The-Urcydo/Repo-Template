@@ -822,3 +822,33 @@ def test_shipped_workflows_pass_actionlint():
 def test_shipped_github_files_pass_zizmor_offline():
     r = subprocess.run(["zizmor", "--offline", "--no-progress", "--format=plain", str(SHIPPED_GITHUB)], capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
+
+
+# --- issue forms and release-notes categories shipped to projects ------------------------------------------------------
+
+def test_shipped_issue_forms_and_release_notes_belong_to_the_github_module_and_say_nothing_of_this_repo(full, tmp_path):
+    import yaml
+
+    github = json.loads((TEMPLATE / "template" / "tools" / "modules.json").read_text(encoding="utf-8"))["modules"]["github"]
+    assert ".github/ISSUE_TEMPLATE" in github["paths"] and ".github/release.yml" in github["paths"]
+    forms = sorted((full / ".github" / "ISSUE_TEMPLATE").glob("*"))
+    assert [f.name for f in forms] == ["bug_report.yml", "feature_request.yml"], (
+        "no config.yml: blank issues stay allowed, and a contact link needs a URL the template cannot know")
+    for form in forms:
+        text = form.read_text(encoding="utf-8")
+        data = yaml.safe_load(text)
+        assert data["name"] and data["description"] and data["labels"], form.name
+        fields = [b for b in data["body"] if b["type"] != "markdown"]
+        ids = [b["id"] for b in fields]
+        assert fields and len(ids) == len(set(ids)) and all(re.fullmatch(r"[A-Za-z0-9_-]+", i) for i in ids), form.name
+        assert all(b["attributes"]["label"] for b in fields), form.name
+        assert any(b.get("validations", {}).get("required") for b in fields), "an empty issue helps nobody"
+        assert not re.search(r"Repo-Template|Copier|copier|The-Urcydo", text), "a generated project is not this template"
+    release = yaml.safe_load((full / ".github" / "release.yml").read_text(encoding="utf-8"))["changelog"]
+    assert release["exclude"]["labels"] == ["ignore-for-release"]
+    categories = {c["title"]: c["labels"] for c in release["categories"]}
+    assert categories["Breaking changes"] == ["breaking"] and categories["Features"] == ["enhancement"]
+    assert categories["Fixes"] == ["bug"] and list(categories.values())[-1] == ["*"], "unlabelled changes still show up"
+    assert "ISSUE_TEMPLATE" in github["removal_notes"] or "issue form" in github["removal_notes"].lower()
+    lean = generate(tmp_path / "lean-forms", profile="lean")
+    assert not (lean / ".github").exists(), "cutting the github module removes the forms and release.yml too"
