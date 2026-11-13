@@ -33,3 +33,16 @@ def test_workflow_lint_runs_both_linters_pinned_and_with_least_privilege():
     assert re.search(r"^\s*version=\d+\.\d+\.\d+\s*$", text, re.M)
     assert all(s.get("with", {}).get("persist-credentials") is False for s in job["steps"]
                if str(s.get("uses", "")).startswith("actions/checkout@"))
+
+
+def test_workflow_lint_also_lints_the_workflows_the_template_ships():
+    """The two tests that lint template/.github skip when the linters are not on PATH, and zizmor with no input
+    audits only this repo's own files. Without this the shipped workflows are first linted inside someone's project."""
+    wf = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    (job,) = wf["jobs"].values()
+    actionlint = [s["run"] for s in job["steps"] if "actionlint" in s.get("run", "")]
+    assert len(actionlint) == 1
+    assert ".github/workflows/*.yml" in actionlint[0] and "template/.github/workflows/*.yml" in actionlint[0]
+    (zizmor,) = [s for s in job["steps"] if str(s.get("uses", "")).startswith("zizmorcore/zizmor-action@")]
+    audited = str(zizmor["with"].get("inputs", ".")).split()
+    assert "." in audited and "template/.github" in audited, audited
