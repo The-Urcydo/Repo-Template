@@ -27,15 +27,16 @@ python3 tools/sync_agents.py --check    # fail if generated files differ from th
 
 `manifest.json` records a hash of every generated file. The sync tool refuses to overwrite a file it did not generate, and removes generated files whose source disappeared.
 
-## Claude Code: tool limits, models and descriptions
+## Claude Code: tool limits, models, skills and descriptions
 
-Three optional inputs shape the generated `.claude/agents/<role>.md` front matter. Cursor, Copilot and Gemini ignore the first two.
+Four inputs shape the generated `.claude/agents/<role>.md` front matter; the first three are optional. Cursor, Copilot and Gemini ignore `access`, `models` and the skills list.
 
 | Input | Where | Effect |
 |---|---|---|
 | `access: read-only` | a role's `ROLE.md` | Adds `disallowedTools` from the `claude.disallowed_tools` table in `targets.json` (shipped: `Edit` and `NotebookEdit`). No `access`, or `full`, adds nothing |
 | `claude.models` | `targets.json` | Maps a role name to a model alias or id and adds `model:` for that role only. Shipped empty: every role inherits the session's model. Model names live here, never in `ROLE.md` |
 | `use_when` | a role's `ROLE.md` | Completes "Use when ..." in the subagent and Cursor rule description. Without it the description says "Use when a work item's handoff owner_role is `<role>`", which fits a role that is handed items and never fits a role that is only called |
+| skills list (generated, nothing to set) | the role's `skills/` folder | Writes `skills:` with the names of the skills only that role uses, so Claude Code preloads them in full into the subagent at startup. A subagent preloads only the skills it lists. It can still find other project skills through the Skill tool, but only if it decides to, so without this line the method a charter hands to a skill might never reach it. Shared skills are not listed. A skill that sets `disable-model-invocation: true` is left out, because Claude Code does not preload those |
 
 `disallowedTools` guards against accidents: it stops a read-only role from editing work it does not own in place. It is not a security boundary. These roles still need `Write` to fill the item file `tools/item_file.py` creates and to write their owned files, and a shell can change files anyway. Command-level limits belong in Claude Code permission rules or hooks, which this tool does not generate. `check.py` fails on an unknown `access` value, an unknown role in `models`, a tool name that is not a plain name such as `Edit`, and a `disallowed_tools` entry for `full` (the default level cannot restrict).
 

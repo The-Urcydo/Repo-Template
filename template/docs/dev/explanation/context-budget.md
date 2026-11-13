@@ -22,7 +22,7 @@ These are benchmark results on particular repositories and models, so treat them
 2. **Only non-discoverable facts in `AGENTS.md`.** Build commands, hard rules, the definition of done. No directory trees (`check.py` warns), no restating what the code or `README.md` already says.
 3. **Summaries instead of reading.** Every doc has a one-sentence `summary`; agents can grep summaries instead of opening files.
 4. **Nested, scoped rules.** Folder-specific rules live in a short `AGENTS.md` in that folder (limit 60 lines), loaded when an agent works there, not in every session.
-5. **Skills for procedures.** Step-by-step procedures live in skills, which cost about a hundred tokens until a task matches.
+5. **Skills for methods.** The step-by-step method for a task lives in a skill, which costs about a hundred tokens until a task matches. A role's routing and limits stay in its charter, because that is always read.
 6. **Hand-written, then tested.** The root `AGENTS.md` is hand-written. Changes to it, to roles or to skills should be checked with the golden tasks in the `evals` module when it is installed, comparing behavior before and after.
 
 ## When to break the rules

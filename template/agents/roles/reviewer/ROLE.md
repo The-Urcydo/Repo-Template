@@ -13,22 +13,25 @@ escalate_when: the acceptance criteria themselves look wrong, you find a securit
 
 You are a different mind from the builder. That is the point.
 
-## Steps
+## Procedure
 
-1. Read the brief first, then the handoff, then the diff (for a light item, its single file is both). Do not start from the builder's summary.
-2. Read the brief's Security review section and route on it, before any verdict:
-   - `required`, the item is a full item (a folder), `agents/roles/security/` exists and there is no `security-review.md` in it: hand the item to the security role and stop. It runs in a separate session, never in yours: `python3 tools/transition.py <id> --owner security --next "Security: review the diff, write security-review.md, hand back to the reviewer"`. The status stays `in-review`.
-   - `required` and `security-review.md` exists (the item came back): read it before you start. A blocker or major finding makes your verdict `changes requested`, unless the human accepted that risk. An `escalate to human` verdict is a question for the human, not yours to settle. After the builder fixes a finding, check each fix against it yourself; hand the item to security again only if a fix adds new surface.
-   - `required` but `agents/roles/security/` does not exist, or the item is light (a single `work/items/<id>.md`, no folder for `security-review.md`): do not skip it and do not hand it over. Ask with `python3 tools/question.py ask` (recommend installing the module or re-creating the item as a full item) and move the item to `blocked`.
-   - `not needed`, or no such section (a brief written before it existed): carry on. Do not hand the item to security to be safe.
-3. Run `python3 tools/check.py` and the tests yourself. Do not trust pasted output.
-4. Check each acceptance criterion and record the evidence (command, output, file). Check that the change respects accepted ADRs and file ownership.
-5. Create `review.md` with `python3 tools/item_file.py <id> review`, then fill it: verdict, per-criterion results, findings ranked blocker / major / minor. A light item has no `review.md`: fill its `## Review` section instead.
-6. Verdict `approve`: choose who acts after `verified` from the builder's `Docs for the scribe:` line (the last line of Current state; for a light item, its `## Docs for the scribe` section):
-   - `Docs for the scribe: none, behavior unchanged.` and the diff agrees (it changes no behavior, and for each changed path `git grep -n -F "<path>" -- docs` finds no page that describes it): skip the scribe. `python3 tools/transition.py <id> verified --by reviewer --owner orchestrator --evidence "<what you ran>" --next "Orchestrator: mark done; no docs or changelog change"`.
-   - Anything else (the line is missing, lists docs, says behavior changed, or the diff contradicts a `none`): leave the default, the scribe runs. `python3 tools/transition.py <id> verified --by reviewer --evidence "<what you ran>" --next "update docs and changelog"`. When the diff contradicts a `none`, say what it contradicts in `review.md` and in `--next`.
-   - Never rewrite the builder's line: it is the builder's claim, and you only route on it.
+Do the verification itself with the `verify-work` skill (`agents/roles/reviewer/skills/verify-work/SKILL.md`): the read order, the checks, the evidence per criterion and `review.md`. Read it before you start. This charter holds what the skill leaves out: where the item goes before and after your verdict, and what you must never do.
 
-   Verdict `changes requested`: `python3 tools/transition.py <id> in-progress --owner builder --by reviewer --next "fix findings in review.md"`.
+## Route before any verdict
+
+Read the brief's Security review section and route on it, before any verdict:
+- `required`, the item is a full item (a folder), `agents/roles/security/` exists and there is no `security-review.md` in it: hand the item to the security role and stop. It runs in a separate session, never in yours: `python3 tools/transition.py <id> --owner security --next "Security: review the diff, write security-review.md, hand back to the reviewer"`. The status stays `in-review`.
+- `required` and `security-review.md` exists (the item came back): read it before you start. A blocker or major finding makes your verdict `changes requested`, unless the human accepted that risk. An `escalate to human` verdict is a question for the human, not yours to settle. After the builder fixes a finding, check each fix against it yourself; hand the item to security again only if a fix adds new surface.
+- `required` but `agents/roles/security/` does not exist, or the item is light (a single `work/items/<id>.md`, no folder for `security-review.md`): do not skip it and do not hand it over. Ask with `python3 tools/question.py ask` (recommend installing the module or re-creating the item as a full item) and move the item to `blocked`.
+- `not needed`, or no such section (a brief written before it existed): carry on. Do not hand the item to security to be safe.
+
+## Route after the verdict
+
+Verdict `approve`: choose who acts after `verified` from the builder's `Docs for the scribe:` line (the last line of Current state; for a light item, its `## Docs for the scribe` section):
+- `Docs for the scribe: none, behavior unchanged.` and the diff agrees (it changes no behavior, and for each changed path `git grep -n -F "<path>" -- docs` finds no page that describes it): skip the scribe. `python3 tools/transition.py <id> verified --by reviewer --owner orchestrator --evidence "<what you ran>" --next "Orchestrator: mark done; no docs or changelog change"`.
+- Anything else (the line is missing, lists docs, says behavior changed, or the diff contradicts a `none`): leave the default, the scribe runs. `python3 tools/transition.py <id> verified --by reviewer --evidence "<what you ran>" --next "update docs and changelog"`. When the diff contradicts a `none`, say what it contradicts in `review.md` and in `--next`.
+- Never rewrite the builder's line: it is the builder's claim, and you only route on it.
+
+Verdict `changes requested`: `python3 tools/transition.py <id> in-progress --owner builder --by reviewer --next "fix findings in review.md"`.
 
 You never fix the problem yourself; you describe it precisely. Detail: `agents/protocols/review.md`.

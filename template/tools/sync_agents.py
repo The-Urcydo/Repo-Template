@@ -5,7 +5,8 @@ Source of truth:  agents/roles/<role>/ROLE.md, agents/skills/*/ (shared skills),
                   agents/roles/<role>/skills/*/ (skills only that role uses), every AGENTS.md
 Generated for Claude Code (when enabled in agents/adapters/targets.json):
   .claude/agents/<role>.md        subagent definitions (name + description + charter; plus `model` and
-                                  `disallowedTools` when targets.json maps them, see adapters/README.md)
+                                  `disallowedTools` when targets.json maps them, and `skills` listing the
+                                  role's own skills, see adapters/README.md)
   .claude/skills/<name>/...       copies of the open-standard skill folders (flat, from both lanes)
   <dir>/CLAUDE.md                 one-line shim importing the sibling AGENTS.md
                                   (Claude Code reads CLAUDE.md instead of AGENTS.md
@@ -35,8 +36,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _lib import (  # noqa: E402
-    RESTRICTING_LEVELS, SKIP_DIRS, TOOL_NAME_RE, folder_owners, load_roles, load_targets, read_text, repo_root,
-    sha256_bytes, skill_folders, write_text, yaml_scalar,
+    RESTRICTING_LEVELS, SKIP_DIRS, TOOL_NAME_RE, folder_owners, load_roles, load_targets, read_fm, read_text,
+    repo_root, sha256_bytes, skill_folders, write_text, yaml_scalar,
 )
 
 MANIFEST = "agents/adapters/manifest.json"
@@ -82,10 +83,26 @@ def _role_description(role: str, fm: dict) -> str:
     return f"{mission} Use when a work item's handoff owner_role is {role}."
 
 
-def _claude_extra_head(role: str, fm: dict, cfg: dict) -> list[str]:
-    """Optional subagent front matter lines: `model` (from `models` in targets.json) and `disallowedTools`
-    (the charter's `access` looked up in `disallowed_tools`). Config that check.py would reject adds
-    nothing, so a bad targets.json never crashes the sync."""
+def _preloadable_skills(root: Path) -> dict[str, list[str]]:
+    """Role -> the skills only that role uses, in name order. A Claude subagent preloads only the skills it
+    lists (it may find others itself, but only if it decides to). Claude Code does not preload a skill that
+    sets `disable-model-invocation`, so those are left out. A SKILL.md whose front matter cannot be read is
+    still listed: check.py reports it."""
+    out: dict[str, list[str]] = {}
+    for owner, sk in skill_folders(root):
+        if not owner or not (sk / "SKILL.md").is_file():
+            continue
+        if read_fm(sk / "SKILL.md").get("disable-model-invocation") in (True, "true"):
+            continue
+        out.setdefault(owner, []).append(sk.name)
+    return out
+
+
+def _claude_extra_head(role: str, fm: dict, cfg: dict, skills: list[str] | None = None) -> list[str]:
+    """Optional subagent front matter lines: `model` (from `models` in targets.json), `disallowedTools`
+    (the charter's `access` looked up in `disallowed_tools`) and `skills` (the role's own skills, preloaded
+    in full at startup). Config that check.py would reject adds nothing, so a bad targets.json never
+    crashes the sync."""
     lines: list[str] = []
     models = cfg.get("models")
     model = models.get(role) if isinstance(models, dict) else None
@@ -96,6 +113,9 @@ def _claude_extra_head(role: str, fm: dict, cfg: dict) -> list[str]:
     tools = table.get(level) if isinstance(table, dict) and level in RESTRICTING_LEVELS else None
     if isinstance(tools, list) and tools and all(isinstance(t, str) and TOOL_NAME_RE.fullmatch(t) for t in tools):
         lines.append("disallowedTools: " + ", ".join(tools))  # the comma-separated form Claude Code documents
+    if skills:
+        lines.append("skills:")  # the block-list form from Claude Code's subagent docs
+        lines.extend(f"  - {yaml_scalar(name)}" for name in skills)
     return lines
 
 
@@ -150,9 +170,10 @@ def _claude_outputs(root: Path, cfg: dict) -> dict[str, bytes]:
     out: dict[str, bytes] = {}
     agents_dir = cfg.get("agents_dir", ".claude/agents")
     skills_dir = cfg.get("skills_dir", ".claude/skills")
+    preload = _preloadable_skills(root)
     for role, fm, body, owned in _role_files(root):
         out[f"{agents_dir}/{role}.md"] = render_subagent(
-            role, fm, body, owned, _claude_extra_head(role, fm, cfg)).encode("utf-8")
+            role, fm, body, owned, _claude_extra_head(role, fm, cfg, preload.get(role))).encode("utf-8")
     # Shared skills and role-only skills both land flat in `.claude/skills/<name>/`.
     for _owner, sk in skill_folders(root):
         if (sk / "SKILL.md").exists():

@@ -3,7 +3,7 @@ title: Front matter schema
 type: reference
 status: active
 summary: The required and optional front matter keys for docs, ADRs, handoffs, roles, skills and folder READMEs.
-related_code: [tools/_lib.py, tools/check.py]
+related_code: [tools/_lib.py, tools/check.py, tools/sync_agents.py]
 ---
 # Front matter schema
 
@@ -50,7 +50,7 @@ Required: `role` (equals the folder name), `mission`, `reads`, `never`, `done_wh
 
 ## Skill (`agents/roles/<role>/skills/<name>/SKILL.md` or `agents/skills/<name>/SKILL.md`)
 
-Per the Agent Skills specification: `name` (1-64 chars, lowercase letters, digits and single hyphens, equals the folder), `description` (1-1024 chars, what it does and when to use it). A skill only one role uses lives under that role; a skill several roles use lives in `agents/skills/`. The name is unique across both places.
+Per the Agent Skills specification: `name` (1-64 chars, lowercase letters, digits and single hyphens, equals the folder), `description` (1-1024 chars, what it does and when to use it). A skill only one role uses lives under that role; a skill several roles use lives in `agents/skills/`. The name is unique across both places. For Claude Code, `tools/sync_agents.py` lists a role's own skills in its subagent's `skills:` line; there is nothing to set (`agents/adapters/README.md`).
 
 ## Folder README (top-level folders, workspace components, and any folder that owns something)
 

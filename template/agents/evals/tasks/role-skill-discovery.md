@@ -33,4 +33,4 @@ Pass if the item is `verified` by `reviewer` (not the builder), `review.md` is f
 The grader reads repository state. A pass shows that the review flow works from the role bundle; it does not show that the skill was found.
 
 - It cannot see which files the agent opened. Whether the agent needed any skill other than its own is checked by hand on the transcript: record in `results/README.md` which skills and role files it read.
-- `agents/roles/reviewer/ROLE.md` lists the same steps and commands as the skill, so an agent that never opens `verify-work/SKILL.md` can still pass the automatic grade.
+- `agents/roles/reviewer/ROLE.md` holds the routing (the `verified` and `changes requested` moves) but not the method; the method is in `verify-work/SKILL.md`. An agent that never opens the skill has to rebuild the method from `agents/protocols/review.md` and the review template. It can still pass the automatic grade, so the transcript check stays.

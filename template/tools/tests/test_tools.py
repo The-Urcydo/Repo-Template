@@ -2007,24 +2007,30 @@ class ConditionalScribeTests(RepoTestCase):
         self.ok("transition", item, "done", "--by", "orchestrator")
         self.ok("check")
 
-    def test_charters_protocols_and_the_skill_agree_on_the_docs_line_and_the_routing(self) -> None:
+    def test_charters_and_protocols_agree_on_the_docs_line_and_the_reviewer_charter_owns_the_routing(self) -> None:
         def read(rel: str) -> str:
             return (self.repo / rel).read_text(encoding="utf-8")
 
         line = "Docs for the scribe:"
         for rel in (
             "agents/roles/builder/ROLE.md", "agents/roles/reviewer/ROLE.md", "agents/roles/scribe/ROLE.md",
-            "agents/roles/orchestrator/ROLE.md", "agents/roles/reviewer/skills/verify-work/SKILL.md",
+            "agents/roles/orchestrator/ROLE.md",
             "agents/protocols/handoff.md", "agents/protocols/definition-of-done.md", "agents/protocols/review.md",
             "agents/README.md", "work/_templates/review.md", "work/_templates/light-item.md",
             "docs/dev/tutorials/first-work-item.md",
         ):
             self.assertIn(line, read(rel), rel)
-        # the reviewer's charter and its skill say the same thing: skip with --owner, and a missing line means the scribe
-        for rel in ("agents/roles/reviewer/ROLE.md", "agents/roles/reviewer/skills/verify-work/SKILL.md"):
-            text = read(rel)
-            self.assertIn("--owner orchestrator", text, rel)
-            self.assertIn("the scribe runs", text, rel)
+        # the reviewer's charter owns the routing: skip with --owner, and a missing line means the scribe
+        charter = read("agents/roles/reviewer/ROLE.md")
+        self.assertIn("--owner orchestrator", charter)
+        self.assertIn("the scribe runs", charter)
+        self.assertIn("--owner security", charter)
+        # its skill is the method only: no command that moves the item, so nothing is said twice, and it says where
+        # the routing is
+        skill = read("agents/roles/reviewer/skills/verify-work/SKILL.md")
+        self.assertNotIn("transition.py", skill)
+        self.assertIn("ROLE.md", skill)
+        self.assertIn("verify-work", charter)
         self.assertIn("done --by orchestrator", read("agents/roles/orchestrator/ROLE.md"))
         row = next(r for r in read("agents/README.md").splitlines() if r.startswith("| `verified`"))
         self.assertIn("scribe", row)
@@ -2511,6 +2517,72 @@ class AdapterTests(RepoTestCase):
             if not (self.repo / "agents" / "roles" / role / "ROLE.md").exists():
                 continue  # the security module may be cut
             self.assertNotIn("disallowedTools", self.claude_head(role), role)
+
+    # --- a role's own skills are preloaded into its Claude subagent (a subagent preloads only the skills it lists) ---
+    def test_claude_subagent_preloads_the_roles_own_skills(self) -> None:
+        self.set_claude()
+        self.ok("sync_agents")
+        self.assertIn("skills:\n  - verify-work\n", self.claude_head("reviewer"))
+        self.assertIn("skills:\n  - record-decision\n", self.claude_head("architect"))
+        self.ok("sync_agents", "--check")
+        self.ok("check", "--strict")
+
+    def test_shared_skills_are_not_preloaded_into_any_subagent(self) -> None:
+        self.set_claude()
+        self.ok("sync_agents")
+        shared = [p.name for p in (self.repo / "agents" / "skills").iterdir() if p.is_dir()]
+        self.assertIn("write-doc", shared)
+        for role in sorted(p.name for p in (self.repo / "agents" / "roles").iterdir() if p.is_dir()):
+            head = self.claude_head(role)
+            for name in shared:
+                self.assertNotIn(f"- {name}", head, f"{role} preloads the shared skill {name}")
+        # and at the source: the helper files only roles' own skills, nothing under the shared owner ""
+        import sync_agents
+        preload = sync_agents._preloadable_skills(self.repo)
+        self.assertNotIn("", preload)
+        self.assertFalse(set(shared) & {s for names in preload.values() for s in names})
+
+    def test_a_role_with_no_skill_gets_no_skills_line(self) -> None:
+        self.set_claude()
+        lane = self.repo / "agents" / "roles" / "reviewer" / "skills"
+        shutil.rmtree(lane / "verify-work")
+        (lane / ".gitkeep").write_text("")
+        self.ok("sync_agents")
+        self.assertNotIn("skills:", self.claude_head("reviewer"))
+
+    def test_several_role_skills_are_listed_in_name_order(self) -> None:
+        self.set_claude()
+        lane = self.repo / "agents" / "roles" / "reviewer" / "skills"
+        (lane / "aaa-extra").mkdir()
+        (lane / "aaa-extra" / "SKILL.md").write_text(
+            "---\nname: aaa-extra\ndescription: Does a thing. Use when a test needs a second skill.\n---\n# Extra\n")
+        self.ok("sync_agents")
+        self.assertIn("skills:\n  - aaa-extra\n  - verify-work\n", self.claude_head("reviewer"))
+        self.ok("sync_indexes")  # a new skill changes the generated roster
+        self.ok("check", "--strict")
+
+    def test_a_skill_that_cannot_be_preloaded_is_left_out(self) -> None:
+        # Claude Code does not preload a skill that sets disable-model-invocation, so listing it would be noise
+        self.set_claude()
+        p = self.repo / "agents" / "roles" / "reviewer" / "skills" / "verify-work" / "SKILL.md"
+        p.write_text(p.read_text().replace("\n---\n", "\ndisable-model-invocation: true\n---\n", 1))
+        self.ok("sync_agents")
+        self.assertNotIn("skills:", self.claude_head("reviewer"))
+
+    def test_a_skill_with_broken_front_matter_does_not_crash_the_sync(self) -> None:
+        self.set_claude()
+        p = self.repo / "agents" / "roles" / "reviewer" / "skills" / "verify-work" / "SKILL.md"
+        p.write_text("---\nname: verify-work\n  nested: [broken\n---\n# Verify work\n")
+        r = self.sh("sync_agents")
+        self.assertNotIn("Traceback", r.stdout + r.stderr)
+        self.assertIn("skill", self.fails("check"))
+
+    def test_skills_are_not_copied_to_cursor_rules(self) -> None:
+        self.set_claude()
+        self.enable(cursor=True)
+        self.ok("sync_agents")
+        rule = self.head(self.repo / ".cursor" / "rules" / "role-reviewer.mdc")
+        self.assertNotIn("skills:", rule)
 
     def test_access_is_not_copied_to_cursor_rules(self) -> None:
         self.set_claude()
