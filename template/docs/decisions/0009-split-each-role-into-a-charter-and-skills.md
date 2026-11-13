@@ -1,7 +1,7 @@
 ---
 title: Split each role into a charter and skills
 type: decision
-status: proposed
+status: accepted
 summary: A role's ROLE.md holds its routing and limits and its skills hold the method, each fact has one home, and the role's tier decides whether it needs a skill.
 date: 2026-11-13
 decision_makers: human
@@ -39,7 +39,7 @@ Which text belongs in the charter, which in a skill, and which roles need a skil
 
 Chosen option: "Charter for routing and limits, skill for method", because it removes the duplicated text, keeps the parts that must not be skipped in the always-read file, and still delivers the method to a Claude subagent.
 
-1. **`ROLE.md` is the charter.** Front matter, when the role runs or is called, the routing, the quality bar, and a Procedure line naming the role's skills. Routing means every command that changes who owns an item or what its status is, with the condition for using it.
+1. **`ROLE.md` is the charter.** Front matter, when the role runs or is called, the routing, the quality bar, and a pointer to the role's skills (a Procedure line, or the step that uses one). Routing means every command that changes who owns an item or what its status is, with the condition for using it.
 2. **A skill is the method for one task.** The read order, the checks, the templates, the evidence, and the commands that do not move the item. It may be long and may use `references/`.
 3. **One fact, one home.** When both need a fact, the charter states the rule and the skill points to it. A command is written in exactly one of the two.
 4. **The tier decides whether a role has a skill.** A flow role owns a status, so its charter is mostly routing and it gets a skill only for a task with its own method (the reviewer). An advisory role or an optional module produces an artifact and runs no status commands, so its method dominates and it gets a skill. A role with nothing to split has none. A skill that only restates its charter is not added.
@@ -53,7 +53,7 @@ Chosen option: "Charter for routing and limits, skill for method", because it re
 
 ### Confirmation
 
-- A template test fails when a command appears in both a role's charter and one of its own skills. A second test shows the check does fail on a repeat.
+- The template's own test suite (it is not shipped to projects) fails when a command appears in both a role's charter and one of its own skills. A second test shows the check does fail on a repeat.
 - Shipped tests assert the `skills` line for a role's own skills, and its absence for shared skills, for a role with no skill, for a skill that cannot be preloaded, and in Cursor rules.
 - The `role-skill-discovery` golden task still passes on its fixtures. Whether a real agent opens the skill is checked by hand on a transcript.
 - Not verified: that Claude Code loads the generated `skills` line. It follows the form in Claude Code's documentation, and an unknown or mistyped field is ignored without an error.
@@ -81,6 +81,8 @@ Chosen option: "Charter for routing and limits, skill for method", because it re
 - Bad: a rule that must not be skipped depends on an agent finding a skill.
 
 ## More information
+
+Accepted by the owner in chat on 2026-11-13, after reviewing the pull request that adds this record.
 
 Related: ADR 0002, ADR 0005, ADR 0007, `agents/AGENTS.md`, `docs/dev/how-to/add-a-skill.md`, `agents/adapters/README.md`.
 
