@@ -1,9 +1,9 @@
 ---
 title: Ship a migration and an upgrade test with every breaking release
 type: decision
-status: proposed
+status: accepted
 summary: A template release that moves or renames what a generated project owns must ship a Copier migration and a test that updates a real project across the change.
-date: 2026-11-12
+date: 2026-11-13
 decision_makers: human
 supersedes: []
 ---
