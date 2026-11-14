@@ -19,7 +19,9 @@ jobs:
       matrix:
         include:
           - python-version: "3.12"
+            experimental: false
           - python-version: "3.14"
+            experimental: false
           # Informational until it has been green for two weeks; continue-on-error keeps a failure out of ci-gate.
           - python-version: "3.15"
             experimental: true
