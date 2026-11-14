@@ -36,9 +36,10 @@ CI = ".github/workflows/test.yml"
 RULES = "AGENTS.md"
 GOVERNANCE_FILES = [CODEOWNERS, GUARD, CI, RULES]
 
-# The ruleset `protect-main` requires these three check names. If a check below fails because the
-# job names changed, change the ruleset (GitHub settings) first or together with the workflow.
-EXPECTED_CI_CHECKS = {"template (3.9)", "template (3.13)"}
+# The ruleset `protect-main` requires a subset of these names plus `owner-approval/review`; this set
+# must track test.yml. If a check below fails because the job names changed, change the ruleset
+# (GitHub settings) first or together with the workflow.
+EXPECTED_CI_CHECKS = {"template (3.9)", "template (3.13)", "ci-gate"}
 STATUS_CONTEXT = "owner-approval/review"
 
 VERSION_PLACEHOLDER = "${{ matrix.python-version }}"
