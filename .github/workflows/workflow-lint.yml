@@ -20,7 +20,7 @@ jobs:
   # Lints the workflows themselves: syntax and shell mistakes (actionlint), injection, excess permissions and
   # unpinned actions (zizmor). Both linters are pinned; bump them by hand, Dependabot does not see the tarball.
   workflow-lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read

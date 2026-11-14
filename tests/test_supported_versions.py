@@ -5,10 +5,10 @@ the places that state that floor agree with it: the README badge, the README Qui
 README Tooling table row, the ``## Supported Python versions`` section of CONTRIBUTING.md, and every
 ``actions/setup-python`` step in the workflow that ships to generated projects.
 
-Versions are compared numerically as ``(major, minor)``: ``3.9 < 3.13``. A lexical comparison would
-put ``3.10`` below ``3.9`` and quietly pick the wrong floor.
+Versions are compared numerically as ``(major, minor)``: ``3.10 > 3.6``. A lexical comparison would
+put ``3.10`` below ``3.6`` and quietly pick the wrong floor.
 
-Python 3.9 compatible.
+Python 3.12 compatible.
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ VERSION_RE = re.compile(r"^(?P<major>\d+)\.(?P<minor>\d+)(?:\.\d+)?$")
 
 
 def version_tuple(raw: object, where: str) -> tuple[int, int]:
-    """``"3.9"`` -> ``(3, 9)``. Anything that is not a quoted string of this shape fails loudly."""
+    """``"3.12"`` -> ``(3, 12)``. Anything that is not a quoted string of this shape fails loudly."""
     if not isinstance(raw, str):
         pytest.fail(
             f"{where}: python-version {raw!r} must be a quoted string; "
@@ -105,8 +105,8 @@ def setup_python_versions(rel: str) -> list[tuple[int, int]]:
 
 
 def test_version_tuple_orders_numerically():
-    assert version_tuple("3.10", "test") > version_tuple("3.9", "test")
-    assert version_tuple("3.13", "test") > version_tuple("3.9", "test")
+    assert version_tuple("3.10", "test") > version_tuple("3.6", "test")
+    assert version_tuple("3.13", "test") > version_tuple("3.12", "test")
 
 
 def test_readme_states_the_floor():
@@ -134,7 +134,7 @@ def test_contributing_states_the_floor():
     floor = floor_version()
     shown = f"{floor[0]}.{floor[1]}"
     text = section(CONTRIBUTING, "Supported Python versions")
-    assert f"Python {shown}" in text or f"the floor today is {shown}" in text, (
+    assert f"the floor today is {shown}" in text, (
         f"{CONTRIBUTING} '## Supported Python versions' must name the floor {shown}"
     )
 

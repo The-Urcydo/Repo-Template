@@ -42,7 +42,9 @@ Two rules set the range:
 - **Floor:** the oldest CPython release that still receives security fixes and has at least 18 months of support left at the time of a template release.
 - **Ceiling:** the newest stable CPython release.
 
-CI currently tests Python 3.9 and 3.13; the floor today is 3.9.
+CI currently tests Python 3.12 and 3.14, with 3.15 informational until it has been green for two weeks; the floor today is 3.12.
+
+Raising the floor is a breaking change and is announced in the release notes of the template minor that does it.
 
 | Version | Status on 2026-11-14 | End of support |
 | --- | --- | --- |

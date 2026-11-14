@@ -1,4 +1,4 @@
-"""Shared helpers for the repo tooling. Standard library only (Python 3.9+).
+"""Shared helpers for the repo tooling. Standard library only (Python 3.12+).
 
 Design rules for everything in tools/:
 - No third-party dependencies, so an agent can always just run `python3 tools/<x>.py`.

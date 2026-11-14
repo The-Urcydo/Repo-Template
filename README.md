@@ -7,7 +7,7 @@
 [![CI](https://github.com/The-Urcydo/Repo-Template/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/The-Urcydo/Repo-Template/actions/workflows/test.yml)
 [![Release](https://img.shields.io/github/v/release/The-Urcydo/Repo-Template?sort=semver&label=release)](https://github.com/The-Urcydo/Repo-Template/releases)
 [![License: MIT](https://img.shields.io/github/license/The-Urcydo/Repo-Template)](LICENSE)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)](#quick-start)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](#quick-start)
 [![Copier](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/copier-org/copier/master/img/badge/badge-grayscale-inverted-border-orange.json)](https://github.com/copier-org/copier)
 
 **Works with:** Claude Code · Codex · OpenCode · Cursor · GitHub Copilot · Gemini CLI
@@ -18,7 +18,7 @@ Repo-Template gives a new project a finished *structure*: docs grouped by audien
 
 ## Quick start
 
-**Requires** Python 3.9+, git, and Copier 9.4+. Cloning or forking this repository gives you the template source (Jinja files), not a finished project, and it cannot receive later updates. Generate with Copier instead:
+**Requires** Python 3.12+, git, and Copier 9.4+. Cloning or forking this repository gives you the template source (Jinja files), not a finished project, and it cannot receive later updates. Generate with Copier instead:
 
 ```
 pipx install copier            # or: pip install copier
@@ -29,7 +29,7 @@ python3 tools/check.py         # prints "ok" and how many placeholders remain
 python3 tools/check.py --stubs # lists the placeholders to fill or delete
 ```
 
-With [uv](https://docs.astral.sh/uv/), `uvx copier copy --trust gh:The-Urcydo/Repo-Template projects/my-app/my-app` runs it without a global install.
+No Python 3.12 on the machine (macOS still ships an older Python)? [uv](https://docs.astral.sh/uv/) runs Copier without a global install: `uvx copier copy --trust gh:The-Urcydo/Repo-Template projects/my-app/my-app`.
 
 - **Generate into a folder of its own** (`my-app/my-app`, as above; Copier creates the missing parent folders). Parallel agents work in git worktrees that the tools create beside the clone (`my-app/my-app-<item-id>`), so this keeps them together instead of mixing them into the folder that holds your other projects. The tools warn once, when the first worktree is created in a folder that also holds other git repos.
 - **`--trust` is required** because the template runs two of its own stdlib-only tools after generating, to build the indexes and agent adapters. Without it Copier stops and tells you so; nothing is written.
@@ -51,7 +51,7 @@ A repository worked by one human and many agents, over many fresh sessions, brea
 | Durable knowledge | `docs/` | Docs grouped by audience (`dev/`, `user/`), each in [Diátaxis](https://diataxis.fr) types (tutorials, how-to, reference, explanation), plus numbered decision records (ADRs) |
 | Volatile work | `work/` | Inbox, one folder per work item with a `handoff.md`, a generated board, and a queue of questions for the human |
 | Agent harness | `agents/` | Role charters, protocols, skills. **The source of truth** for any agent tool |
-| Tooling | `tools/` | Standard-library Python (3.9+): health check, index generators, work/ADR/doc/worktree/eval helpers |
+| Tooling | `tools/` | Standard-library Python (3.12+): health check, index generators, work/ADR/doc/worktree/eval helpers |
 | Code | `src/`, `apps/` + `packages/`, `data/` + `notebooks/`, or none (`minimal`) | Placeholders for your stack or engine |
 
 A generated project (profile `full`, layout `single`) looks like this:

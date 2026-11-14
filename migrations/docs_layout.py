@@ -7,7 +7,8 @@ files a project added itself, so they would stay behind in a folder the template
 
 Copier runs this in the project root, in the `before` stage of `copier update` (see `_migrations` in copier.yml),
 before the merge. It lives in the template repo's `migrations/` folder, outside `template/`, so it is never shipped
-into a project. Standard library only; Python 3.9 grammar.
+into a project. Standard library only; the grammar must stay 3.9-compatible because migrations run under the
+user's interpreter during `copier update`.
 
     python3 migrations/docs_layout.py <project-root>
 
