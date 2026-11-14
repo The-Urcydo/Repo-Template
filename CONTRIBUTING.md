@@ -35,6 +35,27 @@ A reviewer who did not write the change runs the tests and checks the pull reque
 
 Changes to the agent harness need the owner's explicit approval. The list of protected paths is in rule 3 of [AGENTS.md](AGENTS.md). A push after an approval makes that approval stale, so say so on the pull request before you push.
 
+## Supported Python versions
+
+Two rules set the range:
+
+- **Floor:** the oldest CPython release that still receives security fixes and has at least 18 months of support left at the time of a template release.
+- **Ceiling:** the newest stable CPython release.
+
+CI currently tests Python 3.9 and 3.13; the floor today is 3.9.
+
+| Version | Status on 2026-11-14 | End of support |
+| --- | --- | --- |
+| 3.9 | end of life | 2025-10-31 |
+| 3.10 | end of life | 2026-10-01 |
+| 3.11 | security fixes only | 2027-10 |
+| 3.12 | security fixes only | 2028-10 |
+| 3.13 | security fixes only | 2029-10 |
+| 3.14 | bugfix | 2030-10 |
+| 3.15 | bugfix | 2031-10 |
+
+Review this section every November, after the October Python release. Source: [Status of Python versions](https://devguide.python.org/versions/) (checked 2026-11-14).
+
 ## Releasing
 
 Release steps are in the [Releasing section of the README](README.md#releasing).
