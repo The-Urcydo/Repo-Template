@@ -26,7 +26,7 @@ concurrency:
 jobs:
   review:
     name: post the owner-approval/review status
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       # Pinned to a full commit SHA like test.yml; Dependabot keeps it current.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

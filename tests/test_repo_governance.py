@@ -16,7 +16,7 @@ The ruleset itself lives in GitHub, not in this repo, so it cannot be read here.
 below record the names it requires.
 
 Every check is a function that takes a repo root and returns a list of problems, so the same
-checks run on the real repo and on mutated copies (see the last tests). Python 3.9 compatible.
+checks run on the real repo and on mutated copies (see the last tests). Python 3.12 compatible.
 """
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ GOVERNANCE_FILES = [CODEOWNERS, GUARD, CI, RULES]
 # The ruleset `protect-main` requires a subset of these names plus `owner-approval/review`; this set
 # must track test.yml. If a check below fails because the job names changed, change the ruleset
 # (GitHub settings) first or together with the workflow.
-EXPECTED_CI_CHECKS = {"template (3.9)", "template (3.13)", "ci-gate"}
+EXPECTED_CI_CHECKS = {"template (3.12)", "template (3.14)", "template (3.15)", "ci-gate"}
 STATUS_CONTEXT = "owner-approval/review"
 
 VERSION_PLACEHOLDER = "${{ matrix.python-version }}"
@@ -413,7 +413,7 @@ MUTATIONS = {
     "rule_3_loses_a_path": (unbacktick_a_path_in_rule_3, "d_rule_3_paths"),
     "rule_1_loses_an_owner": (unbacktick_an_owner_in_rule_1, "d_rule_1_handles"),
     "ci_matrix_version_changes": (
-        lambda r: replace_once(r, CI, 'python-version: "3.13"', 'python-version: "3.14"'), "e_ci_job_names"),
+        lambda r: replace_once(r, CI, 'python-version: "3.14"', 'python-version: "3.13"'), "e_ci_job_names"),
     "guard_posts_another_status": (
         lambda r: replace_once(r, GUARD, f'context="{STATUS_CONTEXT}"', 'context="owner-approval/reviewed"'),
         "e_status_context"),

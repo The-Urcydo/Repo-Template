@@ -8,7 +8,7 @@ summary: Walk one small work item through the full lifecycle, from creation to a
 
 By the end you will have created a work item, moved it through every status, been stopped by the guard rails, and archived it. It takes about ten minutes and changes only files under `work/`.
 
-You need: Python 3.9+ and a checkout of this repo.
+You need: Python 3.12+ and a checkout of this repo.
 
 In this tutorial you play every role in turn. In real use each step belongs to the role that `next_action` names: the planner writes the brief, the builder builds, a different role reviews.
 

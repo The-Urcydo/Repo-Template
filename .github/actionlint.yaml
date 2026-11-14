@@ -1,0 +1,6 @@
+# actionlint 1.7.12 predates GitHub's ubuntu-26.04 runner label, so it reports the pinned runner as
+# unknown. Declaring the label keeps the runner pinned without weakening the linter.
+# Remove when the pinned actionlint knows ubuntu-26.04; re-check at every actionlint bump.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04
