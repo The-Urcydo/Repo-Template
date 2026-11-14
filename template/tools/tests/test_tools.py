@@ -334,10 +334,10 @@ class HealthTests(RepoTestCase):
         self.assertIn("has no ROLE.md", self.fails("check"))
 
     def test_role_folders_without_skills_are_fine(self) -> None:
-        # builder, orchestrator, planner, researcher, scribe and security keep an empty skills/ folder (.gitkeep).
-        skills = self.repo / "agents" / "roles" / "researcher" / "skills"
+        # builder, orchestrator, planner and scribe keep an empty skills/ folder (.gitkeep).
+        skills = self.repo / "agents" / "roles" / "builder" / "skills"
         if not skills.is_dir():
-            self.skipTest("researcher has no skills/ folder in this project")
+            self.skipTest("builder has no skills/ folder in this project")
         self.assertEqual([p.name for p in skills.iterdir() if p.is_dir()], [])
         self.assertTrue((skills / ".gitkeep").is_file())
         self.ok("check")
@@ -2524,6 +2524,23 @@ class AdapterTests(RepoTestCase):
         self.ok("sync_agents")
         self.assertIn("skills:\n  - verify-work\n", self.claude_head("reviewer"))
         self.assertIn("skills:\n  - record-decision\n", self.claude_head("architect"))
+        self.ok("sync_agents", "--check")
+        self.ok("check", "--strict")
+
+    def test_researcher_subagent_preloads_its_method(self) -> None:
+        # the researcher's charter points to research-question; a subagent preloads only the skills it lists
+        self.set_claude()
+        self.ok("sync_agents")
+        self.assertIn("skills:\n  - research-question\n", self.claude_head("researcher"))
+        self.ok("sync_agents", "--check")
+        self.ok("check", "--strict")
+
+    def test_security_subagent_preloads_its_method(self) -> None:
+        if "security" not in _lib.load_modules(self.repo):
+            self.skipTest("security module not installed")
+        self.set_claude()
+        self.ok("sync_agents")
+        self.assertIn("skills:\n  - review-change\n", self.claude_head("security"))
         self.ok("sync_agents", "--check")
         self.ok("check", "--strict")
 
