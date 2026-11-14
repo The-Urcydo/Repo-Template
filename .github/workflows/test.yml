@@ -38,3 +38,16 @@ jobs:
           cache-dependency-path: requirements-dev.txt
       - run: pip install -r requirements-dev.txt
       - run: python -m pytest tests -q
+
+  # One stable check for the ruleset to require: it changes only when this job does, not when the matrix does.
+  ci-gate:
+    name: ci-gate
+    if: always()
+    needs: [template]
+    runs-on: ubuntu-latest   # copy the runner the 3.13 leg uses; PR-C pins it
+    timeout-minutes: 5
+    steps:
+      - name: Every matrix job must succeed
+        env:
+          RESULT: ${{ needs.template.result }}
+        run: test "$RESULT" = "success"
