@@ -29,6 +29,8 @@ Goal: a procedure agents load only when a task matches it, so it costs almost no
 | `merge-work` | `agents/skills/` | whoever holds the owner's merge grant uses it; owner-invoked (`disable-model-invocation: true`) because merging changes the shared branch |
 | `verify-work` | `agents/roles/reviewer/skills/` | only the reviewer verifies work; where the item goes next stays in the reviewer's `ROLE.md` |
 | `record-decision` | `agents/roles/architect/skills/` | only the architect records ADRs |
+| `research-question` | `agents/roles/researcher/skills/` | only the researcher answers a caller's question this way; how it is called, the reply to the caller and the quality bar stay in the researcher's `ROLE.md` |
+| `review-change` | `agents/roles/security/skills/` | only the security role (an optional module) reviews a change for risk; the hand-back to the reviewer and the rule never to paste a secret stay in its `ROLE.md` |
 
 ## Charter or skill?
 
