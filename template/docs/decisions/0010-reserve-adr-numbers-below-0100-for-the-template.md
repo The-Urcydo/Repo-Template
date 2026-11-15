@@ -11,7 +11,7 @@ supersedes: []
 
 ## Context and problem statement
 
-The template ships its own ADRs into `docs/decisions/` of every generated project, and a project records its own ADRs in the same folder. `tools/new_adr.py` allocates the highest number in that folder plus one, so the first ADR a project writes is 0010 (the shipped ones end at 0009). Template releases keep adding ADRs, and the next one will also be numbered 0010.
+The template ships its own ADRs into `docs/decisions/` of every generated project, and a project records its own ADRs in the same folder. `tools/new_adr.py` allocates the highest number in that folder plus one. Before this decision the first ADR a project wrote was therefore 0010 (the shipped ones ended at 0009), and the next ADR the template shipped would have taken the same number. Template releases keep adding ADRs.
 
 Measured on a project generated from a template release and then updated to a release that ships its own ADR 0010, with the project's ADRs 0010 and 0011 already written:
 
