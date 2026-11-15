@@ -116,15 +116,14 @@ Policy and the end-of-life table: `CONTRIBUTING.md`, section "Supported Python v
 - **Stale remote branches:** `chore/agents-role-bundles` (PR #5) and `chore/ci-hardening` (PR #9) are merged;
   `plan/template-upgrade-hardening` is PR #36, closed unmerged. Delete them in the GitHub UI.
 - **Baselines (roles part G):** the owner's manual real-agent runs on the golden tasks, recorded in
-  `template/agents/evals/results/README.md` (empty today; also closes issue #7, acceptance item 3). Include
-  `security-routing` and a transcript check that the reviewer, researcher and security roles open `verify-work`,
-  `research-question` and `review-change`.
-- **Unverified:** nothing has run Claude Code against the generated `.claude/agents/` files. That it loads the
-  `skills:`, `disallowedTools` and `model` lines is not confirmed (unknown fields are ignored silently).
-- **Grader hardening (H), after G:** `callable-researcher` accepts a hedged answer naming 14 and 30, a negated
-  answer, placeholder text plus extra words, and a source that states the number without answering. The cheap fix
-  for every golden task is the exact-equality `_placeholder_free` check.
+  `template/agents/evals/results/README.md` (empty today). Tracked in #7, which also lists the `security-routing`
+  run and the skill-opening transcript check.
+- **Unverified:** nothing has run Claude Code against the generated `.claude/agents/` files, so it is not confirmed
+  that it loads the `skills:`, `disallowedTools` and `model` lines. The check plan is #59.
+- **Grader hardening (H), after G:** the four known `callable-researcher` gaps and the exact-equality
+  `_placeholder_free` fix are #61.
+- **Small fixes:** the `sync_agents.py` crash on a non-object target, validating `claude.models` values and
+  validating `needs_role` are #60.
 - **Ideas, not decided:** generate `.agents/skills/` so Codex, OpenCode and Copilot see skills (needs a design note);
-  fix the docs claim that OpenCode and Codex read `agents/` directly; validate `claude.models` values; fix the
-  `sync_agents.py` crash on a non-object target; validate `needs_role` in `check.py`; refactor `grade_task` in
-  `eval_harness.py`; a hook that limits reviewer and researcher writes to their own item files.
+  fix the docs claim that OpenCode and Codex read `agents/` directly; refactor `grade_task` in `eval_harness.py`; a
+  hook that limits reviewer and researcher writes to their own item files.

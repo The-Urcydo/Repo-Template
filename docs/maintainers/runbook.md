@@ -1,7 +1,7 @@
 # Maintainer runbook
 
 How to work on this repository. The rules and decisions behind it are in [decisions.md](decisions.md); the hard
-rules are in [AGENTS.md](AGENTS.md). Commands use `gh api` (the REST API) so they work from any shell.
+rules are in [AGENTS.md](../../AGENTS.md). Commands use `gh api` (the REST API) so they work from any shell.
 
 ## Set up and test
 ```
@@ -67,6 +67,25 @@ Use a separate worktree, not your working folder.
    changed, the probe checks above.
 3. Confirm no protected path changed outside the plan, and that the description's numbers match (recount them).
 4. Report what passed, what is missing and the decisions only the owner can make. Do not merge.
+
+## Review habits
+Each of these found a real defect in an earlier PR.
+- **Recount before you write.** Re-measure every number (files, lines, tests, sizes) before it goes into a PR body,
+  commit message or note. Compare removed lines with `git diff --shortstat`: `grep -E '^-[^-]'` hides removed bullets.
+- **Tests first, and watch them fail** on unchanged code for the right reason. A test that asserts something is
+  absent passes trivially; say so.
+- **Attack new validation with odd inputs** (list, boolean, number, empty, wrong type), and run the same input on
+  untouched `main` before calling a crash yours.
+- **Attack a grader** that reads a path an agent controls with an absolute path and `../`; attack one that checks a
+  cited file "states the number" with a file that only contains the digits.
+- **A rule must hold in the consumer too.** When `check.py` rejects an input, run the same input through the tool
+  that consumes it (for example `sync_agents.py`).
+- **Mutation-test new rules:** remove one at a time, expect a test to fail, and check the unmutated baseline passes
+  first. A guard that generates from the committed `HEAD` cannot see a working-tree mutation: use a copy.
+- **Run new tests with an optional module cut** (`remove_module.py <module> --apply`).
+- **Do not state a source more strongly than it says:** re-read the sentence in the docs before it goes into an ADR,
+  a test comment or a commit message.
+- **Charter text has exceptions:** re-read `never`, `done_when` and `escalate_when` against the steps.
 
 ## Merge
 Only after the owner has approved on GitHub and said the PR may be merged (see decisions.md). Right before merging,
