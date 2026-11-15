@@ -6,6 +6,7 @@ Usage:
                            [--supersedes 0003] [--decider NAME]
 
 The number is allocated under a lock, so parallel agents never collide.
+Numbers below 0100 are reserved for the ADRs the template ships, so yours start at 0100 (ADR 0010).
 --supersedes marks the older ADR `superseded` and links both directions.
 """
 from __future__ import annotations
@@ -18,8 +19,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sync_indexes  # noqa: E402
 from _lib import (  # noqa: E402
-    FrontMatterError, apply_tokens, file_lock, parse_front_matter, read_text, repo_root, set_fm_value,
-    slugify, today, write_text, yaml_list, yaml_scalar,
+    PROJECT_ADR_FIRST_NUMBER, FrontMatterError, apply_tokens, file_lock, parse_front_matter, read_text, repo_root,
+    set_fm_value, slugify, today, write_text, yaml_list, yaml_scalar,
 )
 
 NUM_RE = re.compile(r"^(\d{4})-.+\.md$")
@@ -48,7 +49,7 @@ def create(root: Path, title: str, status: str, supersedes: str | None, decider:
         raise ValueError("title is empty after cleaning")
     with file_lock(root, "adr"):
         nums = [int(m.group(1)) for p in d.iterdir() if (m := NUM_RE.match(p.name))]
-        number = f"{(max(nums) + 1) if nums else 0:04d}"
+        number = f"{max(max(nums) + 1 if nums else 0, PROJECT_ADR_FIRST_NUMBER):04d}"
         old_path = None
         sup_num = None
         if supersedes:

@@ -9,7 +9,7 @@ owner_role: architect
 
 One file per significant decision, named `NNNN-kebab-title.md`, in [MADR](https://adr.github.io/madr/) format.
 
-- Create with `python3 tools/new_adr.py "Title"`. The number is allocated under a lock so parallel agents never collide.
+- Create with `python3 tools/new_adr.py "Title"`. The number is allocated under a lock so parallel agents never collide. Numbers 0000-0099 are the ADRs the template ships, so yours start at 0100 (ADR 0010).
 - Statuses: `proposed`, `accepted`, `rejected`, `deprecated`, `superseded`. Only the human accepts significant ADRs.
 - **Accepted ADRs are binding.** Never edit an accepted decision's outcome; write a new ADR with `--supersedes NNNN`, which marks the old one `superseded` and links both.
 - Write for a reader six months from now: context, options with pros and cons, the decision and why, consequences.

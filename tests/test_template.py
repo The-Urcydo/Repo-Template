@@ -922,3 +922,16 @@ def test_shipped_issue_forms_and_release_notes_belong_to_the_github_module_and_s
     assert "ISSUE_TEMPLATE" in github["removal_notes"] or "issue form" in github["removal_notes"].lower()
     lean = generate(tmp_path / "lean-forms", profile="lean")
     assert not (lean / ".github").exists(), "cutting the github module removes the forms and release.yml too"
+
+
+def test_template_adrs_stay_below_the_first_project_adr_number() -> None:
+    """ADR 0010: 0000 up to the floor belong to the ADRs the template ships; a project's own ADRs start at the floor."""
+    lib = (TEMPLATE / "template" / "tools" / "_lib.py").read_text(encoding="utf-8")
+    m = re.search(r"^PROJECT_ADR_FIRST_NUMBER = (\d+)", lib, re.M)
+    assert m, "tools/_lib.py must define PROJECT_ADR_FIRST_NUMBER"
+    names = sorted(p.name for p in (TEMPLATE / "template" / "docs" / "decisions").glob("[0-9][0-9][0-9][0-9]-*.md"))
+    numbers = [int(n[:4]) for n in names]
+    assert numbers, "the template ships ADRs"
+    assert len(set(numbers)) == len(numbers), f"duplicate ADR number in {names}"
+    assert max(numbers) < int(m.group(1)), (
+        f"{names[-1]} is at or above {m.group(1)}, which is where a generated project's own ADRs start")

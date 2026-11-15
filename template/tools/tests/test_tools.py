@@ -2181,6 +2181,35 @@ class AdrTests(RepoTestCase):
         shutil.copy(d / "0001-split-the-repo-by-volatility.md", d / "0001-duplicate.md")
         self.assertIn("adr-number", self.fails("check"))
 
+    def test_a_projects_own_adrs_start_at_the_reserved_block(self) -> None:
+        shipped = [int(p.name[:4]) for p in (self.repo / "docs" / "decisions").glob("0*.md")]
+        self.assertTrue(shipped and max(shipped) < 100, "the shipped ADRs use 0000-0099")
+        first = self.ok("new_adr", "Use PostgreSQL")
+        second = self.ok("new_adr", "Use Redis")
+        self.assertEqual([Path(first).name[:4], Path(second).name[:4]], ["0100", "0101"])
+        self.ok("check", "--strict")
+
+    def test_the_reserved_block_holds_even_when_no_adr_exists(self) -> None:
+        for p in (self.repo / "docs" / "decisions").glob("0*.md"):
+            p.unlink()
+        self.assertEqual(Path(self.ok("new_adr", "Use PostgreSQL")).name[:4], "0100")
+
+    def test_a_clash_below_the_block_says_which_adr_to_renumber(self) -> None:
+        d = self.repo / "docs" / "decisions"
+        shutil.copy(d / "0001-split-the-repo-by-volatility.md", d / "0001-duplicate.md")
+        out = self.fails("check")
+        self.assertIn("adr-number", out)
+        self.assertIn("0000-0099", out)
+        self.assertIn("0100 or higher", out)
+
+    def test_a_clash_inside_the_block_keeps_the_plain_hint(self) -> None:
+        first = self.ok("new_adr", "Use PostgreSQL")
+        shutil.copy(self.repo / first, self.repo / "docs" / "decisions" / "0100-duplicate.md")
+        out = self.fails("check")
+        self.assertIn("adr-number", out)
+        self.assertIn("renumber with the latest first", out)
+        self.assertNotIn("0000-0099", out)
+
 
 class DocTests(RepoTestCase):
     def test_new_doc_creates_valid_doc_and_updates_index(self) -> None:

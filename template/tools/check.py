@@ -26,7 +26,7 @@ import sync_agents  # noqa: E402
 import sync_indexes  # noqa: E402
 from _lib import (  # noqa: E402
     ACCESS_LEVELS, ADR_STATUSES, AUDIENCES, DEFAULT_OWNER, DIATAXIS_DIRS, DOC_STATUSES, DOC_TYPES, ITEM_ID_RE, NEEDS_EVIDENCE,
-    RESTRICTING_LEVELS, ROLE_FILE, SKIP_DIRS, STALE_DAYS, STALE_REWARN_DAYS, STATUSES, TOOL_NAME_RE, TYPE_FOLDERS,
+    PROJECT_ADR_FIRST_NUMBER, RESTRICTING_LEVELS, ROLE_FILE, SKIP_DIRS, STALE_DAYS, STALE_REWARN_DAYS, STATUSES, TOOL_NAME_RE, TYPE_FOLDERS,
     FrontMatterError, doc_type_dir, folder_owners,
     git_last_change, iter_docs, iter_items, iter_markdown, load_catalog, load_modules, load_roles, load_targets,
     md_links, module_of, module_present, parse_date, parse_front_matter, parse_queue, read_fm, read_text,
@@ -154,7 +154,10 @@ def check_adrs(root: Path, rep: Report) -> None:
             rep.error("adr-name", r, "ADR files are named NNNN-kebab-title.md")
             continue
         if m.group(1) in numbers:
-            rep.error("adr-number", r, f"number {m.group(1)} also used by {numbers[m.group(1)].name}; renumber with the latest first")
+            hint = (f"0000-{PROJECT_ADR_FIRST_NUMBER - 1:04d} is reserved for ADRs the template ships: renumber the one you wrote"
+                    f" to {PROJECT_ADR_FIRST_NUMBER:04d} or higher"
+                    if int(m.group(1)) < PROJECT_ADR_FIRST_NUMBER else "renumber with the latest first")
+            rep.error("adr-number", r, f"number {m.group(1)} also used by {numbers[m.group(1)].name}; {hint}")
         numbers[m.group(1)] = p
         fm = read_fm(p)
         by_num[m.group(1)] = fm

@@ -48,6 +48,8 @@ DONE_ARCHIVE_DAYS = 7
 DOC_TYPES = ("tutorial", "how-to", "reference", "explanation", "decision", "index", "meta")
 DOC_STATUSES = ("placeholder", "draft", "active", "deprecated", "generated")
 ADR_STATUSES = ("proposed", "accepted", "rejected", "deprecated", "superseded")
+# ADR numbers below this are reserved for the ADRs the template ships; a project's own ADRs start here (ADR 0010).
+PROJECT_ADR_FIRST_NUMBER = 100
 DIATAXIS_DIRS = {
     "tutorials": "tutorial",
     "how-to": "how-to",

@@ -30,6 +30,8 @@ to operate the project, it belongs in `template/docs/` as an ADR.
     `.github/workflows/owner-approval.yml`, the path lines of `CODEOWNERS`, and the first line of `AGENTS.md` rule 3.
     `tests/test_repo_governance.py` fails when they drift.
   - Not protected: `.github/actionlint.yaml` and `template/.github/workflows/` (see open items).
+- **Template ADR numbers** stay below 0100; a generated project's own ADRs start at 0100 (ADR 0010). A root test
+  fails if a shipped ADR reaches 0100. Take the next free number below 0100 from `main` and check open PRs for it.
 - **One topic per PR**, branched from `main`, not stacked. The description uses the headings of
   `.github/pull_request_template.md`.
 - **Review.** A harness PR needs the owner's approval. Any other PR first gets an independent reviewer (one that did
@@ -99,6 +101,7 @@ Policy and the end-of-life table: `CONTRIBUTING.md`, section "Supported Python v
 | 2026-11-13 | ADR 0009: `ROLE.md` is the charter, a skill is the method; planner, builder, orchestrator and scribe have no skills | One fact, one home |
 | 2026-11-14 | Python 3.9 dropped, floor 3.12 | 3.9 and 3.10 are end of life |
 | 2026-11-14 | One stable `ci-gate` required instead of version-named checks | Matrix changes need no ruleset edit |
+| 2026-11-15 | ADRs 0000-0099 are the template's, a project's own start at 0100 (ADR 0010); no prefix, no second folder | A project's ADR 0010 and a later shipped ADR 0010 clash silently on `copier update` |
 
 ## Open items and dates
 - **On or after 2026-11-28:** if the 3.15 leg stayed green, a small harness PR sets its `experimental` to `false`

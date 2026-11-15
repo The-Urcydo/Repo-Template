@@ -19,7 +19,7 @@ Plain `python3 tools/<name>.py`, no installs. Run any tool with `--help`. Comman
 | `transition.py` | Moves an item through the lifecycle, enforcing evidence, `--by` attribution and independent-review rules |
 | `archive_item.py` | Archives `done` or `canceled` items; `--sweep` also flags idle ones as `stale` |
 | `worktree.py` | Creates, lists and removes isolated sibling git worktrees (`../<repo>-<item-id>`) for parallel work items |
-| `new_adr.py` | Creates the next numbered ADR (lock-protected) |
+| `new_adr.py` | Creates the next numbered ADR (lock-protected; a project's own ADRs start at 0100) |
 | `new_doc.py` | Creates a doc from its template |
 | `question.py` | Adds to or answers the human decision queue |
 | `template_status.py` | Says whether a newer release of the template this repo came from exists (`--check` exits 1 when behind); the optional `github` module ships a weekly workflow that uses it |
