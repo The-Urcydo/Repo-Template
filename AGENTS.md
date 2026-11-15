@@ -13,6 +13,7 @@ The human owner decides. Agents propose in pull requests.
 - `template/`: everything generated into projects. Nested rules load when you work there: `template/agents/AGENTS.md`, `template/tools/AGENTS.md`, `template/docs/AGENTS.md`, `template/work/AGENTS.md`.
 - `copier.yml`: questions, exclusions, post-generation tasks. `tests/`: template-level tests. `.github/`: this repo's own CI, not copied.
 - Why it is built this way: the ADRs in `template/docs/decisions/` and `README.md`.
+- Maintainer notes (standing rules and decisions, how to review, merge and release): `docs/maintainers/decisions.md` and `docs/maintainers/runbook.md`. Not copied into generated projects.
 
 ## Hard rules
 1. Never push to `main`, never force-push. Merge a PR only when an owner account has approved its latest commit (an APPROVED review from `nguyenquocduyloc` or `NguyenLoc231`) and the status `owner-approval/review` is green on it. Use a merge commit (no squash, no rebase). If either is missing, leave the merge to the owner.
