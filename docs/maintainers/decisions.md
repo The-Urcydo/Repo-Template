@@ -62,9 +62,11 @@ Policy and the end-of-life table: `CONTRIBUTING.md`, section "Supported Python v
 - **Pins** (checked 2026-11-14): actions/checkout v7.0.1, actions/setup-python v7.1.0, zizmor-action v0.8.1,
   zizmor 1.32.0, actionlint 1.7.12. Actions are pinned to full commit SHAs. The actionlint and zizmor versions and
   the pins in `template/.github/workflows/` are bumped by hand; Dependabot watches only the root workflows.
-- **Dev tools.** `requirements-dev.txt` holds floors (`copier>=9.4`, `pytest>=8`, `pyyaml>=6.0.3`), tested with
+- **Dev tools.** `requirements-dev.txt` holds floors (`copier>=9.6`, `pytest>=8`, `pyyaml>=6.0.3`), tested with
   lowest-direct resolution on 3.12 on 2026-11-14. A floor is the minimum that provably works, not the latest.
-  `copier.yml` sets `_min_copier_version: "9.4.0"`.
+  `copier.yml` sets `_min_copier_version: "9.6.0"`. The Copier floor is 9.6.0 because 9.4.0 and 9.5.0 ignore
+  templated `_exclude` entries, so every profile receives every module. CI installs the newest Copier, so the floor
+  is not tested until a lowest-direct job exists (see open items).
 - **Dependabot.** The `github-actions` entry stays first, weekly and grouped, with a 7-day cooldown; a test checks
   this. The `pip` entry is weekly with `versioning-strategy: increase-if-necessary`, so a floor is raised only when
   the new version needs it. The `dev-tools` group has never been seen in use. No Dependabot PR has appeared since
@@ -101,6 +103,8 @@ Policy and the end-of-life table: `CONTRIBUTING.md`, section "Supported Python v
 | 2026-11-14 | One stable `ci-gate` required instead of version-named checks | Matrix changes need no ruleset edit |
 
 ## Open items and dates
+- **Lowest-direct Copier job (harness PR):** add a CI job that installs the Copier floor from
+  `requirements-dev.txt` (currently 9.6.0), so the floor is tested; today CI installs the newest Copier.
 - **On or after 2026-11-28:** if the 3.15 leg stayed green, a small harness PR sets its `experimental` to `false`
   and updates the sentence in `CONTRIBUTING.md`. `ci-gate` then covers it; the ruleset needs no edit.
 - **Protect `.github/actionlint.yaml`:** one harness PR that edits the regex, `CODEOWNERS` and `AGENTS.md` rule 3

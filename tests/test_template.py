@@ -1,7 +1,7 @@
 """Tests for the template itself (not for a generated repo).
 
 Run from the template root:  python -m pytest tests -q
-Needs: pytest, copier>=9.4, git, python3.
+Needs: pytest, copier>=9.6, git, python3.
 """
 from __future__ import annotations
 
