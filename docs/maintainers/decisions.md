@@ -3,7 +3,7 @@
 The standing rules and decisions for maintaining this repository, as they are in force now. It is not a diary:
 history lives in git, pull request descriptions and the ADRs. How to do the work is in [runbook.md](runbook.md).
 When a fact below can be read live, its source is named. If the source and this file disagree, the source wins:
-fix this file. Last verified 2026-11-15 against `main` at `796e6ef`.
+fix this file. Last verified 2026-11-16 against `main` at `34008c0`.
 
 Only `template/` ships to generated projects. Maintainer-only matters (Python floor policy, `ci-gate`, the
 rulesets, Dependabot, merging, releases) belong here. This repository's own ADRs live in `docs/decisions/` and
