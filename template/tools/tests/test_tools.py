@@ -5,6 +5,7 @@ Each test works on a throwaway copy of this repo, so nothing here touches your r
 """
 from __future__ import annotations
 
+import atexit
 import json
 import os
 import shutil
@@ -36,10 +37,12 @@ def _ignore(directory: str, names: list[str]) -> set[str]:
     return skip
 
 
-def clone(dest: Path) -> Path:
-    """A throwaway copy of the harness with the project's own data removed and the generated files
-    rebuilt, so a real project's work items, open questions and code cannot change what these tests see."""
-    repo = dest / "repo"
+_PRISTINE: Path | None = None
+
+
+def _build_pristine(repo: Path) -> None:
+    """The harness with the project's own data removed and the generated files rebuilt, so a real
+    project's work items, open questions and code cannot change what these tests see."""
     shutil.copytree(ROOT, repo, ignore=_ignore)
     for sub in _VOLATILE:
         folder = repo / "work" / sub
@@ -53,6 +56,24 @@ def clone(dest: Path) -> Path:
         r = run(repo, tool)
         if r.returncode != 0:
             raise RuntimeError(f"{tool} failed on the test fixture:\n{r.stdout}\n{r.stderr}")
+
+
+def _pristine() -> Path:
+    """Build the fixture once per process. Every test gets a cheap copy, never the original."""
+    global _PRISTINE
+    if _PRISTINE is None:
+        repo = Path(tempfile.mkdtemp(prefix="repo-tests-")) / "repo"
+        _build_pristine(repo)
+        atexit.register(shutil.rmtree, repo.parent, ignore_errors=True)
+        _PRISTINE = repo
+    return _PRISTINE
+
+
+def clone(dest: Path) -> Path:
+    """A throwaway copy of the prepared harness. Copying the fixture is ~4x cheaper than rebuilding
+    it, and rebuilding it runs two Python processes per test."""
+    repo = dest / "repo"
+    shutil.copytree(_pristine(), repo)
     return repo
 
 

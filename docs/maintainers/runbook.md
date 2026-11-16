@@ -8,7 +8,15 @@ rules are in [AGENTS.md](../../AGENTS.md). Commands use `gh api` (the REST API) 
 python3 -m venv .venv && . .venv/bin/activate     # Python 3.12 or newer
 pip install -r requirements-dev.txt
 python -m pytest tests/test_repo_governance.py -q  # under a second; run it first
-python -m pytest tests -q                          # a few minutes: generates real projects
+python -m pytest tests -q                          # about two minutes: generates real projects
+```
+`pytest.ini` runs the suite with `pytest-xdist` (`-n auto`, capped at 8 workers) and limits a bare `pytest` to
+`tests/`, so the shipped suite under `template/tools/tests` is not collected twice. While working on one area:
+```
+python -m pytest tests/test_repo_governance.py tests/test_root_*.py tests/test_supported_versions.py -q -n0  # <2s
+python -m pytest tests -q -k update                # one area, still parallel
+python -m pytest tests -q --lf -n0                 # the last failure, in order
+python -m pytest tests -q --durations=20           # the slowest tests
 ```
 Try a branch by hand, always with `--vcs-ref HEAD` (without it Copier builds from the newest release tag):
 ```
