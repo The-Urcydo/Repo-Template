@@ -411,6 +411,12 @@ def test_full_project_keeps_the_same_eval_harness_tests(full):
     assert "Ran 84 tests" in evals.stderr, evals.stderr[-1000:]
 
 
+def test_eval_harness_tests_run_as_a_module_from_the_project_root(full):
+    r = py(full, "-m", "unittest", "tools.tests.test_eval_harness", "-q")
+    assert r.returncode == 0, r.stderr[-3000:]
+    assert "Ran 84 tests" in r.stderr, r.stderr[-1000:]
+
+
 def test_cutting_evals_removes_the_eval_harness_tests(tmp_path):
     p = generate(tmp_path / "p", profile="full")
     assert (p / EVAL_TESTS).is_file(), "the full project must start with the eval-harness tests"

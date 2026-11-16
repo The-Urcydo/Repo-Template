@@ -5,8 +5,6 @@ Each test works on a throwaway copy of this repo, so nothing here touches your r
 """
 from __future__ import annotations
 
-import contextlib
-import io
 import json
 import os
 import shutil
@@ -16,13 +14,11 @@ import tempfile
 import unittest
 from datetime import timedelta
 from pathlib import Path
-from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
 
 import _lib  # noqa: E402
-import eval_harness  # noqa: E402
 
 
 _SKIP_ANYWHERE = shutil.ignore_patterns(

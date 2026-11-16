@@ -9,14 +9,19 @@ import contextlib
 import io
 import os
 import shutil
+import sys
 import tempfile
+import unittest
 from pathlib import Path
 from unittest import mock
 
-from test_tools import RepoTestCase
-
-import _lib
-import eval_harness
+# This module runs under discovery and as `python -m unittest tools.tests.test_eval_harness`, so it puts its
+# own directories on sys.path instead of relying on test_tools having been imported first.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # tools/
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # tools/tests/
+import _lib  # noqa: E402
+import eval_harness  # noqa: E402
+from test_tools import RepoTestCase  # noqa: E402
 
 
 class EvalHarnessTests(RepoTestCase):
@@ -1181,3 +1186,7 @@ class EvalHarnessTests(RepoTestCase):
                 brief.write_text(brief.read_text(encoding="utf-8") + "\nAn edit.\n", encoding="utf-8")
                 reason = self._grade_scribe_fails(sandbox, meta)
                 self.assertIn("brief.md", reason)
+
+
+if __name__ == "__main__":
+    unittest.main()
