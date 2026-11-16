@@ -37,7 +37,7 @@ No Python 3.12 on the machine (macOS still ships an older Python)? [uv](https://
 
 ## Why this structure
 
-A repository worked by one human and many agents, over many fresh sessions, breaks the usual assumptions. The design answers four problems (the reasoning is in [design-rationale.md](template/docs/dev/explanation/design-rationale.md) and the [decision records](template/docs/decisions/)):
+A repository worked by one human and many agents, over many fresh sessions, breaks the usual assumptions. The design answers four problems (the reasoning is in [design-rationale.md](docs/design/design-rationale.md) and the [decision records](template/docs/decisions/)):
 
 - **Things that change at different speeds rot each other.** Durable docs, volatile work and the agent harness live in separate folders, each with one lifecycle and one owner.
 - **Context is a budget.** A short root `AGENTS.md` loads always, one-line-per-doc indexes come next, and the content itself is opened only when a task needs it.

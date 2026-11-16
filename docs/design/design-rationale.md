@@ -10,7 +10,7 @@ This repo is worked by one human and many AI agents in different roles, over man
 
 ## 1. Things that change at different speeds rot each other
 
-Plans, handoffs and scratch research change daily. Architecture, reference and decisions must stay true for months. When they share folders, agents trust stale notes, docs drift, and nobody dares to prune because nothing is clearly disposable. So the repo is split by **volatility**: `docs/` is durable knowledge, `work/` is volatile state, `agents/` is the harness that defines how work happens. Each folder has one lifecycle, one reader intent and one owner. Decision: `docs/decisions/0001-split-the-repo-by-volatility.md`.
+Plans, handoffs and scratch research change daily. Architecture, reference and decisions must stay true for months. When they share folders, agents trust stale notes, docs drift, and nobody dares to prune because nothing is clearly disposable. So the repo is split by **volatility**: `docs/` is durable knowledge, `work/` is volatile state, `agents/` is the harness that defines how work happens. Each folder has one lifecycle, one reader intent and one owner. Decision: `docs/decisions/0001-split-the-repo-by-volatility.md` (this repository's ADRs; they do not ship).
 
 ## 2. Context is a budget, not a free resource
 
@@ -18,7 +18,7 @@ An agent pays for everything it loads in every session, and long instruction fil
 
 ## 3. Parallel writers need structure, not luck
 
-Many agents write at once. Collisions are prevented by single-writer ownership (a folder's README names its owner role; roles list the item files they exclusively write), one git worktree per agent, and tools that take a lock when allocating shared state such as ADR numbers. The state of every work item lives in a handoff file that a fresh session can trust, guarded by a state machine that refuses unsafe moves (no `done` without independent review and evidence). Details: `ownership-and-handoffs.md`.
+Many agents write at once. Collisions are prevented by single-writer ownership (a folder's README names its owner role; roles list the item files they exclusively write), one git worktree per agent, and tools that take a lock when allocating shared state such as ADR numbers. The state of every work item lives in a handoff file that a fresh session can trust, guarded by a state machine that refuses unsafe moves (no `done` without independent review and evidence). Details: `template/docs/dev/explanation/ownership-and-handoffs.md` (this file still ships).
 
 ## 4. Optional parts must be cuttable
 
