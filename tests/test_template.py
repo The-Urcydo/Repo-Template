@@ -82,7 +82,7 @@ def test_profile_generates_a_healthy_repo(tmp_path, profile, layout):
     assert (p / "tools" / "tests" / "test_tools.py").exists(), layout
     # core is always present
     for core in ["AGENTS.md", "README.md", "docs/INDEX.md", "work/ACTIVE.md", "work/HUMAN.md", "agents/ROSTER.md",
-                 "tools/check.py", "docs/decisions/0000-use-madr-for-decision-records.md", "agents/roles/builder/ROLE.md",
+                 "tools/check.py", "docs/decisions/README.md", "agents/roles/builder/ROLE.md",
                  "docs/dev/how-to/README.md", "docs/dev/reference/repo-map.md", "docs/user/README.md"]:
         assert (p / core).exists(), core
     # docs are grouped by audience: the four type folders live under docs/dev/, never at the top of docs/
@@ -728,7 +728,7 @@ def test_update_across_the_docs_layout_move_keeps_the_projects_own_docs(tmp_path
     (proj / "docs/how-to/deploy-to-staging.md").write_text(_doc(
         "Deploy to staging", "how-to",
         "See [commands](../reference/commands.md), [handoffs](../explanation/ownership-and-handoffs.md), "
-        "[the split](../decisions/0001-split-the-repo-by-volatility.md), [docs home](../INDEX.md) and "
+        "[the decisions](../decisions/README.md), [docs home](../INDEX.md) and "
         "[the site](https://example.com/a/../b)."))
     (proj / "docs/explanation/our-architecture.md").write_text(_doc(
         "Our architecture", "explanation", "Deploy steps: [staging](../how-to/deploy-to-staging.md#steps)."))
@@ -756,7 +756,7 @@ def test_update_across_the_docs_layout_move_keeps_the_projects_own_docs(tmp_path
     # relative links were recomputed from the new location; absolute URLs were left alone
     how_to = (proj / "docs/dev/how-to/deploy-to-staging.md").read_text()
     assert "(../reference/commands.md)" in how_to and "(../explanation/ownership-and-handoffs.md)" in how_to
-    assert "(../../decisions/0001-split-the-repo-by-volatility.md)" in how_to and "(../../INDEX.md)" in how_to
+    assert "(../../decisions/README.md)" in how_to and "(../../INDEX.md)" in how_to
     assert "(https://example.com/a/../b)" in how_to
     assert "(../how-to/deploy-to-staging.md#steps)" in (proj / "docs/dev/explanation/our-architecture.md").read_text()
 
@@ -784,7 +784,7 @@ def test_update_from_v0_3_0_repairs_the_docs_layout(tmp_path):
     # a project that crossed v0.3.0 before this migration shipped: its own docs are still in the old folders
     (proj / "docs/how-to").mkdir(parents=True, exist_ok=True)
     (proj / "docs/how-to/stranded.md").write_text(_doc(
-        "Stranded", "how-to", "See [the split](../decisions/0001-split-the-repo-by-volatility.md)."))
+        "Stranded", "how-to", "See [the decisions](../decisions/README.md)."))
     git(proj, "add", "-A")
     git(proj, "commit", "-qm", "stranded doc")
 
@@ -795,7 +795,7 @@ def test_update_from_v0_3_0_repairs_the_docs_layout(tmp_path):
     assert (proj / "docs/dev/how-to/stranded.md").is_file(), "a project already on v0.3.0 was not repaired"
     assert not (proj / "docs/how-to/stranded.md").exists()
     moved = (proj / "docs/dev/how-to/stranded.md").read_text()
-    assert "(../../decisions/0001-split-the-repo-by-volatility.md)" in moved
+    assert "(../../decisions/README.md)" in moved
     assert "stranded.md" in (proj / "docs/INDEX.md").read_text(), "generated index was not rebuilt"
     r = py(proj, "tools/check.py", "--strict")
     assert r.returncode == 0, r.stdout
@@ -929,3 +929,100 @@ def test_shipped_issue_forms_and_release_notes_belong_to_the_github_module_and_s
     assert "ISSUE_TEMPLATE" in github["removal_notes"] or "issue form" in github["removal_notes"].lower()
     lean = generate(tmp_path / "lean-forms", profile="lean")
     assert not (lean / ".github").exists(), "cutting the github module removes the forms and release.yml too"
+
+
+# --- the template ships no decision records (ADR 0010) ------------------------------------------------------------
+
+_ADR_CITATION = re.compile(r"\bADR[- ]?0\d{3}\b|decisions/\d{4}")
+_ADR_CITATION_ALLOWED = {
+    "template/tools/new_adr.py",              # uses ADR-0003 as accepted input syntax
+    "template/docs/dev/reference/commands.md",
+    "template/tools/tests/test_tools.py",
+}
+
+
+def test_template_ships_no_numbered_decision_record(tmp_path):
+    shipped = TEMPLATE / "template" / "docs" / "decisions"
+    assert not sorted(shipped.glob("[0-9][0-9][0-9][0-9]-*.md")), "a numbered decision record must not ship"
+    assert (shipped / "README.md").is_file(), "new_adr.py needs the decisions folder"
+    assert (TEMPLATE / "template" / "docs" / "_templates" / "adr.md").is_file(), "new_adr.py needs the template"
+
+    p = generate(tmp_path / "p", profile="lean")
+    assert sorted(x.name for x in (p / "docs" / "decisions").iterdir()) == ["README.md"]
+    r = py(p, "tools/new_adr.py", "Our first decision")
+    assert r.returncode == 0, r.stderr
+    assert Path(r.stdout.strip()).name.startswith("0000-"), r.stdout
+    assert py(p, "tools/check.py", "--strict").returncode == 0
+
+
+def test_no_shipped_file_cites_a_decision_record():
+    scanned = []
+    hits = []
+    for path in (TEMPLATE / "template").rglob("*"):
+        if not path.is_file() or path.suffix not in {".md", ".py", ".jinja", ".yml", ".yaml", ".json", ".txt"}:
+            continue
+        rel = path.relative_to(TEMPLATE).as_posix()
+        scanned.append(rel)
+        if rel in _ADR_CITATION_ALLOWED:
+            continue
+        for match in _ADR_CITATION.finditer(path.read_text(encoding="utf-8", errors="ignore")):
+            hits.append(f"{rel}: {match.group(0)}")
+    assert len(scanned) > 100, f"the guard scanned only {len(scanned)} files"
+    assert "template/docs/dev/how-to/add-a-role.md" in scanned, "the guard misses shipped how-tos"
+    assert not hits, hits
+
+
+def test_root_decision_records_have_unique_numbers_and_resolving_links():
+    root = TEMPLATE / "docs" / "decisions"
+    adrs = sorted(root.glob("[0-9][0-9][0-9][0-9]-*.md"))
+    numbers = [p.name[:4] for p in adrs]
+    assert numbers, "no decision records at the repo root"
+    assert len(numbers) == len(set(numbers)), numbers
+    for doc in sorted(root.glob("*.md")):
+        for target in re.findall(r"\[[^\]]*\]\(([^)]+)\)", doc.read_text(encoding="utf-8")):
+            if target.startswith(("http://", "https://", "mailto:", "#")):
+                continue
+            rel = target.split("#", 1)[0]
+            if rel:
+                assert (root / rel).resolve().is_file(), f"{doc.name}: broken relative link {target}"
+
+
+OLD_ADR_TAG = "v0.4.0"  # the last release that shipped ADRs 0000-0009
+
+
+def test_update_from_v0_4_0_stops_shipping_decision_records(tmp_path):
+    _require_tag(OLD_ADR_TAG)
+    tpl = _release_repo(tmp_path, OLD_ADR_TAG)
+    proj = generate(tmp_path / "proj", tpl, "--vcs-ref", OLD_ADR_TAG, profile="full")
+    git(proj, "init", "-q")
+    git(proj, "add", "-A")
+    git(proj, "commit", "-qm", "init")
+
+    own = py(proj, "tools/new_adr.py", "Keep our own decision", "--status", "accepted")
+    assert own.returncode == 0, own.stderr
+    own_rel = own.stdout.strip()
+    assert own_rel.startswith("docs/decisions/0010-"), own_rel
+    shipped = proj / "docs/decisions/0005-group-each-role-with-its-own-skills.md"
+    assert shipped.is_file()
+    shipped.write_text(shipped.read_text(encoding="utf-8") + "\nA local edit that must not survive.\n")
+    git(proj, "add", "-A")
+    git(proj, "commit", "-qm", "project decisions")
+
+    r = copier("update", "--defaults", "--trust", "-q", cwd=proj)
+    assert r.returncode == 0, f"{r.stdout}\n{r.stderr}"
+    assert "_commit: v99.0.0" in (proj / ".copier-answers.yml").read_text()
+    git(proj, "add", "-A")  # the generated index shows as unmerged until the project stages it
+
+    assert (proj / own_rel).is_file(), "the project's own ADR was deleted"
+    assert "Keep our own decision" in (proj / own_rel).read_text(encoding="utf-8")
+    assert not shipped.exists(), "a locally edited shipped ADR survived the update"
+    assert [p.name for p in sorted((proj / "docs/decisions").glob("[0-9][0-9][0-9][0-9]-*.md"))] == [Path(own_rel).name]
+    conflicts = [p for p in proj.rglob("*") if p.is_file() and ".git" not in p.parts
+                 and re.search(r"^(<{7} |>{7} |={7}$)", p.read_text(encoding="utf-8", errors="ignore"), re.M)]
+    assert not conflicts, conflicts
+    r = py(proj, "tools/check.py", "--strict")
+    assert r.returncode == 0, r.stdout
+
+    nxt = py(proj, "tools/new_adr.py", "Our next decision")
+    assert nxt.returncode == 0, nxt.stderr
+    assert Path(nxt.stdout.strip()).name.startswith("0011-"), nxt.stdout

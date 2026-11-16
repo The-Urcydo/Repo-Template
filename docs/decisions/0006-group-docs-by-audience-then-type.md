@@ -1,7 +1,7 @@
 ---
 title: Group docs by audience, then by type
 type: decision
-status: proposed
+status: accepted
 summary: Docs live under audience folders (dev, user) that hold the four Diataxis type folders; decisions stay shared and each optional module folder maps to one audience.
 date: 2026-11-04
 decision_makers: human
@@ -48,5 +48,7 @@ Chosen option: "Audience folders only where an audience exists", because it grou
 `python3 tools/check.py` fails on a type folder directly under `docs/` (`docs-layout`), on a type that does not match its folder (`diataxis`) and on an unknown `audience:` value (`doc-audience`). The template's own tests generate every profile and layout and run `check.py --strict`.
 
 ## More information
+
+Accepted by the owner in chat on 2026-11-16.
 
 `docs/README.md`, `docs/dev/reference/front-matter.md`.

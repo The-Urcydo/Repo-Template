@@ -3,11 +3,11 @@
 The standing rules and decisions for maintaining this repository, as they are in force now. It is not a diary:
 history lives in git, pull request descriptions and the ADRs. How to do the work is in [runbook.md](runbook.md).
 When a fact below can be read live, its source is named. If the source and this file disagree, the source wins:
-fix this file. Last verified 2026-11-15 against `main` at `796e6ef`.
+fix this file. Last verified 2026-11-16 against `main` at `34008c0`.
 
 Only `template/` ships to generated projects. Maintainer-only matters (Python floor policy, `ci-gate`, the
-rulesets, Dependabot, merging, releases) belong here. If a generated project's human or agent needs the reason
-to operate the project, it belongs in `template/docs/` as an ADR.
+rulesets, Dependabot, merging, releases) belong here. This repository's own ADRs live in `docs/decisions/` and
+never ship; a generated project writes its own in its `docs/decisions/`.
 
 ## Standing rules
 `AGENTS.md` (hard rules 1 to 6) is the authority. This section adds what is enforced in GitHub.
@@ -99,6 +99,7 @@ Policy and the end-of-life table: `CONTRIBUTING.md`, section "Supported Python v
 | 2026-11-13 | ADR 0009: `ROLE.md` is the charter, a skill is the method; planner, builder, orchestrator and scribe have no skills | One fact, one home |
 | 2026-11-14 | Python 3.9 dropped, floor 3.12 | 3.9 and 3.10 are end of life |
 | 2026-11-14 | One stable `ci-gate` required instead of version-named checks | Matrix changes need no ruleset edit |
+| 2026-11-16 | ADR 0010: this repository's ADRs and design docs no longer ship; the template keeps `docs/decisions/README.md` and the ADR template, so a project's first ADR is 0000 | Agents deleted shipped ADRs, and `copier update` collided on numbers |
 
 ## Open items and dates
 - **On or after 2026-11-28:** if the 3.15 leg stayed green, a small harness PR sets its `experimental` to `false`
@@ -114,7 +115,8 @@ Policy and the end-of-life table: `CONTRIBUTING.md`, section "Supported Python v
   GitHub; if wanted, add `.github/rulesets/` to the protected set in all three places); protect
   `template/.github/workflows/`; point `AGENTS.md` rule 2 at the PR template.
 - **Stale remote branches:** `chore/agents-role-bundles` (PR #5) and `chore/ci-hardening` (PR #9) are merged;
-  `plan/template-upgrade-hardening` is PR #36, closed unmerged. Delete them in the GitHub UI.
+  `plan/template-upgrade-hardening` is PR #36, closed unmerged; `feat/adr-number-block` is PR #63, closed on
+  2026-11-16. Delete them in the GitHub UI.
 - **Baselines (roles part G):** the owner's manual real-agent runs on the golden tasks, recorded in
   `template/agents/evals/results/README.md` (empty today). Tracked in #7, which also lists the `security-routing`
   run and the skill-opening transcript check.
