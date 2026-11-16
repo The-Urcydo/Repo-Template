@@ -18,7 +18,7 @@ Repo-Template gives a new project a finished *structure*: docs grouped by audien
 
 ## Quick start
 
-**Requires** Python 3.12+, git, and Copier 9.4+. Cloning or forking this repository gives you the template source (Jinja files), not a finished project, and it cannot receive later updates. Generate with Copier instead:
+**Requires** Python 3.12+, git, and Copier 9.6+. Cloning or forking this repository gives you the template source (Jinja files), not a finished project, and it cannot receive later updates. Generate with Copier instead:
 
 ```
 pipx install copier            # or: pip install copier

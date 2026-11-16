@@ -1,7 +1,7 @@
 """Tests for the template itself (not for a generated repo).
 
 Run from the template root:  python -m pytest tests -q
-Needs: pytest, copier>=9.4, git, python3.
+Needs: pytest, copier>=9.6, git, python3.
 """
 from __future__ import annotations
 
@@ -53,6 +53,20 @@ def tree(project: Path) -> dict[str, str]:
         if p.is_file() and ".git" not in p.relative_to(project).parts and "__pycache__" not in p.parts:
             out[p.relative_to(project).as_posix()] = hashlib.sha256(p.read_bytes()).hexdigest()
     return out
+
+
+def test_copier_floor_agrees_between_copier_yml_and_requirements():
+    """The two places that pin the minimum Copier must not drift."""
+    min_version = re.search(r'^_min_copier_version:\s*"([^"]+)"',
+                            (TEMPLATE / "copier.yml").read_text(encoding="utf-8"), re.M)
+    requirement = re.search(r"^copier>=([0-9][^\s]*)",
+                            (TEMPLATE / "requirements-dev.txt").read_text(encoding="utf-8"), re.M)
+    assert min_version and requirement, "a floor is missing"
+    declared = tuple(int(part) for part in min_version.group(1).split("."))
+    installed = tuple(int(part) for part in requirement.group(1).split("."))
+    width = max(len(declared), len(installed))
+    assert declared + (0,) * (width - len(declared)) == installed + (0,) * (width - len(installed)), (
+        f"copier.yml says {min_version.group(1)}, requirements-dev.txt says {requirement.group(1)}")
 
 
 @pytest.fixture(scope="module")
