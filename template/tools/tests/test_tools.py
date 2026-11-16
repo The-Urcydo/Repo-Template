@@ -2178,7 +2178,10 @@ class AdrTests(RepoTestCase):
 
     def test_duplicate_numbers_are_caught(self) -> None:
         d = self.repo / "docs" / "decisions"
-        shutil.copy(d / "0001-split-the-repo-by-volatility.md", d / "0001-duplicate.md")
+        first = self.ok("new_adr", "First decision")
+        second = self.ok("new_adr", "Second decision")
+        self.assertNotEqual(Path(first).name[:4], Path(second).name[:4])
+        shutil.copy(self.repo / second, d / f"{Path(second).name[:4]}-duplicate.md")
         self.assertIn("adr-number", self.fails("check"))
 
 
