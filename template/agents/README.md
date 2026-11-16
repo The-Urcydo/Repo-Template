@@ -17,6 +17,12 @@ The harness that tells any AI agent how to work in this repo. It is plain Markdo
 | `adapters/` | Config for generating tool-specific files (Claude Code; optional Cursor, Copilot and Gemini) from the above |
 | `ROSTER.md` | Generated table of roles, their exclusive skills and what each owns |
 
+## Roles and sessions
+
+Roles come in three tiers. Flow roles own a status in the state machine: orchestrator, planner, builder, reviewer and the scribe. Advisory roles produce an artifact on request: architect and researcher. Optional modules are cut as one folder: security today.
+
+A role runs as a hat by default: the session that holds the item reads the charter and acts as that role. A separate session is required only for review, and for security when installed: the reviewer never runs in the session that built the item. A role that needs its own context window, such as the researcher or a builder in a worktree, may run isolated; that is a choice of the session, not a status change.
+
 ## Dispatch table
 
 The orchestrator reads `work/ACTIVE.md` and routes each item by status. `tools/transition.py` sets the default owner shown here; override it with `--owner`.

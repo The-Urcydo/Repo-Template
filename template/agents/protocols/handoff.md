@@ -43,7 +43,7 @@ title: Add login
 status: in-review
 owner_role: reviewer            # who must act next
 next_action: Verify criteria 1-4 against branch item/2026-11-01-add-login
-do_not: [re-open ADR-0007, touch infra/]
+do_not: [re-open the storage decision, touch infra/]
 evidence: [python3 tools/check.py, python3 -m unittest]
 created: 2026-11-01
 updated: 2026-11-02
