@@ -24,7 +24,7 @@
     },
     "evals": {
       "summary": "Golden tasks that test the agent harness itself (roles, skills, AGENTS.md).",
-      "paths": ["agents/evals"]
+      "paths": ["agents/evals", "tools/tests/test_eval_harness.py"]
     },
     "github": {
       "summary": "CI workflows, Dependabot config, pull-request template, issue forms, release-notes categories, CODEOWNERS and repository rulesets (with the how-to that applies them).",
