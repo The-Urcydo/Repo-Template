@@ -190,7 +190,7 @@ class HealthTests(RepoTestCase):
         self.assertIn("agents-md-size", self.fails("check"))
 
     def test_broken_link_fails(self) -> None:
-        p = self.repo / "docs" / "dev" / "explanation" / "design-rationale.md"
+        p = self.repo / "docs" / "dev" / "explanation" / "ownership-and-handoffs.md"
         p.write_text(p.read_text() + "\nSee [nowhere](does-not-exist.md).\n")
         self.assertIn("broken-link", self.fails("check"))
 
@@ -365,7 +365,7 @@ class HealthTests(RepoTestCase):
                     target = path + "/README.md"
         if not target:
             self.skipTest("no docs module installed")
-        p = self.repo / "docs" / "dev" / "explanation" / "design-rationale.md"
+        p = self.repo / "docs" / "dev" / "explanation" / "ownership-and-handoffs.md"
         p.write_text(p.read_text() + f"\nSee [module](../../../{target}).\n")
         self.assertIn("module-coupling", self.fails("check"))
 
