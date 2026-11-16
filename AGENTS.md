@@ -12,7 +12,7 @@ The human owner decides. Agents propose in pull requests.
 ## Where things are
 - `template/`: everything generated into projects. Nested rules load when you work there: `template/agents/AGENTS.md`, `template/tools/AGENTS.md`, `template/docs/AGENTS.md`, `template/work/AGENTS.md`.
 - `copier.yml`: questions, exclusions, post-generation tasks. `tests/`: template-level tests. `.github/`: this repo's own CI, not copied.
-- Why it is built this way: the ADRs in `template/docs/decisions/` and `README.md`.
+- Why it is built this way: the ADRs in `docs/decisions/` and `README.md`.
 - Maintainer notes (standing rules and decisions, how to review, merge and release): `docs/maintainers/decisions.md` and `docs/maintainers/runbook.md`. Not copied into generated projects.
 
 ## Hard rules
@@ -24,7 +24,7 @@ The human owner decides. Agents propose in pull requests.
    - A push after the approval makes it stale: say so on the PR before you push to an approved PR.
    - `owner-approval/review` stays red on a PR that touches these paths until an owner has approved the latest commit, and is green otherwise. The ruleset `protect-main` requires it on every PR to `main`, together with Code Owner review.
 4. Any other PR gets an independent review first: a reviewer that did not write it runs the tests and checks the PR against its description. Then the owner approves it (rule 1) and it can be merged.
-5. Everything under `template/` ships to every generated project: keep this repo's own notes out of it. ADRs there ship too: take the next number from `main` and check open PRs for the same number first.
+5. Everything under `template/` ships to every generated project: keep this repo's own notes out of it. This repo's ADRs live in `docs/decisions/` and never ship: take the next number from `main` and check open PRs for the same number first.
 6. New workflows set `permissions` and pin actions to commit SHAs.
 
 ## Gotchas

@@ -55,6 +55,14 @@ _migrations:
   - version: "v0.3.1"
     command: '"{{ _copier_python }}" tools/sync_agents.py'
 
+  # v0.5.0 stopped shipping ADRs 0000-0009 (ADR 0010). Copier's merge deletes them, but the project's generated
+  # index still lists them and conflicts, so both syncs run again after the merge. No `when`: they run in both
+  # stages, and rebuilding a generated file is idempotent.
+  - version: "v0.5.0"
+    command: '"{{ _copier_python }}" tools/sync_indexes.py'
+  - version: "v0.5.0"
+    command: '"{{ _copier_python }}" tools/sync_agents.py'
+
 _message_after_copy: |
   Created {{ project_name }} (profile: {{ profile }}, layout: {{ layout }}).
 

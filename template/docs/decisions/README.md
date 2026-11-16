@@ -15,4 +15,6 @@ One file per significant decision, named `NNNN-kebab-title.md`, in [MADR](https:
 - Write for a reader six months from now: context, options with pros and cons, the decision and why, consequences.
 - Small reversible choices do not need an ADR; note them in the work item's handoff.
 
+This folder starts empty; the first ADR is 0000.
+
 How-to: `docs/dev/how-to/write-an-adr.md`.
