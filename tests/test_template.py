@@ -91,6 +91,13 @@ def test_profile_generates_a_healthy_repo(tmp_path, profile, layout):
         assert not (p / "docs" / type_folder).exists(), f"docs/{type_folder}/ must not exist at the top level"
 
 
+def test_template_does_not_ship_the_maintainers_design_reasoning(full):
+    explanation = full / "docs" / "dev" / "explanation"
+    assert not (explanation / "design-rationale.md").exists(), "the template's design rationale is maintainer-only"
+    assert not (explanation / "context-budget.md").exists(), "the context-budget explanation is maintainer-only"
+    assert (explanation / "ownership-and-handoffs.md").is_file(), "the explanation that stays must still ship"
+
+
 @pytest.mark.parametrize("modules", [[], ["evals"], ["infra", "github"], ["product", "security"]])
 def test_custom_profile_picks_exactly_the_chosen_modules(tmp_path, modules):
     data = tmp_path / "answers.yml"
