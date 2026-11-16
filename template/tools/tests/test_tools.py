@@ -1954,8 +1954,8 @@ class EvalHarnessTests(RepoTestCase):
 
 
 class ConditionalScribeTests(RepoTestCase):
-    """ADR 0007, point 4: the scribe runs only when docs or the changelog must change. No tool changes: the
-    reviewer routes with the existing `--owner` override, and the charters carry the rule."""
+    """The scribe runs only when docs or the changelog must change. No tool changes: the reviewer routes with the
+    existing `--owner` override, and the charters carry the rule."""
 
     def test_docs_free_item_goes_from_review_to_done_without_the_scribe(self) -> None:
         item = self.new_item("rename-variable")
@@ -2469,7 +2469,7 @@ class AdapterTests(RepoTestCase):
         mine.write_text("# Mine\n\n[broken](does/not/exist.md)\n")
         self.ok("check", "--strict")
 
-    # --- role `access` hint, `use_when` and per-role models (ADR 0007 follow-up) -------------------
+    # --- role `access` hint, `use_when` and per-role models -----------------------------------------
     GOOD_CLAUDE_EXTRAS = {"models": {}, "disallowed_tools": {"read-only": ["Edit", "NotebookEdit"]}}
 
     def set_claude(self, **cfg: object) -> None:
@@ -2677,7 +2677,7 @@ class AdapterTests(RepoTestCase):
         self.assertIn("handoff owner_role is planner", self.claude_head("planner"))
 
     def test_shipped_researcher_is_not_described_by_ownership(self) -> None:
-        # The researcher never owns an item (ADR 0007), so "owner_role is researcher" can never match.
+        # The researcher never owns an item, so "owner_role is researcher" can never match.
         self.set_claude()
         self.ok("sync_agents")
         head = self.claude_head("researcher")

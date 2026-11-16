@@ -23,4 +23,6 @@ Rules for this folder: `work/AGENTS.md`. State machine: `agents/protocols/handof
 
 ## If the history gets noisy
 
-Commit churn here can bury code history. If that happens, move `work/` to its own branch or repository; every path in the tools is relative to the repo root, so the change is a few lines in `tools/_lib.py` (see `docs/decisions/0003-keep-work-state-in-the-main-repo.md` for the trade-offs).
+Commit churn here can bury code history. If that happens, move `work/` to its own branch or repository; every path in the tools is relative to the repo root, so the change is a few lines in `tools/_lib.py`.
+
+The trade-offs: one checkout gives agents everything and the reasoning sits next to the change, but the history gets noisier and many agents writing at once can conflict (mitigated by one folder per item, single-writer files and locked tools). Internal notes also ship with the repo if it is ever made public: git-ignore scratch files and review them before publishing.
