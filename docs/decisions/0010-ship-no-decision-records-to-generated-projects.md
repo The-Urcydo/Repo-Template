@@ -44,7 +44,7 @@ Chosen option: "Ship no records", because a generated project cannot own this re
 
 - Good: a project's ADR numbers are its own; no `copier update` collision; maintainer-only rules stop reaching projects.
 - Bad: a project that edited a shipped ADR loses that edit silently when it updates. The file is in the project's git history and can be restored with `git show <old-commit>:docs/decisions/<file>`.
-- Neutral: a project's ADR numbering restarts at 0000; the generated indexes are rebuilt by the migration.
+- Neutral: a new project's first ADR is 0000, and an existing project continues from its own highest number plus one; the generated indexes are rebuilt by the migration.
 
 ### Confirmation
 
