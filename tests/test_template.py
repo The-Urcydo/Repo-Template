@@ -388,6 +388,61 @@ def test_shipped_unit_tests_ignore_the_projects_own_data(tmp_path):
     assert r.returncode == 0, r.stderr[-3000:]
 
 
+EVAL_TESTS = Path("tools") / "tests" / "test_eval_harness.py"
+
+
+def test_lean_project_carries_no_eval_harness_tests(tmp_path):
+    assert (TEMPLATE / "template" / EVAL_TESTS).is_file(), "the split file must exist in the template"
+    lean = generate(tmp_path / "lean", profile="lean")
+    assert not (lean / EVAL_TESTS).exists(), "a lean project must not carry the eval-harness tests"
+    r = py(lean, "-m", "unittest", "discover", "-s", "tools/tests", "-q")
+    assert r.returncode == 0, r.stderr[-3000:]
+    assert "Ran 153 tests" in r.stderr, r.stderr[-1000:]
+
+
+def test_full_project_keeps_the_same_eval_harness_tests(full):
+    assert (full / EVAL_TESTS).is_file(), "a full project keeps the eval-harness tests"
+    r = py(full, "-m", "unittest", "discover", "-s", "tools/tests", "-q")
+    assert r.returncode == 0, r.stderr[-3000:]
+    assert "Ran 237 tests" in r.stderr, r.stderr[-1000:]
+    tools = py(full, "-m", "unittest", "discover", "-s", "tools/tests", "-p", "test_tools.py", "-q")
+    assert "Ran 153 tests" in tools.stderr, tools.stderr[-1000:]
+    evals = py(full, "-m", "unittest", "discover", "-s", "tools/tests", "-p", "test_eval_harness.py", "-q")
+    assert "Ran 84 tests" in evals.stderr, evals.stderr[-1000:]
+
+
+def test_eval_harness_tests_run_as_a_module_from_the_project_root(full):
+    r = py(full, "-m", "unittest", "tools.tests.test_eval_harness", "-q")
+    assert r.returncode == 0, r.stderr[-3000:]
+    assert "Ran 84 tests" in r.stderr, r.stderr[-1000:]
+
+
+def test_cutting_evals_removes_the_eval_harness_tests(tmp_path):
+    p = generate(tmp_path / "p", profile="full")
+    assert (p / EVAL_TESTS).is_file(), "the full project must start with the eval-harness tests"
+    r = py(p, "tools/remove_module.py", "evals", "--apply")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert not (p / EVAL_TESTS).exists(), "cutting evals must remove the eval-harness tests"
+    assert not (p / "agents" / "evals").exists()
+    assert py(p, "tools/check.py", "--strict").returncode == 0
+    r = py(p, "-m", "unittest", "discover", "-s", "tools/tests", "-q")
+    assert r.returncode == 0, r.stderr[-3000:]
+    assert "Ran 153 tests" in r.stderr, r.stderr[-1000:]
+
+
+def test_evals_module_paths_and_excludes_agree():
+    modules = json.loads((TEMPLATE / "template" / "tools" / "modules.json").read_text(encoding="utf-8"))["modules"]
+    paths = set(modules["evals"]["paths"])
+    assert str(EVAL_TESTS).replace("\\", "/") in paths, "the split test file must be an evals module path"
+    excludes = [line for line in (TEMPLATE / "copier.yml").read_text(encoding="utf-8").splitlines()
+                if "enabled_modules" in line and "evals" in line]
+    assert len(excludes) == len(paths), (excludes, paths)
+    joined = "\n".join(excludes)
+    for path in paths:
+        needle = "%}/" + path + "{% endif %}"
+        assert needle in joined, f"no _exclude line for evals path {path}"
+
+
 def git(cwd: Path, *args: str) -> str:
     r = subprocess.run(["git", "-C", str(cwd), "-c", "user.email=t@t", "-c", "user.name=t", *args],
                        capture_output=True, text=True)
@@ -1040,3 +1095,36 @@ def test_update_from_v0_4_0_stops_shipping_decision_records(tmp_path):
     nxt = py(proj, "tools/new_adr.py", "Our next decision")
     assert nxt.returncode == 0, nxt.stderr
     assert Path(nxt.stdout.strip()).name.startswith("0011-"), nxt.stdout
+
+
+SPLIT_TAG = "v0.5.0"
+
+
+def test_update_from_v0_5_0_splits_the_eval_harness_tests(tmp_path):
+    _require_tag(SPLIT_TAG)
+    tpl = _release_repo(tmp_path, SPLIT_TAG)
+    for profile, total in (("full", 237), ("lean", 153)):
+        proj = generate(tmp_path / profile, tpl, "--vcs-ref", SPLIT_TAG, profile=profile)
+        git(proj, "init", "-q")
+        git(proj, "add", "-A")
+        git(proj, "commit", "-qm", "init")
+
+        r = copier("update", "--defaults", "--trust", "-q", cwd=proj)
+        assert r.returncode == 0, f"{profile}: {r.stdout}\n{r.stderr}"
+        assert "_commit: v99.0.0" in (proj / ".copier-answers.yml").read_text()
+        git(proj, "add", "-A")
+
+        tools = (proj / "tools" / "tests" / "test_tools.py").read_text(encoding="utf-8")
+        assert "class EvalHarnessTests" not in tools, f"{profile}: the class stayed in test_tools.py"
+        assert (proj / EVAL_TESTS).exists() == (profile == "full"), f"{profile}: wrong split file presence"
+        conflicts = [p for p in proj.rglob("*") if p.is_file() and ".git" not in p.parts
+                     and re.search(r"^(<{7} |>{7} |={7}$)", p.read_text(encoding="utf-8", errors="ignore"), re.M)]
+        assert not conflicts, conflicts
+        r = py(proj, "-m", "unittest", "discover", "-s", "tools/tests", "-q")
+        assert r.returncode == 0, f"{profile}: {r.stderr[-3000:]}"
+        assert f"Ran {total} tests" in r.stderr, f"{profile}: {r.stderr[-1000:]}"
+        if profile == "full":
+            only_tools = py(proj, "-m", "unittest", "discover", "-s", "tools/tests", "-p", "test_tools.py", "-q")
+            assert "Ran 153 tests" in only_tools.stderr, only_tools.stderr[-1000:]
+            only_evals = py(proj, "-m", "unittest", "discover", "-s", "tools/tests", "-p", "test_eval_harness.py", "-q")
+            assert "Ran 84 tests" in only_evals.stderr, only_evals.stderr[-1000:]
