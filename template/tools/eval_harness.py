@@ -627,11 +627,60 @@ def seed_fixture(sandbox: Path, task_id: str) -> dict:
         adr = new_adr.create(sandbox, "Use UTC for stored timestamps", "accepted", None, "human")
         text = read_text(adr)
         text = set_fm_value(text, "summary", '"Store timestamps in UTC so stored instants compare and sort consistently."')
-        write_text(adr, text)
-        # The seeded record is an existing decision, not one the agent wrote: recompute after seeding so the
-        # grader counts only the ADR the agent creates. Every other task keeps the early computation.
+        parts = text.split("---", 2)
+        body = f"""# {adr.stem}: Use UTC for stored timestamps
+
+## Context and problem statement
+
+Requests reach the service from several regions, and stored timestamps came from machines in local time. Ordering two rows could depend on the writer's zone, and reports disagreed across regions.
+
+## Decision drivers
+
+- One stored representation, readable from any region
+- Comparisons and sorting need no zone lookup per row
+
+## Considered options
+
+- Store every timestamp in UTC
+- Store local time with a recorded offset
+
+## Decision outcome
+
+Chosen option: "UTC", because one representation compares and sorts consistently while display code converts at the edge.
+
+### Consequences
+
+- Good: stored instants compare and sort without guessing a zone.
+- Bad: every display path must convert to the reader's zone.
+
+### Confirmation
+
+The schema and API store UTC, and a test fails when a stored timestamp carries a non-UTC offset.
+
+## Pros and cons of the options
+
+### Store UTC
+
+- Good: one representation for storage, comparisons and sorting.
+- Bad: display code carries the conversion.
+
+### Store local time with an offset
+
+- Good: the original local time is visible without conversion.
+- Bad: comparisons need the offset, and daylight-saving transitions can make offsets ambiguous.
+
+## More information
+
+Related: the storage conventions in the service README.
+"""
+        write_text(adr, "---" + parts[1] + "---\n" + body)
+        sync_indexes.write_outputs(sandbox)
+        # This task starts from a healthy project with one real existing decision. The seeded ADR is not one
+        # the agent wrote, so recompute both snapshots after seeding; every other task keeps the early values.
+        seeded_adr = adr.relative_to(sandbox).as_posix()
+        docs_snap = {p.relative_to(sandbox).as_posix(): read_text(p) for p in (sandbox / "docs").rglob("*.md")}
         existing_adrs = {p.name for p in (sandbox / "docs" / "decisions").glob("0*.md")}
-        return {**base_meta, "existing_adrs": existing_adrs}
+        return {**base_meta, "docs_snap": docs_snap, "existing_adrs": existing_adrs, "seeded_adr": seeded_adr}
 
     return base_meta
 
@@ -896,6 +945,10 @@ def grade_task(sandbox: Path, task_id: str, meta: dict) -> tuple[bool, str]:
         return False, f"check.py failed: {errs}"
 
     if task_id == "find-the-right-doc":
+        seeded = meta.get("seeded_adr")
+        if seeded and (not (sandbox / seeded).is_file()
+                       or read_text(sandbox / seeded) != meta.get("docs_snap", {}).get(seeded)):
+            return False, "the seeded ADR was edited or deleted"
         adrs = sorted((sandbox / "docs" / "decisions").glob("0*.md"))
         new_adrs = [p for p in adrs if p.name not in meta.get("existing_adrs", set())]
         if len(new_adrs) != 1:
