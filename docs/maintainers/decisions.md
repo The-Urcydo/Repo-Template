@@ -62,8 +62,10 @@ Policy and the end-of-life table: `CONTRIBUTING.md`, section "Supported Python v
 - **Pins** (checked 2026-11-14): actions/checkout v7.0.1, actions/setup-python v7.1.0, zizmor-action v0.8.1,
   zizmor 1.32.0, actionlint 1.7.12. Actions are pinned to full commit SHAs. The actionlint and zizmor versions and
   the pins in `template/.github/workflows/` are bumped by hand; Dependabot watches only the root workflows.
-- **Dev tools.** `requirements-dev.txt` holds floors (`copier>=9.6`, `pytest>=8`, `pyyaml>=6.0.3`), tested with
-  lowest-direct resolution on 3.12 on 2026-11-14. A floor is the minimum that provably works, not the latest.
+- **Dev tools.** `requirements-dev.txt` holds floors (`copier>=9.6`, `pytest>=8`, `pytest-xdist>=3.8`,
+  `pyyaml>=6.0.3`), tested with lowest-direct resolution on 3.12 on 2026-11-14. `pytest-xdist` was added on
+  2026-11-17 (3.8.0 tested with pytest 9.2.0 on 3.14) so the root suite runs in parallel; it is a root-only
+  dependency, and generated projects stay standard-library only. A floor is the minimum that provably works, not the latest.
   `copier.yml` sets `_min_copier_version: "9.6.0"`. The Copier floor is 9.6.0 because 9.4.0 and 9.5.0 ignore
   templated `_exclude` entries, so every profile receives every module. CI installs the newest Copier, so the floor
   is not tested until a lowest-direct job exists (see open items).

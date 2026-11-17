@@ -6,7 +6,7 @@ The human owner decides. Agents propose in pull requests.
 
 ## Commands
 - Set up: `python3 -m venv .venv && . .venv/bin/activate && pip install -r requirements-dev.txt`
-- Test everything before opening a PR: `python -m pytest tests -q`. It takes a few minutes: it generates real projects and runs each one's `check.py --strict`, the shipped unit tests and a `copier update`.
+- Test everything before opening a PR: `python -m pytest tests -q`. It takes about two minutes and runs in parallel (`pytest.ini`): it generates real projects and runs each one's `check.py --strict`, the shipped unit tests once, and a `copier update`.
 - Try the template by hand: `copier copy --trust --vcs-ref HEAD . <dir>`. Always pass `--vcs-ref HEAD`: without it Copier builds from the latest release tag, so you would test the tag, not your branch.
 
 ## Where things are

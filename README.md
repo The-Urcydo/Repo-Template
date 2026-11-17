@@ -145,10 +145,10 @@ Local edits are merged, and modules you cut stay cut. See `docs/dev/how-to/updat
 ```
 python3 -m venv .venv && . .venv/bin/activate
 pip install -r requirements-dev.txt
-python -m pytest tests -q
+python -m pytest tests -q            # about two minutes; parallel by default
 ```
 
-The tests generate real projects and exercise them: every profile × layout, custom module sets, deterministic output, idempotent sync, every documented command and flag, the tutorial end to end, the shipped unit tests, parity between the stdlib front-matter parser and PyYAML, and a full `copier update` that keeps local edits and cut modules.
+`pytest.ini` limits a bare `pytest` to `tests/` and runs the suite with `pytest-xdist`. Use `-n0` to run one test in order while debugging. The tests generate real projects and exercise them: every profile × layout, custom module sets, deterministic output, idempotent sync, every documented command and flag, the tutorial end to end, the shipped unit tests, parity between the stdlib front-matter parser and PyYAML, and a full `copier update` that keeps local edits and cut modules.
 
 To try your branch by hand, always pass `--vcs-ref HEAD` (`copier copy --trust --vcs-ref HEAD . <dir>`). Without it Copier builds from the newest release tag, so you would test the tag, not your branch.
 

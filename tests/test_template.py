@@ -47,6 +47,26 @@ def py(project: Path, *args: str) -> subprocess.CompletedProcess:
                           env={**os.environ, "REPO_ROOT": str(project)})
 
 
+def suite_size(project: Path, pattern: str = "test_*.py") -> int:
+    """How many test cases `unittest discover` would run, without running them.
+
+    Discovery imports every test module, so a broken import or a test file outside the package
+    fails here. Executing the shipped suite is the job of one test; every other test asks this
+    how many cases the project carries, so adding a test never multiplies the suite's runtime.
+    """
+    script = (
+        "import sys, unittest\n"
+        "loader = unittest.TestLoader()\n"
+        "suite = loader.discover('tools/tests', pattern=sys.argv[1])\n"
+        "if loader.errors:\n"
+        "    sys.exit('\\n'.join(loader.errors))\n"
+        "print(suite.countTestCases())\n"
+    )
+    r = py(project, "-c", script, pattern)
+    assert r.returncode == 0, f"{project}: discovery failed:\n{r.stdout}\n{r.stderr}"
+    return int(r.stdout.strip())
+
+
 def tree(project: Path) -> dict[str, str]:
     out = {}
     for p in sorted(project.rglob("*")):
@@ -371,13 +391,10 @@ def test_eval_harness_verifies_all_golden_tasks(full):
     assert r.stdout.count("PASS") == expected, r.stdout
 
 
-def test_shipped_unit_tests_pass(full):
-    r = py(full, "-m", "unittest", "discover", "-s", "tools/tests")
-    assert r.returncode == 0, r.stderr[-3000:]
-
-
-def test_shipped_unit_tests_ignore_the_projects_own_data(tmp_path):
-    """A project in use has work items, open questions and code; none of that may break the tool tests."""
+def test_shipped_unit_tests_pass_in_a_project_with_its_own_data(tmp_path):
+    """The one test that executes the shipped suite. A project in use has work items, open questions
+    and code; none of that may break the tool tests. Every other test in this file loads the suite
+    instead of running it, so the suite's runtime does not multiply with the number of tests here."""
     p = generate(tmp_path / "p", profile="full")
     q = ["tools/question.py", "ask", "Real question?", "--asked-by", "builder", "--recommended", "yes",
          "--if-no-answer", "nothing changes", "--cost", "high: data"]
@@ -395,26 +412,27 @@ def test_lean_project_carries_no_eval_harness_tests(tmp_path):
     assert (TEMPLATE / "template" / EVAL_TESTS).is_file(), "the split file must exist in the template"
     lean = generate(tmp_path / "lean", profile="lean")
     assert not (lean / EVAL_TESTS).exists(), "a lean project must not carry the eval-harness tests"
-    r = py(lean, "-m", "unittest", "discover", "-s", "tools/tests", "-q")
-    assert r.returncode == 0, r.stderr[-3000:]
-    assert "Ran 153 tests" in r.stderr, r.stderr[-1000:]
+    tools_text = (lean / "tools/tests/test_tools.py").read_text(encoding="utf-8")
+    assert "class EvalHarnessTests" not in tools_text, "the eval-harness tests leaked into test_tools.py"
+    tools = suite_size(lean, "test_tools.py")
+    assert tools > 0
+    assert suite_size(lean) == tools, "a lean project must discover exactly the tools tests"
 
 
 def test_full_project_keeps_the_same_eval_harness_tests(full):
     assert (full / EVAL_TESTS).is_file(), "a full project keeps the eval-harness tests"
-    r = py(full, "-m", "unittest", "discover", "-s", "tools/tests", "-q")
-    assert r.returncode == 0, r.stderr[-3000:]
-    assert "Ran 237 tests" in r.stderr, r.stderr[-1000:]
-    tools = py(full, "-m", "unittest", "discover", "-s", "tools/tests", "-p", "test_tools.py", "-q")
-    assert "Ran 153 tests" in tools.stderr, tools.stderr[-1000:]
-    evals = py(full, "-m", "unittest", "discover", "-s", "tools/tests", "-p", "test_eval_harness.py", "-q")
-    assert "Ran 84 tests" in evals.stderr, evals.stderr[-1000:]
+    tools = suite_size(full, "test_tools.py")
+    evals = suite_size(full, "test_eval_harness.py")
+    assert tools > 0 and evals > 0
+    assert suite_size(full) == tools + evals, "discovery must find the tools tests and the evals tests, and nothing else"
 
 
 def test_eval_harness_tests_run_as_a_module_from_the_project_root(full):
-    r = py(full, "-m", "unittest", "tools.tests.test_eval_harness", "-q")
+    # One case is enough to prove the module entrypoint still imports; the suite itself runs once above.
+    r = py(full, "-m", "unittest", "tools.tests.test_eval_harness",
+           "-k", "test_eval_harness_fails_closed_on_unknown_task", "-q")
     assert r.returncode == 0, r.stderr[-3000:]
-    assert "Ran 84 tests" in r.stderr, r.stderr[-1000:]
+    assert "Ran 1 test" in r.stderr, r.stderr[-1000:]
 
 
 def test_cutting_evals_removes_the_eval_harness_tests(tmp_path):
@@ -425,9 +443,11 @@ def test_cutting_evals_removes_the_eval_harness_tests(tmp_path):
     assert not (p / EVAL_TESTS).exists(), "cutting evals must remove the eval-harness tests"
     assert not (p / "agents" / "evals").exists()
     assert py(p, "tools/check.py", "--strict").returncode == 0
-    r = py(p, "-m", "unittest", "discover", "-s", "tools/tests", "-q")
-    assert r.returncode == 0, r.stderr[-3000:]
-    assert "Ran 153 tests" in r.stderr, r.stderr[-1000:]
+    tools_text = (p / "tools/tests/test_tools.py").read_text(encoding="utf-8")
+    assert "class EvalHarnessTests" not in tools_text, "cutting evals must not leave its tests in test_tools.py"
+    tools = suite_size(p, "test_tools.py")
+    assert tools > 0
+    assert suite_size(p) == tools, "after cutting evals, discovery must find only the tools tests"
 
 
 def test_evals_module_paths_and_excludes_agree():
@@ -1103,7 +1123,7 @@ SPLIT_TAG = "v0.5.0"
 def test_update_from_v0_5_0_splits_the_eval_harness_tests(tmp_path):
     _require_tag(SPLIT_TAG)
     tpl = _release_repo(tmp_path, SPLIT_TAG)
-    for profile, total in (("full", 237), ("lean", 153)):
+    for profile in ("full", "lean"):
         proj = generate(tmp_path / profile, tpl, "--vcs-ref", SPLIT_TAG, profile=profile)
         git(proj, "init", "-q")
         git(proj, "add", "-A")
@@ -1120,11 +1140,9 @@ def test_update_from_v0_5_0_splits_the_eval_harness_tests(tmp_path):
         conflicts = [p for p in proj.rglob("*") if p.is_file() and ".git" not in p.parts
                      and re.search(r"^(<{7} |>{7} |={7}$)", p.read_text(encoding="utf-8", errors="ignore"), re.M)]
         assert not conflicts, conflicts
-        r = py(proj, "-m", "unittest", "discover", "-s", "tools/tests", "-q")
-        assert r.returncode == 0, f"{profile}: {r.stderr[-3000:]}"
-        assert f"Ran {total} tests" in r.stderr, f"{profile}: {r.stderr[-1000:]}"
+        tools = suite_size(proj, "test_tools.py")
+        evals = suite_size(proj, "test_eval_harness.py") if profile == "full" else 0
+        assert tools > 0
         if profile == "full":
-            only_tools = py(proj, "-m", "unittest", "discover", "-s", "tools/tests", "-p", "test_tools.py", "-q")
-            assert "Ran 153 tests" in only_tools.stderr, only_tools.stderr[-1000:]
-            only_evals = py(proj, "-m", "unittest", "discover", "-s", "tools/tests", "-p", "test_eval_harness.py", "-q")
-            assert "Ran 84 tests" in only_evals.stderr, only_evals.stderr[-1000:]
+            assert evals > 0
+        assert suite_size(proj) == tools + evals, f"{profile}: discovery does not match the files the update left"

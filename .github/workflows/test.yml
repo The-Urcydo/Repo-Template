@@ -9,10 +9,17 @@ on:
 permissions:
   contents: read
 
+# A newer push to a pull request cancels its older run. Runs on main always finish.
+concurrency:
+  group: test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   template:
     name: template (${{ matrix.python-version }})
     runs-on: ubuntu-26.04
+    # A hung test must not burn the runner for the six-hour default.
+    timeout-minutes: 30
     continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
@@ -40,7 +47,8 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-dev.txt
       - run: pip install -r requirements-dev.txt
-      - run: python -m pytest tests -q
+      # --durations makes the slowest tests visible in the log, so a regression is easy to spot.
+      - run: python -m pytest tests -q --durations=20
 
   # One stable check for the ruleset to require: it changes only when this job does, not when the matrix does.
   ci-gate:
