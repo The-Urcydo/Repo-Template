@@ -45,6 +45,8 @@ Two rules set the range:
 
 CI currently tests Python 3.12 and 3.14, with 3.15 informational until it has been green for two weeks; the floor today is 3.12.
 
+A newer push to a pull request cancels that pull request's older CI run, and a test job that runs longer than 30 minutes is stopped; runs on `main` always finish.
+
 Raising the floor is a breaking change and is announced in the release notes of the template minor that does it.
 
 | Version | Status on 2026-11-14 | End of support |
