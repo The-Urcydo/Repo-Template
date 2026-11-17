@@ -623,6 +623,16 @@ def seed_fixture(sandbox: Path, task_id: str) -> dict:
             "agents_snap": _agents_snapshot(sandbox), "guarded_snap": _guarded_snapshot(sandbox),
         }
 
+    if task_id == "find-the-right-doc":
+        adr = new_adr.create(sandbox, "Use UTC for stored timestamps", "accepted", None, "human")
+        text = read_text(adr)
+        text = set_fm_value(text, "summary", '"Store timestamps in UTC so stored instants compare and sort consistently."')
+        write_text(adr, text)
+        # The seeded record is an existing decision, not one the agent wrote: recompute after seeding so the
+        # grader counts only the ADR the agent creates. Every other task keeps the early computation.
+        existing_adrs = {p.name for p in (sandbox / "docs" / "decisions").glob("0*.md")}
+        return {**base_meta, "existing_adrs": existing_adrs}
+
     return base_meta
 
 
