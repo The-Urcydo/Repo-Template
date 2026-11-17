@@ -939,16 +939,17 @@ Related: the prototype brief and the storage section of the design notes.
 def grade_task(sandbox: Path, task_id: str, meta: dict) -> tuple[bool, str]:
     if task_id not in KNOWN_TASKS:
         return False, f"unknown eval task '{task_id}'; refusing to grade"
+    if task_id == "find-the-right-doc":
+        seeded = meta.get("seeded_adr")
+        if seeded and (not (sandbox / seeded).is_file()
+                       or read_text(sandbox / seeded) != meta.get("docs_snap", {}).get(seeded)):
+            return False, "the seeded ADR was edited or deleted"
     rep = check.run_all(sandbox)
     if rep.count("error") > 0:
         errs = "; ".join(f"{f.code}@{f.where}" for f in rep.items if f.level == "error")
         return False, f"check.py failed: {errs}"
 
     if task_id == "find-the-right-doc":
-        seeded = meta.get("seeded_adr")
-        if seeded and (not (sandbox / seeded).is_file()
-                       or read_text(sandbox / seeded) != meta.get("docs_snap", {}).get(seeded)):
-            return False, "the seeded ADR was edited or deleted"
         adrs = sorted((sandbox / "docs" / "decisions").glob("0*.md"))
         new_adrs = [p for p in adrs if p.name not in meta.get("existing_adrs", set())]
         if len(new_adrs) != 1:
