@@ -63,6 +63,26 @@ class EvalHarnessTests(RepoTestCase):
         self.assertFalse(passed)
         self.assertIn("context", reason)
 
+    def test_find_the_right_doc_seeds_one_existing_project_adr(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        adr_glob = "[0-9][0-9][0-9][0-9]-*.md"
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            meta = eval_harness.seed_fixture(sandbox, "find-the-right-doc")
+            decisions = sandbox / "docs" / "decisions"
+            existing = sorted(p.name for p in decisions.glob(adr_glob))
+            self.assertEqual(len(existing), 1, "the fixture must seed exactly one existing ADR")
+            self.assertEqual(meta["existing_adrs"], set(existing), "existing_adrs must include the seeded ADR")
+            eval_harness.run_reference_solution(sandbox, "find-the-right-doc", meta)
+            passed, reason = eval_harness.grade_task(sandbox, "find-the-right-doc", meta)
+            self.assertTrue(passed, reason)
+        with tempfile.TemporaryDirectory() as tmp:
+            other = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            eval_harness.seed_fixture(other, "handoff-roundtrip")
+            self.assertEqual(sorted(p.name for p in (other / "docs" / "decisions").glob(adr_glob)), [],
+                             "other tasks must not gain an existing ADR")
+
     def test_eval_harness_rejects_unchanged_handoff_body(self) -> None:
         if "evals" not in _lib.load_modules(self.repo):
             self.skipTest("evals module not installed")
