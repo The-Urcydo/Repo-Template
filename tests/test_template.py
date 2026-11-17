@@ -412,6 +412,8 @@ def test_lean_project_carries_no_eval_harness_tests(tmp_path):
     assert (TEMPLATE / "template" / EVAL_TESTS).is_file(), "the split file must exist in the template"
     lean = generate(tmp_path / "lean", profile="lean")
     assert not (lean / EVAL_TESTS).exists(), "a lean project must not carry the eval-harness tests"
+    tools_text = (lean / "tools/tests/test_tools.py").read_text(encoding="utf-8")
+    assert "class EvalHarnessTests" not in tools_text, "the eval-harness tests leaked into test_tools.py"
     tools = suite_size(lean, "test_tools.py")
     assert tools > 0
     assert suite_size(lean) == tools, "a lean project must discover exactly the tools tests"
@@ -441,6 +443,8 @@ def test_cutting_evals_removes_the_eval_harness_tests(tmp_path):
     assert not (p / EVAL_TESTS).exists(), "cutting evals must remove the eval-harness tests"
     assert not (p / "agents" / "evals").exists()
     assert py(p, "tools/check.py", "--strict").returncode == 0
+    tools_text = (p / "tools/tests/test_tools.py").read_text(encoding="utf-8")
+    assert "class EvalHarnessTests" not in tools_text, "cutting evals must not leave its tests in test_tools.py"
     tools = suite_size(p, "test_tools.py")
     assert tools > 0
     assert suite_size(p) == tools, "after cutting evals, discovery must find only the tools tests"
