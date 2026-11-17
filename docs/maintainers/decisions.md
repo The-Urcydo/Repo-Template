@@ -3,7 +3,7 @@
 The standing rules and decisions for maintaining this repository, as they are in force now. It is not a diary:
 history lives in git, pull request descriptions and the ADRs. How to do the work is in [runbook.md](runbook.md).
 When a fact below can be read live, its source is named. If the source and this file disagree, the source wins:
-fix this file. Last verified 2026-11-16 against `main` at `34008c0`.
+fix this file. Last verified 2026-11-17 against `main` at `750a824` (`v0.5.1`).
 
 Only `template/` ships to generated projects. Maintainer-only matters (Python floor policy, `ci-gate`, the
 rulesets, Dependabot, merging, releases) belong here. This repository's own ADRs live in `docs/decisions/` and
@@ -57,6 +57,9 @@ Policy and the end-of-life table: `CONTRIBUTING.md`, section "Supported Python v
   succeeded. The ruleset requires it instead of version-named checks, so the matrix can change without a ruleset
   edit. `EXPECTED_CI_CHECKS` in the governance test lists every job name `test.yml` produces
   (`template (3.12)`, `template (3.14)`, `template (3.15)`, `ci-gate`); the ruleset requires only `ci-gate`.
+- **Run control** (#71). `test.yml` cancels an older run when a pull request gets a newer push; runs on `main`
+  always finish. The matrix job times out after 30 minutes and `ci-gate` after 5, so a hung test cannot hold a
+  runner for the six-hour default. `.github/workflows/test.yml` is the source.
 - **`.github/actionlint.yaml`** declares the `ubuntu-26.04` label because actionlint 1.7.12 predates it. Remove the
   entry when the pinned actionlint knows the label; re-check at every actionlint bump.
 - **Pins** (checked 2026-11-14): actions/checkout v7.0.1, actions/setup-python v7.1.0, zizmor-action v0.8.1,
@@ -85,9 +88,15 @@ Policy and the end-of-life table: `CONTRIBUTING.md`, section "Supported Python v
 - `.github/release.yml` groups merged PRs by label (`breaking` first); a test checks the file. Label a PR
   `breaking` when a generated project must do something after `copier update`. Such a release also ships a
   migration and an upgrade test (ADR 0008).
-- Raising the Python floor is a breaking change and goes in the release notes of the minor that does it.
-- Latest: `v0.4.0` (2026-11-14, on `796e6ef`): Python 3.12 or newer; no migration, because no generated project is
-  known to exist.
+- Raising the Python floor or the Copier floor is a breaking change and goes in the release notes of the minor that
+  does it.
+- Latest: `v0.5.1` (2026-11-17, on `750a824`): not breaking, no migration; `copier update` needs no action.
+  Eval-harness tests ship only with the `evals` module (#69), the shipped unit tests run faster (#72), the
+  `find-the-right-doc` fixture seeds one real ADR (#74), and the bootstrap steps live in one how-to (#76).
+- Before it: `v0.5.0` (2026-11-16, on `0d9ac51`), breaking: requires Copier 9.6 or newer (#68); stops shipping the
+  template's ADRs 0000-0009 and two design docs (#64 to #67, ADR 0010); ships the v0.5.0 migration, which rebuilds
+  `docs/INDEX.md` and the adapters after the merge. `v0.4.0` (2026-11-14, on `796e6ef`): Python 3.12 or newer; no
+  migration, because no generated project was known to exist.
 
 ## Decisions in force
 | Date | Decision | Reason |
@@ -104,7 +113,11 @@ Policy and the end-of-life table: `CONTRIBUTING.md`, section "Supported Python v
 | 2026-11-14 | Python 3.9 dropped, floor 3.12 | 3.9 and 3.10 are end of life |
 | 2026-11-14 | One stable `ci-gate` required instead of version-named checks | Matrix changes need no ruleset edit |
 | 2026-11-16 | ADR 0010: this repository's ADRs and design docs no longer ship; the template keeps `docs/decisions/README.md` and the ADR template, so a project's first ADR is 0000 | Agents deleted shipped ADRs, and `copier update` collided on numbers |
+| 2026-11-16 | Copier floor 9.6.0; v0.5.0 is a breaking minor | 9.4.0 and 9.5.0 silently ignore templated `_exclude` entries, so cut modules still ship |
+| 2026-11-16 | The 84 `EvalHarnessTests` live in `tools/tests/test_eval_harness.py`, an `evals` module path (#69) | A project without `evals` carried about 67 KB of tests for a module it cut |
 | 2026-11-17 | Root suite: one canonical run of the shipped suite; lean/cut/update checks load it with `unittest.TestLoader` | 8.3 full passes -> 1; a lean execution adds ~29s and is deferred ([measurements](test-performance.md)) |
+| 2026-11-17 | The `find-the-right-doc` fixture seeds one real ADR, and its grader fails a run that edits or deletes it (#74) | A project starts with no ADRs, so "check the existing decisions" read nothing |
+| 2026-11-17 | The bootstrap steps live only in `template/docs/dev/how-to/bootstrap-from-template.md`; the `tailor-template` skill is a pointer, guarded by a root test (#76) | The after-copy message and `docs/INDEX.md` send everyone to the how-to; no other tool is known to receive the skill |
 
 ## Open items and dates
 - **Lean shipped-suite execution (deferred 2026-11-17):** the root suite loads, but does not run, the
@@ -119,8 +132,18 @@ Policy and the end-of-life table: `CONTRIBUTING.md`, section "Supported Python v
   together.
 - **Remove the `ubuntu-26.04` entry** from `.github/actionlint.yaml` once the pinned actionlint knows it.
 - **November 2027 review:** by the floor rule 3.12 will then have under 18 months left, so the floor moves to 3.13.
-- **Release notes flow:** the README "Releasing" steps use `--notes-from-tag`, but the `v0.4.0` notes were written
-  by hand with a short tag annotation. Owner to pick one and align the README.
+- **Release notes flow:** the README "Releasing" steps use `--notes-from-tag`, but the `v0.4.0`, `v0.5.0` and
+  `v0.5.1` notes were written by hand (`gh release create --verify-tag --notes-file`) with a short tag annotation.
+  Owner to pick one and align the README.
+- **Stale "9.4" mentions after the floor moved to 9.6.0:** the placeholder "Copier 9.4.1" in
+  `.github/ISSUE_TEMPLATE/bug_report.yml` is only an example version. Accepted ADR 0008 (line 58) says its migration
+  tests passed on "Copier 9.4.0 (the declared minimum)", which was true when it was written; whether to touch an
+  accepted record is the owner's call.
+- **Shipped test fails for a custom profile without `github` (#70):** `test_cut_records_choice_in_copier_answers`
+  asserts `- github` in the answers file. Small fix to a shipped test; not urgent.
+- **`find-the-right-doc` grader (#75):** the grader does not enforce the task's remaining "Must not" items (a
+  hand-written ADR with a guessed number, the decision copied outside `docs/decisions/`). Owner to choose between
+  enforcing them and keeping them as transcript-review criteria for the manual real-agent runs.
 - **Undecided, owner's call:** retire `owner-approval.yml` (the Code Owner review is the real gate; the status is a
   convenience); commit the ruleset JSON into the repo (deferred 2026-11-07: a copy nothing can check against
   GitHub; if wanted, add `.github/rulesets/` to the protected set in all three places); protect
@@ -133,8 +156,8 @@ Policy and the end-of-life table: `CONTRIBUTING.md`, section "Supported Python v
   run and the skill-opening transcript check.
 - **Unverified:** nothing has run Claude Code against the generated `.claude/agents/` files, so it is not confirmed
   that it loads the `skills:`, `disallowedTools` and `model` lines. The check plan is #59.
-- **Grader hardening (H), after G:** the four known `callable-researcher` gaps and the exact-equality
-  `_placeholder_free` fix are #61.
+- **Grader hardening, after G:** the four known `callable-researcher` gaps and the exact-equality
+  `_placeholder_free` fix are #61; the `find-the-right-doc` gaps are #75.
 - **Small fixes:** the `sync_agents.py` crash on a non-object target, validating `claude.models` values and
   validating `needs_role` are #60.
 - **Ideas, not decided:** generate `.agents/skills/` so Codex, OpenCode and Copilot see skills (needs a design note);
