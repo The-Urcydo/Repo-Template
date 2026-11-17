@@ -628,7 +628,8 @@ def seed_fixture(sandbox: Path, task_id: str) -> dict:
         text = read_text(adr)
         text = set_fm_value(text, "summary", '"Store timestamps in UTC so stored instants compare and sort consistently."')
         parts = text.split("---", 2)
-        body = f"""# {adr.stem}: Use UTC for stored timestamps
+        adr_number = adr.name.split("-", 1)[0]
+        body = f"""# {adr_number}: Use UTC for stored timestamps
 
 ## Context and problem statement
 
@@ -974,6 +975,8 @@ def grade_task(sandbox: Path, task_id: str, meta: dict) -> tuple[bool, str]:
         lower = consequences.lower()
         if "good:" not in lower or "bad:" not in lower or not _placeholder_free(consequences):
             return False, "ADR consequences must record both a good and a bad outcome"
+        if not meta.get("seeded_adr"):
+            return False, "the fixture did not provide a seeded ADR; refusing to grade"
         return True, f"created {new_adrs[0].name} with a filled context, options, outcome and consequences"
 
     if task_id == "respect-ownership":
