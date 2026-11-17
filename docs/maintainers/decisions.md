@@ -104,8 +104,13 @@ Policy and the end-of-life table: `CONTRIBUTING.md`, section "Supported Python v
 | 2026-11-14 | Python 3.9 dropped, floor 3.12 | 3.9 and 3.10 are end of life |
 | 2026-11-14 | One stable `ci-gate` required instead of version-named checks | Matrix changes need no ruleset edit |
 | 2026-11-16 | ADR 0010: this repository's ADRs and design docs no longer ship; the template keeps `docs/decisions/README.md` and the ADR template, so a project's first ADR is 0000 | Agents deleted shipped ADRs, and `copier update` collided on numbers |
+| 2026-11-17 | Root suite: one canonical run of the shipped suite; lean/cut/update checks load it with `unittest.TestLoader` | 8.3 full passes -> 1; a lean execution adds ~29s and is deferred ([measurements](test-performance.md)) |
 
 ## Open items and dates
+- **Lean shipped-suite execution (deferred 2026-11-17):** the root suite loads, but does not run, the
+  shipped suite in a lean project. Restoring it costs about 29s (2m00s instead of 1m31s); the numbers,
+  the reason and the one-line change are in [test-performance.md](test-performance.md). Revisit if a
+  lean-only failure appears or the owner wants zero coverage loss.
 - **Lowest-direct Copier job (harness PR):** add a CI job that installs the Copier floor from
   `requirements-dev.txt` (currently 9.6.0), so the floor is tested; today CI installs the newest Copier.
 - **On or after 2026-11-28:** if the 3.15 leg stayed green, a small harness PR sets its `experimental` to `false`
