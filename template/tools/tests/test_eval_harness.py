@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # tools/
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # tools/tests/
 import _lib  # noqa: E402
 import eval_harness  # noqa: E402
-from test_tools import RepoTestCase  # noqa: E402
+from test_tools import RepoTestCase, run  # noqa: E402
 
 
 class EvalHarnessTests(RepoTestCase):
@@ -62,6 +62,73 @@ class EvalHarnessTests(RepoTestCase):
         )
         self.assertFalse(passed)
         self.assertIn("context", reason)
+
+    def test_find_the_right_doc_seeds_one_existing_project_adr(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        adr_glob = "[0-9][0-9][0-9][0-9]-*.md"
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            meta = eval_harness.seed_fixture(sandbox, "find-the-right-doc")
+            decisions = sandbox / "docs" / "decisions"
+            existing = sorted(p.name for p in decisions.glob(adr_glob))
+            self.assertEqual(len(existing), 1, "the fixture must seed exactly one existing ADR")
+            self.assertEqual(meta["existing_adrs"], set(existing), "existing_adrs must include the seeded ADR")
+            eval_harness.run_reference_solution(sandbox, "find-the-right-doc", meta)
+            passed, reason = eval_harness.grade_task(sandbox, "find-the-right-doc", meta)
+            self.assertTrue(passed, reason)
+        with tempfile.TemporaryDirectory() as tmp:
+            other = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            eval_harness.seed_fixture(other, "handoff-roundtrip")
+            self.assertEqual(sorted(p.name for p in (other / "docs" / "decisions").glob(adr_glob)), [],
+                             "other tasks must not gain an existing ADR")
+
+    def test_find_the_right_doc_seed_is_a_healthy_project(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            meta = eval_harness.seed_fixture(sandbox, "find-the-right-doc")
+            check = run(sandbox, "check", "--strict")
+            self.assertEqual(check.returncode, 0, check.stdout + check.stderr)
+            sync = run(sandbox, "sync_indexes", "--check")
+            self.assertEqual(sync.returncode, 0, sync.stdout + sync.stderr)
+            text = (sandbox / meta["seeded_adr"]).read_text(encoding="utf-8")
+            self.assertIsNone(eval_harness._PLACEHOLDER_RE.search(text),
+                              "the seeded ADR still contains placeholder markers")
+            heading = text.split("---", 2)[2].lstrip().splitlines()[0]
+            self.assertRegex(heading, r"^# \d{4}: ")
+            number = Path(meta["seeded_adr"]).name.split("-", 1)[0]
+            self.assertEqual(heading.split(":", 1)[0], f"# {number}")
+
+    def test_find_the_right_doc_grader_protects_the_seeded_adr(self) -> None:
+        if "evals" not in _lib.load_modules(self.repo):
+            self.skipTest("evals module not installed")
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            meta = eval_harness.seed_fixture(sandbox, "find-the-right-doc")
+            eval_harness.run_reference_solution(sandbox, "find-the-right-doc", meta)
+            passed, reason = eval_harness.grade_task(sandbox, "find-the-right-doc", meta)
+            self.assertTrue(passed, reason)
+            without = {k: v for k, v in meta.items() if k != "seeded_adr"}
+            passed, reason = eval_harness.grade_task(sandbox, "find-the-right-doc", without)
+            self.assertFalse(passed, "grading must fail closed when seeded_adr is missing")
+            self.assertIn("seeded ADR", reason)
+            seeded = sandbox / meta["seeded_adr"]
+            text = seeded.read_text(encoding="utf-8")
+            self.assertIn('Chosen option: "UTC"', text)
+            seeded.write_text(text.replace('Chosen option: "UTC"', 'Chosen option: "local time"', 1), encoding="utf-8")
+            passed, reason = eval_harness.grade_task(sandbox, "find-the-right-doc", meta)
+            self.assertFalse(passed, reason)
+            self.assertIn("seeded ADR", reason)
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = eval_harness._clone_sandbox(self.repo, Path(tmp))
+            meta = eval_harness.seed_fixture(sandbox, "find-the-right-doc")
+            eval_harness.run_reference_solution(sandbox, "find-the-right-doc", meta)
+            (sandbox / meta["seeded_adr"]).unlink()
+            passed, reason = eval_harness.grade_task(sandbox, "find-the-right-doc", meta)
+            self.assertFalse(passed, reason)
+            self.assertIn("seeded ADR", reason)
 
     def test_eval_harness_rejects_unchanged_handoff_body(self) -> None:
         if "evals" not in _lib.load_modules(self.repo):
