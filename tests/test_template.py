@@ -215,6 +215,31 @@ def test_the_repeat_check_sees_a_repeated_command_and_nothing_else(tmp_path):
     assert repeated_commands(role) == {"s": {"python3 tools/check.py"}}
 
 
+def _sentences(text: str) -> set[str]:
+    """Normalized sentences of six words or more, ignoring front matter, code and Markdown marks."""
+    text = re.sub(r"```.*?```", " ", text, flags=re.S)
+    text = re.sub(r"^---.*?^---", " ", text, flags=re.S | re.M)
+    text = re.sub(r"[`*_>#-]", " ", text)
+    return {" ".join(s.split()).lower().strip(" .,:;")
+            for s in re.split(r"(?<=[.!?])\s+|\n\s*\n", text) if len(s.split()) >= 6}
+
+
+def test_tailor_skill_is_a_pointer_to_the_bootstrap_how_to(full):
+    # One fact, one home: the how-to carries the steps and the skill only says when to read it.
+    skill = full / "agents" / "skills" / "tailor-template" / "SKILL.md"
+    how_to = full / "docs" / "dev" / "how-to" / "bootstrap-from-template.md"
+    text = skill.read_text(encoding="utf-8")
+    assert "docs/dev/how-to/bootstrap-from-template.md" in text, "the skill does not link to the home"
+    assert len(text.splitlines()) <= 12, "the pointer grew; move the detail into the how-to"
+    assert not re.search(r"^\s*\d+\.\s", text, re.M), "the pointer carries numbered steps"
+    assert not _commands(text), f"the pointer carries commands: {sorted(_commands(text))}"
+    assert "```" not in text, "the pointer carries a code block"
+    guide = how_to.read_text(encoding="utf-8")
+    assert re.search(r"^1\. ", guide, re.M), "the how-to does not carry the steps"
+    shared = _sentences(text) & _sentences(guide)
+    assert not shared, f"the pointer repeats the how-to: {sorted(shared)}"
+
+
 def test_no_unrendered_template_syntax_leaks(full):
     bad = []
     for p in full.rglob("*"):
