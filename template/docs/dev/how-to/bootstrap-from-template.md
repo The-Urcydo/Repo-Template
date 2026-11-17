@@ -21,7 +21,7 @@ Goal: a repo with no placeholder nobody will fill and no module nobody will use.
    With the `github` module, replace the commented entries in `.github/CODEOWNERS` with real users or teams. Deleting only that file leaves the module partly present, so `check.py --strict` fails on it; cut the whole `github` module (step 4) if you do not want it.
 4. Cut modules you do not need: `python3 tools/remove_module.py` lists them; preview with `python3 tools/remove_module.py <name>`; apply with `--apply`. See `docs/dev/how-to/cut-a-module.md`.
 5. Fill `AGENTS.md`: replace both `TODO`s — the project description and the build, test and run line. Keep the file under 100 lines and add only what an agent cannot discover from the repo.
-6. Describe the project in `README.md` (one paragraph) and fill the module pages the stubs list, `docs/user/README.md` and `SECURITY.md`.
+6. Describe the project in `README.md` (one paragraph) and fill the module pages the stubs list, `docs/user/README.md`, and `SECURITY.md` only if you kept the `security` module.
 7. Record the first decision: `python3 tools/new_adr.py "Choose the tech stack"`, then fill the sections it creates and the front-matter `summary`.
 8. Code-folder READMEs start as placeholders. Until the first code lands, leave them as placeholders; `--stubs` keeps listing them, which is expected. When the first code lands, fill in the code-folder READMEs your layout generated (`docs/dev/reference/repo-map.md` lists them) and set their `status` to `active`. With the `minimal` layout there are none: give every folder you add a `README.md` with `summary` and `owner_role`.
    Do not delete the README of a folder you keep: it carries the `owner_role` and `summary` the tools read. If one is gone, restore it.
