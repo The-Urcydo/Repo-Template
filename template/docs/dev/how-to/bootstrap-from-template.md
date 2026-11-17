@@ -6,9 +6,9 @@ summary: Steps to take right after generating a repo from the template - fill pl
 ---
 # Bootstrap a repo from the template
 
-Goal: a repo with no placeholder nobody will fill and no module nobody will use.
+**Role:** the agent that sets the repo up, acting for the human. It edits harness files, so the human approves the result.
 
-Before you start: the repo was generated with `copier copy --trust` and you are inside it.
+Goal: a repo with no placeholder nobody will fill and no module nobody will use. Run this once, right after generation. Before you start: the repo was generated with `copier copy --trust` and you are inside it.
 
 ## Steps
 
@@ -18,19 +18,18 @@ Before you start: the repo was generated with `copier copy --trust` and you are 
    ```
 2. Confirm it is healthy: `python3 tools/check.py` prints `ok`.
 3. See what is unfilled: `python3 tools/check.py --stubs`. Every line is a placeholder to fill or delete.
-   With the `github` module, replace the commented entries in `.github/CODEOWNERS` with real users/teams, or delete the file.
+   With the `github` module, replace the commented entries in `.github/CODEOWNERS` with real users or teams. Deleting only that file leaves the module partly present, so `check.py --strict` fails on it; cut the whole `github` module (step 4) if you do not want it.
 4. Cut modules you do not need: `python3 tools/remove_module.py` lists them; preview with `python3 tools/remove_module.py <name>`; apply with `--apply`. See `docs/dev/how-to/cut-a-module.md`.
 5. Fill `AGENTS.md`: replace the `TODO` line with the real build, test and run commands. Keep the file under 100 lines and add only what an agent cannot discover from the repo.
-6. Describe the project in `README.md` (one paragraph) and fill the READMEs of the modules you kept.
-7. Record the first decision: `python3 tools/new_adr.py "Choose the tech stack"`.
+6. Describe the project in `README.md` (one paragraph) and fill the READMEs of the modules you kept (`docs/product/`, `docs/operations/`, ...).
+7. Record the first decision: `python3 tools/new_adr.py "Choose the tech stack"`, then fill the sections it creates.
 8. When the first code lands, fill in the code-folder READMEs your layout generated (`docs/dev/reference/repo-map.md` lists them) and set their `status` to `active`. With the `minimal` layout there are none: give every folder you add a `README.md` with `summary` and `owner_role`.
+   Do not delete the README of a folder you keep: it carries the `owner_role` and `summary` the tools read. If one is gone, restore it.
 9. Regenerate and verify: `python3 tools/sync_indexes.py && python3 tools/sync_agents.py && python3 tools/check.py`.
 10. Commit. From now on CI (if you kept the `github` module) runs `check.py --strict`.
-11. Optional: turn on the pre-commit health check with `just hooks` (or `git config core.hooksPath .githooks`). It runs `check.py` and both sync checks in about 0.3 s before each commit, works in every worktree of the clone, and `git commit --no-verify` skips it once.
+11. Optional: turn on the pre-commit health check with `just hooks` (or `git config core.hooksPath .githooks`). It runs `check.py` and both sync checks before each commit, works in every worktree of the clone, and `git commit --no-verify` skips it once.
 
 ## If something goes wrong
 
 - `check.py` reports `generated-drift`: run the sync tools; never edit generated files by hand.
-- You deleted a folder README: restore it. The tools read `owner_role` and `summary` from folder READMEs.
-
-An agent can do this for you: tell it to use the `tailor-template` skill (`agents/skills/tailor-template/SKILL.md`).
+- `check.py` reports `module-partial`: finish the cut with `remove_module.py <name> --apply`, or restore the missing file.
