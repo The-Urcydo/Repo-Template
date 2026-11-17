@@ -96,6 +96,10 @@ class EvalHarnessTests(RepoTestCase):
             text = (sandbox / meta["seeded_adr"]).read_text(encoding="utf-8")
             self.assertIsNone(eval_harness._PLACEHOLDER_RE.search(text),
                               "the seeded ADR still contains placeholder markers")
+            heading = text.split("---", 2)[2].lstrip().splitlines()[0]
+            self.assertRegex(heading, r"^# \d{4}: ")
+            number = Path(meta["seeded_adr"]).name.split("-", 1)[0]
+            self.assertEqual(heading.split(":", 1)[0], f"# {number}")
 
     def test_find_the_right_doc_grader_protects_the_seeded_adr(self) -> None:
         if "evals" not in _lib.load_modules(self.repo):
@@ -106,6 +110,10 @@ class EvalHarnessTests(RepoTestCase):
             eval_harness.run_reference_solution(sandbox, "find-the-right-doc", meta)
             passed, reason = eval_harness.grade_task(sandbox, "find-the-right-doc", meta)
             self.assertTrue(passed, reason)
+            without = {k: v for k, v in meta.items() if k != "seeded_adr"}
+            passed, reason = eval_harness.grade_task(sandbox, "find-the-right-doc", without)
+            self.assertFalse(passed, "grading must fail closed when seeded_adr is missing")
+            self.assertIn("seeded ADR", reason)
             seeded = sandbox / meta["seeded_adr"]
             text = seeded.read_text(encoding="utf-8")
             self.assertIn('Chosen option: "UTC"', text)
