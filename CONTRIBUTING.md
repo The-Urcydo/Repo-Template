@@ -19,7 +19,8 @@ Thanks for your interest. This repository is the Copier template; the projects i
    python -m pytest tests -q
    ```
 
-   The suite generates real projects and takes a few minutes.
+   The suite generates real projects and takes about two minutes: `pytest.ini` runs it in parallel with
+   `pytest-xdist` and limits a bare `pytest` to `tests/`. Use `-n0` when debugging one test in order.
 3. To try your branch by hand, always pass `--vcs-ref HEAD`:
 
    ```
