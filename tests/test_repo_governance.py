@@ -218,11 +218,12 @@ def check_codeowners_path_kinds(root: Path) -> list[str]:  # c
             continue
         written_as_dir = pattern.endswith("/")
         if path.is_dir() != written_as_dir:
+            advice = ("A trailing slash matches directories only, so this line would protect nothing"
+                      if written_as_dir else "Write the directory with a trailing slash, as GitHub documents")
             problems.append(
                 f"{CODEOWNERS}: the line for {pattern} writes {plain} as a "
                 f"{'directory' if written_as_dir else 'file'}, but it is a "
-                f"{'file' if written_as_dir else 'directory'} in the repo. A trailing slash matches "
-                "directories only, so this line would protect nothing")
+                f"{'file' if written_as_dir else 'directory'} in the repo. {advice}.")
     return problems
 
 
