@@ -16,11 +16,11 @@ The human owner decides. Agents propose in pull requests.
 - Maintainer notes (standing rules and decisions, how to review, merge and release): `docs/maintainers/decisions.md` and `docs/maintainers/runbook.md`. Not copied into generated projects.
 
 ## Hard rules
-1. Never push to `main`, never force-push. Merge a PR only when an owner account has approved its latest commit (an APPROVED review from `nguyenquocduyloc` or `NguyenLoc231`). Use a merge commit (no squash, no rebase). If it is missing, leave the merge to the owner.
+1. Never push to `main`, never force-push. Merge a PR only when the owner's in-person approving review covers its latest commit and all required checks are green, using a merge commit pinned to the reviewed head (no squash, no rebase). An unattended session never approves. The delegated merge rule, including the merge guard, is [ADR 0011](docs/decisions/0011-delegate-merges-under-a-guard.md); when it does not apply, leave the merge to the owner.
 2. One topic per PR, branched from `main`, not stacked. The description lists what changed, the evidence (commands and results) and the decisions only the owner can make.
-3. Changes to the agent harness need the owner's explicit approval: `template/agents/`, `template/AGENTS.md.jinja`, this file, `CLAUDE.md`, `.github/CODEOWNERS`, `.github/workflows/` (all workflows) and `.github/dependabot.yml`.
-   - Approval is as defined in rule 1. `.github/CODEOWNERS` lists the owner accounts, and the ruleset `protect-main` requires Code Owner review on every PR to `main`.
-   - `shiniroku` and `shinkir6u` are agent accounts. An agent never approves.
+3. Changes to the agent harness need the owner's explicit approval: `template/agents/`, `template/AGENTS.md.jinja`, this file, `CLAUDE.md`, `.github/CODEOWNERS`, `.github/scripts/merge_guarded.sh`, `.github/workflows/` (all workflows) and `.github/dependabot.yml`.
+   - Approval is as defined in rule 1. `.github/CODEOWNERS` names the accounts that satisfy Code Owner review, and the ruleset `protect-main` requires it on every PR to `main`.
+   - Only the owner approves; who the owner is, and which sessions are attended, is in the organization context (`The-Urcydo/.github/AGENTS.md`), not in account names here.
    - A push after the approval makes it stale: say so on the PR before you push to an approved PR.
 4. Any other PR gets an independent review first: a reviewer that did not write it runs the tests and checks the PR against its description. Then the owner approves it (rule 1) and it can be merged.
 5. Everything under `template/` ships to every generated project: keep this repo's own notes out of it. This repo's ADRs live in `docs/decisions/` and never ship: take the next number from `main` and check open PRs for the same number first.

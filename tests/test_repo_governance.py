@@ -6,7 +6,7 @@ This file reads them and fails when they disagree. It reads three files and runs
 second:  python -m pytest tests/test_repo_governance.py -q
 
 Lists compared (derived from the files, never hard-coded here):
-  owners          .github/CODEOWNERS, AGENTS.md rule 1
+  accounts        .github/CODEOWNERS only; AGENTS.md rule 1 must not copy a handle
   protected paths the path lines of CODEOWNERS, AGENTS.md rule 3
   path kinds      a CODEOWNERS line ending in / must name a directory, and one without must name a file
   CI check names  .github/workflows/test.yml and the constants below
@@ -32,6 +32,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CODEOWNERS = ".github/CODEOWNERS"
 CI = ".github/workflows/test.yml"
 RULES = "AGENTS.md"
+GUARD_SCRIPT = ".github/scripts/merge_guarded.sh"
 GOVERNANCE_FILES = [CODEOWNERS, CI, RULES]
 
 # The ruleset `protect-main` requires `ci-gate`; this set must track test.yml. If a check below fails
@@ -228,12 +229,14 @@ def check_codeowners_path_kinds(root: Path) -> list[str]:  # c
 
 
 @check
-def check_rule_1_names_every_owner(root: Path) -> list[str]:  # d
-    named = {t.lstrip("@").lower() for t in backticked(rule_block(root, 1))}
-    missing = sorted(codeowners_owners(root) - named)
-    if not missing:
+def check_rule_1_does_not_name_accounts(root: Path) -> list[str]:  # d
+    text = rule_block(root, 1)
+    leaked = sorted(owner for owner in codeowners_owners(root)
+                    if re.search(rf"(?<![\w-])@?{re.escape(owner)}(?![\w-])", text, re.IGNORECASE))
+    if not leaked:
         return []
-    return [f"{RULES} rule 1 does not name the owners {missing} (as backticked handles), but {CODEOWNERS} lists them"]
+    return [f"{RULES} rule 1 names the account(s) {leaked}; the rules must not pin an account, because "
+            f"who the owner is lives in the organization context. {CODEOWNERS} is the list of record."]
 
 
 @check
@@ -249,7 +252,7 @@ CHECKS = {
     "a_codeowners_lines": check_codeowners_lines_share_one_owner_set,
     "b_rule_3_paths": check_rule_3_lists_the_protected_paths,
     "c_codeowners_path_kinds": check_codeowners_path_kinds,
-    "d_rule_1_owners": check_rule_1_names_every_owner,
+    "d_rule_1_accounts": check_rule_1_does_not_name_accounts,
     "e_ci_job_names": check_ci_job_names_match_the_ruleset,
 }
 
@@ -319,11 +322,12 @@ def write_a_file_as_a_directory_in_codeowners(root: Path) -> None:
     replace_once(root, CODEOWNERS, "/AGENTS.md ", "/AGENTS.md/ ")
 
 
-def unbacktick_an_owner_in_rule_1(root: Path) -> None:
+def name_an_account_in_rule_1(root: Path) -> None:
     block = rule_block(root, 1)
     handle = sorted(codeowners_owners(root))[0]
-    new_block = re.sub(f"`{re.escape(handle)}`", handle, block, count=1, flags=re.IGNORECASE)
-    replace_once(root, RULES, block, new_block)
+    replace_once(root, RULES, block,
+                 block.replace("An unattended session never approves.",
+                               f"An unattended session never approves; {handle} is exempt.", 1))
 
 
 MUTATIONS = {
@@ -332,7 +336,7 @@ MUTATIONS = {
     "rule_3_loses_a_path": (unbacktick_a_path_in_rule_3, "b_rule_3_paths"),
     "rule_3_gains_a_path": (add_a_path_to_rule_3, "b_rule_3_paths"),
     "codeowners_writes_a_file_as_a_directory": (write_a_file_as_a_directory_in_codeowners, "c_codeowners_path_kinds"),
-    "rule_1_loses_an_owner": (unbacktick_an_owner_in_rule_1, "d_rule_1_owners"),
+    "rule_1_names_an_account": (name_an_account_in_rule_1, "d_rule_1_accounts"),
     "ci_matrix_version_changes": (
         lambda r: replace_once(r, CI, 'python-version: "3.14"', 'python-version: "3.13"'), "e_ci_job_names"),
 }
@@ -410,10 +414,15 @@ def test_a_trailing_comment_on_a_codeowners_line_is_not_an_owner(tmp_path):
     assert check_rule_3_lists_the_protected_paths(root) == []
 
 
-def test_rule_1_may_write_a_handle_with_an_at_sign(tmp_path):
+def test_rule_1_must_not_name_an_account(tmp_path):
     root = copy_governance_files(tmp_path)
-    replace_once(root, RULES, "`nguyenquocduyloc`", "`@nguyenquocduyloc`")
-    assert check_rule_1_names_every_owner(root) == []
+    name_an_account_in_rule_1(root)
+    assert any("names the account(s)" in p for p in check_rule_1_does_not_name_accounts(root))
+
+
+def test_the_merge_guard_is_a_protected_path():
+    assert GUARD_SCRIPT in protected_paths(ROOT)
+    assert GUARD_SCRIPT in names_in_rule(rule_list_line(ROOT, 3))
 
 
 def test_a_codeowners_line_must_match_the_file_or_directory_on_disk(tmp_path):

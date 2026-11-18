@@ -3,8 +3,7 @@
 The standing rules and decisions for maintaining this repository, as they are in force now. It is not a diary:
 history lives in git, pull request descriptions and the ADRs. How to do the work is in [runbook.md](runbook.md).
 When a fact below can be read live, its source is named. If the source and this file disagree, the source wins:
-fix this file. Last verified 2026-11-17 against `main` at `750a824` (`v0.5.1`); the ruleset section was
-re-verified 2026-11-18 against the live ruleset.
+fix this file. Last verified 2026-11-18 against `main` at `314e074` and the live ruleset.
 
 Only `template/` ships to generated projects. Maintainer-only matters (Python floor policy, `ci-gate`, the
 rulesets, Dependabot, merging, releases) belong here. This repository's own ADRs live in `docs/decisions/` and
@@ -25,8 +24,8 @@ never ship; a generated project writes its own in its `docs/decisions/`.
 - **Every PR needs an owner.** `CODEOWNERS` has a catch-all `*` line and the ruleset requires Code Owner review, so
   an owner must approve every PR, Dependabot's included.
 - **Harness paths** (`AGENTS.md` rule 3): `AGENTS.md`, `CLAUDE.md`, `template/AGENTS.md.jinja`, `template/agents/`,
-  `.github/CODEOWNERS`, `.github/workflows/` (all workflows) and `.github/dependabot.yml`. An owner must approve a
-  PR that touches them before it merges.
+  `.github/CODEOWNERS`, `.github/scripts/merge_guarded.sh`, `.github/workflows/` (all workflows) and
+  `.github/dependabot.yml`. An owner must approve a PR that touches them before it merges.
   - The list is written in two places that must agree: the path lines of `CODEOWNERS` and the first line of
     `AGENTS.md` rule 3. `tests/test_repo_governance.py` fails when they drift.
   - Not protected: `.github/actionlint.yaml` and `template/.github/workflows/` (see open items).
@@ -35,9 +34,14 @@ never ship; a generated project writes its own in its `docs/decisions/`.
 - **Review.** A harness PR needs the owner's approval. Any other PR first gets an independent reviewer (one that did
   not write it), then the owner's approval. The owner may waive the independent reviewer for one PR; a waiver
   never carries to another PR. If a review was not independent, the PR says so in a comment.
-- **Merge word.** An agent merges only when the owner has approved the latest commit, `mergeable_state` is clean,
-  and the owner has also said in the session that it may merge. Until the owner says otherwise, his approval on
-  GitHub alone is not the go for an agent.
+- **Merging.** The owner approves every PR's latest commit in person; agents never approve. An agent merges only
+  through `.github/scripts/merge_guarded.sh` (ADR 0011), which checks the approval, the reviewed head and file
+  list, `mergeable_state` and the checks, pins the merge commit to the reviewed head, and writes
+  `Delegated-under: ADR-0011`. When the guard refuses or is unavailable, the owner merges. The delegation lasts
+  until 2027-02-16 unless a PR renews it; the owner revokes it by reverting or superseding the ADR.
+- **Reserved to the owner.** Rulesets and repository or organization settings, tags and releases, `.github/CODEOWNERS`,
+  ADRs, secrets, tokens and GitHub Apps, billing, repository visibility, licence choices, deleting repositories, and
+  anything irreversible.
 - **Approvals and pushes.** A push dismisses an approval: say so on the PR first. Do not commit an "owner
   confirmation" to an approved branch; put his decisions in the merge commit message instead.
 - **Settings-type changes** (rulesets, repository settings, branch or tag rules) are made by the owner in the GitHub
@@ -118,8 +122,12 @@ Policy and the end-of-life table: `CONTRIBUTING.md`, section "Supported Python v
 | 2026-11-17 | Root suite: one canonical run of the shipped suite; lean/cut/update checks load it with `unittest.TestLoader` | 8.3 full passes -> 1; a lean execution adds ~29s and is deferred ([measurements](test-performance.md)) |
 | 2026-11-17 | The `find-the-right-doc` fixture seeds one real ADR, and its grader fails a run that edits or deletes it (#74) | A project starts with no ADRs, so "check the existing decisions" read nothing |
 | 2026-11-17 | The bootstrap steps live only in `template/docs/dev/how-to/bootstrap-from-template.md`; the `tailor-template` skill is a pointer, guarded by a root test (#76) | The after-copy message and `docs/INDEX.md` send everyone to the how-to; no other tool is known to receive the skill |
+| 2026-11-18 | ADR 0011: an agent merges through `.github/scripts/merge_guarded.sh` after the owner's in-person approval of the latest commit; every other irreversible action stays with the owner | The guard checks the approval, head, files, mergeability and checks that a per-PR chat go-ahead could not |
 
 ## Open items and dates
+- **Delegated merges (ADR 0011):** Phase 1 ends 2027-02-16 and falls back to the owner unless a PR renews it. A
+  Phase 2 (an agent may approve) needs its own owner-approved PR and written evidence criteria first; ADR 0011
+  proposes 10 clean Phase 1 merges and a 5-PR seeded-defect trial for the owner to edit.
 - **Lean shipped-suite execution (deferred 2026-11-17):** the root suite loads, but does not run, the
   shipped suite in a lean project. Restoring it costs about 29s (2m00s instead of 1m31s); the numbers,
   the reason and the one-line change are in [test-performance.md](test-performance.md). Revisit if a
