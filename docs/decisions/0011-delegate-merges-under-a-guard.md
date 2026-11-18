@@ -69,11 +69,12 @@ if any fails:
 1. the PR is open, not a draft, and its head is a branch of this repository (a fork is out of scope);
 2. its base is `main`;
 3. its head is the reviewed commit;
-4. its changed-file list equals the reviewed list and has fewer than 3000 entries (GitHub truncates
-   the list there, so a longer one cannot be verified);
+4. its changed-file list equals the reviewed list, has no file name containing a newline or carriage
+   return (a line-per-file list cannot represent one), and has fewer than 3000 entries (GitHub
+   truncates the list there, so a longer one cannot be verified);
 5. at least one `CODEOWNERS` login's latest decisive review (approval, change request or dismissal) is
-   an APPROVED review of exactly that head; a later comment does not cancel an approval, as on GitHub
-   itself;
+   an APPROVED review of exactly that head, and no `CODEOWNERS` login's latest decisive review is a
+   change request on that head; a later comment does not cancel an approval, as on GitHub itself;
 6. `mergeable_state` is `clean` (polled while it reads `unknown` or null);
 7. the latest run of every check is completed with `success`, `neutral` or `skipped`.
 

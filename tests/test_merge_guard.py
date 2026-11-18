@@ -16,6 +16,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 GUARD = ROOT / ".github/scripts/merge_guarded.sh"
 REPO = "The-Urcydo/Repo-Template"
@@ -65,7 +67,9 @@ else:
 '''
 
 FAKE_GIT = """#!/bin/sh
-[ "$1" = show ] || { echo "fake git: $*" >&2; exit 1; }
+[ "$1" = show ] && [ "$2" = "origin/main:.github/CODEOWNERS" ] \
+  || { echo "fake git: $*" >&2; exit 1; }
+printf '%s\\n' "$*" >> "$FAKE_GIT_LOG"
 cat "$FAKE_CODEOWNERS"
 """
 
@@ -76,6 +80,7 @@ class Result:
     out: str
     err: str
     calls: list[list[str]]
+    git_calls: list[str]
 
     @property
     def merge_calls(self) -> list[list[str]]:
@@ -175,6 +180,7 @@ def run_guard(tmp_path: Path, scenario: dict | None = None, *, args=None,
         "PATH": f"{bin_dir}:{os.environ['PATH']}",
         "FAKE_GH_DIR": str(scenario_dir),
         "FAKE_CODEOWNERS": str(codeowners),
+        "FAKE_GIT_LOG": str(scenario_dir / "git-calls.log"),
         "MERGEABLE_POLLS": "2",
         "MERGEABLE_SLEEP": "0",
         "MAIN_CI_POLLS": "2",
@@ -185,7 +191,9 @@ def run_guard(tmp_path: Path, scenario: dict | None = None, *, args=None,
                           capture_output=True, text=True, timeout=60)
     log = scenario_dir / "calls.jsonl"
     calls = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
-    return Result(proc.returncode, proc.stdout, proc.stderr, calls)
+    git_log = scenario_dir / "git-calls.log"
+    git_calls = git_log.read_text().splitlines() if git_log.exists() else []
+    return Result(proc.returncode, proc.stdout, proc.stderr, calls, git_calls)
 
 
 def assert_refused(result: Result, needle: str) -> None:
@@ -216,6 +224,12 @@ def test_the_script_is_executable_and_parses(tmp_path):
     assert os.access(GUARD, os.X_OK)
     parsed = subprocess.run(["bash", "-n", str(GUARD)], capture_output=True, text=True)
     assert parsed.returncode == 0, parsed.stderr
+
+
+def test_the_base_codeowners_is_read_from_origin_main(tmp_path):
+    result = run_guard(tmp_path, build_scenario())
+    assert result.code == 0, result.err
+    assert result.git_calls == ["show origin/main:.github/CODEOWNERS"]
 
 
 # ---------------------------------------------------------------- PR state
@@ -272,6 +286,14 @@ def test_a_pr_at_the_file_list_cap_is_refused(tmp_path):
     assert_refused(result, "3000 or more files")
 
 
+@pytest.mark.parametrize("name", ["README.md\nEXTRA.md", "README.md\rEXTRA.md"])
+def test_a_file_name_with_a_line_break_is_refused(tmp_path, name):
+    # One live name can print as two reviewed lines; without the refusal the diff would match and merge.
+    scenario = build_scenario(files=(name,))
+    assert_refused(run_guard(tmp_path, scenario, files=("README.md", "EXTRA.md")),
+                   "contains a newline")
+
+
 # ---------------------------------------------------------------- approvals
 
 def test_no_approval_is_refused(tmp_path):
@@ -310,6 +332,13 @@ def test_a_dismissal_after_an_approval_cancels_it(tmp_path):
 def test_one_owner_blocking_another_owners_approval_cancels_it(tmp_path):
     blocking = review(login="nguyenquocduyloc", state="CHANGES_REQUESTED", at="2026-11-18T11:00:00Z")
     assert_refused(run_guard(tmp_path, build_scenario(reviews=[review(), blocking])),
+                   "a CODEOWNERS login has a change request on the head")
+
+
+def test_a_change_request_before_another_owners_approval_still_cancels_it(tmp_path):
+    blocking = review(login="nguyenquocduyloc", state="CHANGES_REQUESTED", at="2026-11-18T10:00:00Z")
+    approving = review(login="NguyenLoc231", state="APPROVED", at="2026-11-18T11:00:00Z")
+    assert_refused(run_guard(tmp_path, build_scenario(reviews=[blocking, approving])),
                    "a CODEOWNERS login has a change request on the head")
 
 
@@ -396,21 +425,36 @@ def test_a_newer_failed_rerun_of_a_green_check_is_refused(tmp_path):
                    "the latest run of a check is not completed green")
 
 
-def test_paginated_files_reviews_and_checks_are_read(tmp_path):
+def test_paginated_files_are_all_read(tmp_path):
     scenario = build_scenario(files=("README.md", "AGENTS.md"))
     route(scenario, "pulls/7/files")["responses"] = [[
         [{"filename": "README.md"}], [{"filename": "AGENTS.md"}],
-    ]]
-    route(scenario, "pulls/7/reviews")["responses"] = [[
-        [review()], [review(state="COMMENTED", at="2026-11-18T11:00:00Z")],
-    ]]
-    route(scenario, f"commits/{HEAD}/check-runs")["responses"] = [[
-        check_page([check_run()]), check_page([check_run(name="optional", run_id=2)]),
     ]]
     result = run_guard(tmp_path, scenario, files=("README.md", "AGENTS.md"))
     assert result.code == 0, result.err
     files_calls = [c for c in result.calls if any("pulls/7/files" in a for a in c)]
     assert files_calls and "--paginate" in files_calls[0]
+
+
+def test_paginated_reviews_are_all_read(tmp_path):
+    # The approval on page 1 is not enough: page 2 carries a later change request on the head.
+    scenario = build_scenario()
+    route(scenario, "pulls/7/reviews")["responses"] = [[
+        [review()], [review(state="CHANGES_REQUESTED", at="2026-11-18T11:00:00Z")],
+    ]]
+    assert_refused(run_guard(tmp_path, scenario),
+                   "a CODEOWNERS login has a change request on the head")
+
+
+def test_paginated_checks_are_all_read(tmp_path):
+    # The green check on page 1 is not enough: page 2 carries a failing check.
+    scenario = build_scenario()
+    route(scenario, f"commits/{HEAD}/check-runs")["responses"] = [[
+        check_page([check_run()]),
+        check_page([check_run(name="optional", conclusion="failure", run_id=2)]),
+    ]]
+    assert_refused(run_guard(tmp_path, scenario),
+                   "the latest run of a check is not completed green")
 
 
 # ---------------------------------------------------------------- the merge call and after it
@@ -477,12 +521,14 @@ def test_usage_errors_exit_2(tmp_path):
         result = run_guard(tmp_path / f"case-{index}", build_scenario(), args=args)
         assert result.code == 2, (args, result.code, result.err)
         assert "REFUSE:" in result.err
+        assert result.merge_calls == []
 
 
 def test_a_bad_poll_setting_is_refused(tmp_path):
     result = run_guard(tmp_path, build_scenario(), env_overrides={"MERGEABLE_POLLS": "0"})
     assert result.code == 2, (result.code, result.err)
     assert "MERGEABLE_POLLS must be a positive integer" in result.err
+    assert result.merge_calls == []
 
 
 def test_a_failed_pr_read_exits_1(tmp_path):
@@ -499,6 +545,7 @@ def test_a_failed_file_read_exits_1(tmp_path):
     result = run_guard(tmp_path, scenario)
     assert result.code == 1, (result.code, result.err)
     assert "ERROR: cannot read the PR files" in result.err
+    assert result.merge_calls == []
 
 
 def test_a_failed_review_read_exits_1(tmp_path):
@@ -507,6 +554,7 @@ def test_a_failed_review_read_exits_1(tmp_path):
     result = run_guard(tmp_path, scenario)
     assert result.code == 1, (result.code, result.err)
     assert "ERROR: cannot read the reviews" in result.err
+    assert result.merge_calls == []
 
 
 def test_a_failed_check_read_exits_1(tmp_path):
@@ -515,13 +563,16 @@ def test_a_failed_check_read_exits_1(tmp_path):
     result = run_guard(tmp_path, scenario)
     assert result.code == 1, (result.code, result.err)
     assert "ERROR: cannot read the check runs" in result.err
+    assert result.merge_calls == []
 
 
 def test_the_guard_only_reads_and_merges(tmp_path):
     result = run_guard(tmp_path, build_scenario())
     assert result.code == 0, result.err
-    writes = [c for c in result.calls
-              if "-X" in c and c[c.index("-X") + 1] != "PUT"]
-    assert writes == [], writes
-    merges = [c for c in result.merge_calls]
-    assert len(merges) == 1
+    write_flags = ("-X", "--method", "-f", "-F", "--field", "--raw-field", "--input")
+    writes = [call for call in result.calls if any(flag in call for flag in write_flags)]
+    assert len(writes) == 1, writes
+    [merge] = writes
+    assert merge[:4] == ["api", "-X", "PUT", f"repos/{REPO}/pulls/7/merge"], merge
+    assert "merge_method=merge" in merge
+    assert result.git_calls == ["show origin/main:.github/CODEOWNERS"]

@@ -103,19 +103,20 @@ gh api --paginate repos/The-Urcydo/Repo-Template/pulls/<N>/files --jq '.[].filen
 ```
 Run it from a checkout whose `origin/main` is current: it reads the owner handles from
 `origin/main:.github/CODEOWNERS`, so a PR cannot add an owner. The files file must list exactly the changed files
-the reviewer saw. Exit codes:
+the reviewer saw; the guard refuses a file name containing a newline or carriage return, which a line-per-file list
+cannot represent. Exit codes:
 - **0:** merged and verified: two parents, branch deleted, `ci-gate` green on `main`.
-- **2:** refused before merging; the `REFUSE:` line says why. Fix it, get a new approval if the head moved, or
-  leave the merge to the owner. Nothing was merged.
+- **2:** refused; the `REFUSE:` line says why. Nothing was merged: the guard either refused before calling merge,
+  or GitHub declined the merge. Fix the cause, get a new approval if the head moved, or leave it to the owner.
 - **1:** a GitHub read or call failed. Read the PR before retrying; a failed merge call may or may not have merged.
 - **3:** merged, but a post-merge check failed. Do not retry or force anything: check the branch and `main` CI by
   hand and tell the owner.
 
 The guard checks, in order: the PR is open, not a draft and on a branch of this repository; base `main`; head equals
 the reviewed commit; the changed-file list equals the reviewed list; an owner's latest decisive review is APPROVED on
-that head; `mergeable_state` is clean; and the latest run of every check is completed success, neutral or skipped.
-Then it merges with `merge_method=merge`, pins `sha=<head>`, appends `Delegated-under: ADR-0011`, and verifies the
-result.
+that head and no owner has a current change request there; `mergeable_state` is clean; and the latest run of every
+check is completed success, neutral or skipped. Then it merges with `merge_method=merge`, pins `sha=<head>`, appends
+`Delegated-under: ADR-0011`, and verifies the result.
 
 Without the guard, the owner merges in the UI. For the manual API path, right before merging re-read the live PR:
 ```

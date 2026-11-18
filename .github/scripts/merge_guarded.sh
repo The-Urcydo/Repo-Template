@@ -5,15 +5,18 @@
 #
 # The files file has one changed path per line, sorted, exactly as the reviewer saw them:
 #   gh api --paginate repos/The-Urcydo/Repo-Template/pulls/<PR>/files --jq '.[].filename' | sort > reviewed-files.txt
+# A file name containing a newline or carriage return cannot be represented that way, so the guard refuses it.
 #
 # Conditions, in order (each refusal exits 2):
 #   1. the PR is open, not a draft, and its head is a branch of this repository;
 #   2. its base is main;
 #   3. its head is the reviewed commit;
 #   4. its changed-file list equals the reviewed list and has fewer than 3000 entries (GitHub
-#      truncates the list there, so a longer one cannot be verified);
+#      truncates the list there, so a longer one cannot be verified); a file name with a newline
+#      or carriage return is refused for the same reason;
 #   5. at least one CODEOWNERS login's latest decisive review (approval, change request or
-#      dismissal) is an APPROVED review of exactly that head;
+#      dismissal) is an APPROVED review of exactly that head, and no CODEOWNERS login's latest
+#      decisive review is a change request on that head;
 #   6. mergeable_state is clean (polled while it reads unknown or null);
 #   7. the latest run of every check is completed with success, neutral or skipped.
 # Then it merges with a merge commit pinned to the head, with a message ending
@@ -53,7 +56,7 @@ command -v jq >/dev/null || fail "jq is not installed"
 tmp=$(mktemp -d) || fail "cannot create a temporary directory"
 trap 'rm -rf "$tmp"' EXIT
 live="$tmp/live"; expected="$tmp/expected"
-reviews_json="$tmp/reviews.json"; checks_json="$tmp/checks.json"
+reviews_json="$tmp/reviews.json"; checks_json="$tmp/checks.json"; files_json="$tmp/files.json"
 
 # 1. Read the PR, refuse a closed or draft PR at once, and poll only mergeable_state:
 # GitHub computes it lazily after main moves.
@@ -88,9 +91,15 @@ echo "#$N state=$state draft=$draft base=$base head=${head:0:7} mergeable_state=
 [ "$base" = main ] || die "the base is $base, not main"
 [ "$head" = "$EXPECT" ] || die "the head is $head, not the reviewed $EXPECT"
 
-# 2. Changed files: the live list must equal the reviewed list.
-gh api --paginate "repos/$R/pulls/$N/files" | jq -r '.[].filename' | sort > "$live" \
-  || fail "cannot read the PR files"
+# 2. Changed files: the live list must equal the reviewed list. A newline in a file name would
+# split one name into two lines and could forge a match, so refuse it before comparing.
+gh api --paginate "repos/$R/pulls/$N/files" > "$files_json" || fail "cannot read the PR files"
+bad_names=$(jq -s -r '
+  [ .[][] | select((.filename | contains("\n")) or (.filename | contains("\r"))) | .filename ] | length
+' "$files_json") || fail "cannot parse the PR files"
+[ "$bad_names" = 0 ] \
+  || die "a changed file name contains a newline or carriage return, so the file list cannot be compared line by line"
+jq -s -r '.[][] | .filename' "$files_json" | sort > "$live" || fail "cannot parse the PR files"
 sort "$FILES_EXPECT" > "$expected"
 if ! diff -u "$expected" "$live" >/dev/null; then
   echo "--- reviewed files (expected)" >&2; cat "$expected" >&2

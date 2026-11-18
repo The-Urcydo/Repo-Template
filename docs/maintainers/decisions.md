@@ -38,7 +38,8 @@ never ship; a generated project writes its own in its `docs/decisions/`.
   through `.github/scripts/merge_guarded.sh` (ADR 0011), which checks the approval, the reviewed head and file
   list, `mergeable_state` and the checks, pins the merge commit to the reviewed head, and writes
   `Delegated-under: ADR-0011`. When the guard refuses or is unavailable, the owner merges. The delegation lasts
-  until 2027-02-16 unless a PR renews it; the owner revokes it by reverting or superseding the ADR.
+  90 days from ADR 0011's merge (2027-02-16 if merged on 2026-11-18) unless a PR renews it; the owner revokes it by
+  reverting or superseding the ADR.
 - **Reserved to the owner.** Rulesets and repository or organization settings, tags and releases, `.github/CODEOWNERS`,
   ADRs, secrets, tokens and GitHub Apps, billing, repository visibility, licence choices, deleting repositories, and
   anything irreversible.
