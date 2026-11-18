@@ -8,6 +8,7 @@ second:  python -m pytest tests/test_repo_governance.py -q
 Lists compared (derived from the files, never hard-coded here):
   owners          .github/CODEOWNERS, AGENTS.md rule 1
   protected paths the path lines of CODEOWNERS, AGENTS.md rule 3
+  path kinds      a CODEOWNERS line ending in / must name a directory, and one without must name a file
   CI check names  .github/workflows/test.yml and the constants below
 
 The ruleset itself lives in GitHub, not in this repo, so it cannot be read here. The constants
@@ -205,7 +206,28 @@ def check_rule_3_lists_the_protected_paths(root: Path) -> list[str]:  # b
 
 
 @check
-def check_rule_1_names_every_owner(root: Path) -> list[str]:  # c
+def check_codeowners_path_kinds(root: Path) -> list[str]:  # c
+    """GitHub reads a trailing slash as "directories only". A file written with one protects nothing."""
+    problems = []
+    for pattern, _ in parse_codeowners(root):
+        if pattern == "*":
+            continue
+        plain = pattern.strip("/")
+        path = root / plain
+        if not path.exists():  # a mutated copy holds only the governance files
+            continue
+        written_as_dir = pattern.endswith("/")
+        if path.is_dir() != written_as_dir:
+            problems.append(
+                f"{CODEOWNERS}: the line for {pattern} writes {plain} as a "
+                f"{'directory' if written_as_dir else 'file'}, but it is a "
+                f"{'file' if written_as_dir else 'directory'} in the repo. A trailing slash matches "
+                "directories only, so this line would protect nothing")
+    return problems
+
+
+@check
+def check_rule_1_names_every_owner(root: Path) -> list[str]:  # d
     named = {t.lstrip("@").lower() for t in backticked(rule_block(root, 1))}
     missing = sorted(codeowners_owners(root) - named)
     if not missing:
@@ -214,7 +236,7 @@ def check_rule_1_names_every_owner(root: Path) -> list[str]:  # c
 
 
 @check
-def check_ci_job_names_match_the_ruleset(root: Path) -> list[str]:  # d
+def check_ci_job_names_match_the_ruleset(root: Path) -> list[str]:  # e
     names = ci_check_names(root)
     if names == EXPECTED_CI_CHECKS:
         return []
@@ -225,8 +247,9 @@ def check_ci_job_names_match_the_ruleset(root: Path) -> list[str]:  # d
 CHECKS = {
     "a_codeowners_lines": check_codeowners_lines_share_one_owner_set,
     "b_rule_3_paths": check_rule_3_lists_the_protected_paths,
-    "c_rule_1_owners": check_rule_1_names_every_owner,
-    "d_ci_job_names": check_ci_job_names_match_the_ruleset,
+    "c_codeowners_path_kinds": check_codeowners_path_kinds,
+    "d_rule_1_owners": check_rule_1_names_every_owner,
+    "e_ci_job_names": check_ci_job_names_match_the_ruleset,
 }
 
 
@@ -291,6 +314,10 @@ def add_a_path_to_rule_3(root: Path) -> None:
     replace_once(root, RULES, first, first.replace("`template/agents/`", "`template/agents/`, `docs/maintainers/runbook.md`", 1))
 
 
+def write_a_file_as_a_directory_in_codeowners(root: Path) -> None:
+    replace_once(root, CODEOWNERS, "/AGENTS.md ", "/AGENTS.md/ ")
+
+
 def unbacktick_an_owner_in_rule_1(root: Path) -> None:
     block = rule_block(root, 1)
     handle = sorted(codeowners_owners(root))[0]
@@ -303,9 +330,10 @@ MUTATIONS = {
     "codeowners_gains_a_path": (add_a_path_to_codeowners, "b_rule_3_paths"),
     "rule_3_loses_a_path": (unbacktick_a_path_in_rule_3, "b_rule_3_paths"),
     "rule_3_gains_a_path": (add_a_path_to_rule_3, "b_rule_3_paths"),
-    "rule_1_loses_an_owner": (unbacktick_an_owner_in_rule_1, "c_rule_1_owners"),
+    "codeowners_writes_a_file_as_a_directory": (write_a_file_as_a_directory_in_codeowners, "c_codeowners_path_kinds"),
+    "rule_1_loses_an_owner": (unbacktick_an_owner_in_rule_1, "d_rule_1_owners"),
     "ci_matrix_version_changes": (
-        lambda r: replace_once(r, CI, 'python-version: "3.14"', 'python-version: "3.13"'), "d_ci_job_names"),
+        lambda r: replace_once(r, CI, 'python-version: "3.14"', 'python-version: "3.13"'), "e_ci_job_names"),
 }
 
 
@@ -385,3 +413,12 @@ def test_rule_1_may_write_a_handle_with_an_at_sign(tmp_path):
     root = copy_governance_files(tmp_path)
     replace_once(root, RULES, "`nguyenquocduyloc`", "`@nguyenquocduyloc`")
     assert check_rule_1_names_every_owner(root) == []
+
+
+def test_a_codeowners_line_must_match_the_file_or_directory_on_disk(tmp_path):
+    root = copy_governance_files(tmp_path)
+    (root / "template" / "agents").mkdir(parents=True)
+    replace_once(root, CODEOWNERS, "/template/agents/", "/template/agents")
+    assert any("writes template/agents as a file" in p for p in check_codeowners_path_kinds(root))
+    replace_once(root, CODEOWNERS, "/AGENTS.md ", "/AGENTS.md/ ")
+    assert any("writes AGENTS.md as a directory" in p for p in check_codeowners_path_kinds(root))
