@@ -17,27 +17,26 @@ never ship; a generated project writes its own in its `docs/decisions/`.
 - **Ruleset `protect-main`** (id 26596185, active, no bypass actors, default branch). Read it with
   `gh api repos/The-Urcydo/Repo-Template/rulesets/26596185`. It blocks deletion and force pushes and requires a
   pull request with 1 approving review, Code Owner review, stale approvals dismissed on push, the most recent push
-  approved by someone other than the pusher, and merge commits only. Required checks: `ci-gate` (bound to one
-  integration id, so only that app's check counts) and `owner-approval/review`. The branch need not be up to date.
+  approved by someone other than the pusher, and merge commits only. Required check: `ci-gate` (bound to one
+  integration id, so only that app's check counts). The branch need not be up to date.
 - **Repository settings.** Only merge commits are allowed (squash and rebase are off). Merged branches are deleted
   automatically. The repository is public.
 - **Every PR needs an owner.** `CODEOWNERS` has a catch-all `*` line and the ruleset requires Code Owner review, so
   an owner must approve every PR, Dependabot's included.
 - **Harness paths** (`AGENTS.md` rule 3): `AGENTS.md`, `CLAUDE.md`, `template/AGENTS.md.jinja`, `template/agents/`,
-  `.github/CODEOWNERS`, `.github/workflows/` (all workflows) and `.github/dependabot.yml`. `owner-approval/review`
-  stays red on a PR that touches them until an owner has approved its latest commit.
-  - The list is written in three places that must agree: the `protected=` regex in
-    `.github/workflows/owner-approval.yml`, the path lines of `CODEOWNERS`, and the first line of `AGENTS.md` rule 3.
-    `tests/test_repo_governance.py` fails when they drift.
+  `.github/CODEOWNERS`, `.github/workflows/` (all workflows) and `.github/dependabot.yml`. An owner must approve a
+  PR that touches them before it merges.
+  - The list is written in two places that must agree: the path lines of `CODEOWNERS` and the first line of
+    `AGENTS.md` rule 3. `tests/test_repo_governance.py` fails when they drift.
   - Not protected: `.github/actionlint.yaml` and `template/.github/workflows/` (see open items).
 - **One topic per PR**, branched from `main`, not stacked. The description uses the headings of
   `.github/pull_request_template.md`.
 - **Review.** A harness PR needs the owner's approval. Any other PR first gets an independent reviewer (one that did
   not write it), then the owner's approval. The owner may waive the independent reviewer for one PR; a waiver
   never carries to another PR. If a review was not independent, the PR says so in a comment.
-- **Merge word.** An agent merges only when the three conditions hold (owner APPROVED on the latest commit, status
-  `owner-approval/review` green, `mergeable_state` clean) and the owner has also said in the session that it may
-  merge. Until the owner says otherwise, his approval on GitHub alone is not the go for an agent.
+- **Merge word.** An agent merges only when the owner has approved the latest commit, `mergeable_state` is clean,
+  and the owner has also said in the session that it may merge. Until the owner says otherwise, his approval on
+  GitHub alone is not the go for an agent.
 - **Approvals and pushes.** A push dismisses an approval: say so on the PR first. Do not commit an "owner
   confirmation" to an approved branch; put his decisions in the merge commit message instead.
 - **Settings-type changes** (rulesets, repository settings, branch or tag rules) are made by the owner in the GitHub
@@ -144,9 +143,8 @@ Policy and the end-of-life table: `CONTRIBUTING.md`, section "Supported Python v
 - **`find-the-right-doc` grader (#75):** the grader does not enforce the task's remaining "Must not" items (a
   hand-written ADR with a guessed number, the decision copied outside `docs/decisions/`). Owner to choose between
   enforcing them and keeping them as transcript-review criteria for the manual real-agent runs.
-- **Undecided, owner's call:** retire `owner-approval.yml` (the Code Owner review is the real gate; the status is a
-  convenience); commit the ruleset JSON into the repo (deferred 2026-11-07: a copy nothing can check against
-  GitHub; if wanted, add `.github/rulesets/` to the protected set in all three places); protect
+- **Undecided, owner's call:** commit the ruleset JSON into the repo (deferred 2026-11-07: a copy nothing can check
+  against GitHub; if wanted, add `.github/rulesets/` to the protected set in both places); protect
   `template/.github/workflows/`; point `AGENTS.md` rule 2 at the PR template.
 - **Stale remote branches:** `chore/agents-role-bundles` (PR #5) and `chore/ci-hardening` (PR #9) are merged;
   `plan/template-upgrade-hardening` is PR #36, closed unmerged; `feat/adr-number-block` is PR #63, closed on

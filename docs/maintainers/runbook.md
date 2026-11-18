@@ -59,13 +59,12 @@ never appears. The matrix is safe to change because the ruleset requires `ci-gat
    Release as a breaking change.
 
 ## Edit the protected paths
-Adding or removing a harness path is a three-place edit in one PR, because the governance test compares them:
-1. the `protected='^(...)$'` regex in `.github/workflows/owner-approval.yml`;
-2. the path lines of `.github/CODEOWNERS` (a directory in the regex needs a directory line, for example
-   `/.github/workflows/`, and no separate line for a file inside it);
-3. the first line of `AGENTS.md` rule 3 (keep the list on that one line; do not wrap it).
+Adding or removing a harness path is a two-place edit in one PR, because the governance test compares them:
+1. the path lines of `.github/CODEOWNERS` (a directory needs a directory line, for example `/.github/workflows/`,
+   and no separate line for a file inside it);
+2. the first line of `AGENTS.md` rule 3 (keep the list on that one line; do not wrap it).
 
-The PR is a harness PR: `owner-approval/review` stays red until an owner approves its latest commit.
+The PR is a harness PR: an owner must approve its latest commit before it merges.
 
 ## Review a PR
 Use a separate worktree, not your working folder.
@@ -102,13 +101,11 @@ re-read the live PR; do not rely on an earlier announcement:
 gh api repos/The-Urcydo/Repo-Template/pulls/<N> --jq '{state,base:.base.ref,head:.head.sha,mergeable_state}'
 gh api --paginate repos/The-Urcydo/Repo-Template/pulls/<N>/reviews \
   --jq '.[] | {login:.user.login,state,sha:.commit_id,at:.submitted_at}'
-gh api repos/The-Urcydo/Repo-Template/commits/<head>/status \
-  --jq '.statuses[] | select(.context=="owner-approval/review") | .state'
 gh api repos/The-Urcydo/Repo-Template/commits/<head>/check-runs --jq '.check_runs[] | [.name,.conclusion] | @tsv'
 ```
 Merge only if all of this holds: the PR is open on `main`; its head is the one you reviewed and the file list is
-unchanged; an owner's latest review is APPROVED on that head; `owner-approval/review` is `success`;
-`mergeable_state` is `clean`; every check run is green. Then merge with a merge commit pinned to the head, so the
+unchanged; an owner's latest review is APPROVED on that head; `mergeable_state` is `clean`; every check run is
+green. Then merge with a merge commit pinned to the head, so the
 call fails if anything was pushed after the approval:
 ```
 gh api -X PUT repos/The-Urcydo/Repo-Template/pulls/<N>/merge -f merge_method=merge -f sha=<head>
