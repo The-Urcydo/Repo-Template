@@ -319,8 +319,8 @@ def test_agents_md_lists_every_generated_adapter_output():
 
 def test_every_tool_is_documented_in_tools_readme_and_commands_ref():
     tools_dir = TEMPLATE / "template" / "tools"
-    tools_readme = (tools_dir / "README.md").read_text(encoding="utf-8")
-    commands_doc = (TEMPLATE / "template" / "docs" / "dev" / "reference" / "commands.md").read_text(encoding="utf-8")
+    tools_readme = (tools_dir / "README.md.jinja").read_text(encoding="utf-8")
+    commands_doc = (TEMPLATE / "template" / "docs" / "dev" / "reference" / "commands.md.jinja").read_text(encoding="utf-8")
     for p in sorted(tools_dir.glob("*.py")):
         if p.name == "_lib.py":
             continue
@@ -447,6 +447,12 @@ def test_lean_project_carries_no_eval_harness_tests(tmp_path):
     assert (TEMPLATE / "template" / EVAL_TESTS).is_file(), "the split file must exist in the template"
     lean = generate(tmp_path / "lean", profile="lean")
     assert not (lean / EVAL_TESTS).exists(), "a lean project must not carry the eval-harness tests"
+    assert not (lean / "tools/eval_harness.py").exists(), "a lean project must not carry the eval harness"
+    assert "eval_harness.py" not in (lean / "justfile").read_text(encoding="utf-8"), "the eval recipe leaked"
+    assert "eval_harness.py" not in (lean / "docs/dev/reference/commands.md").read_text(encoding="utf-8"), \
+        "the command reference leaked the eval tool"
+    assert "eval_harness.py" not in (lean / "tools/README.md").read_text(encoding="utf-8"), \
+        "the tools README leaked the eval tool"
     tools_text = (lean / "tools/tests/test_tools.py").read_text(encoding="utf-8")
     assert "class EvalHarnessTests" not in tools_text, "the eval-harness tests leaked into test_tools.py"
     tools = suite_size(lean, "test_tools.py")
@@ -456,10 +462,26 @@ def test_lean_project_carries_no_eval_harness_tests(tmp_path):
 
 def test_full_project_keeps_the_same_eval_harness_tests(full):
     assert (full / EVAL_TESTS).is_file(), "a full project keeps the eval-harness tests"
+    assert (full / "tools/eval_harness.py").is_file(), "a full project keeps the harness itself"
+    assert "eval_harness.py" in (full / "justfile").read_text(encoding="utf-8"), "the full project keeps the recipe"
     tools = suite_size(full, "test_tools.py")
     evals = suite_size(full, "test_eval_harness.py")
     assert tools > 0 and evals > 0
     assert suite_size(full) == tools + evals, "discovery must find the tools tests and the evals tests, and nothing else"
+
+
+def test_just_interpolations_survive_jinja_rendering(full, tmp_path):
+    # justfile.jinja must escape just's own {{...}} tokens with {% raw %}; otherwise Copier
+    # silently drops every recipe argument. Check both a full and a lean project.
+    tokens = ("{{args}}", "{{name}}", "{{title}}", "{{type}}")
+    full_just = (full / "justfile").read_text(encoding="utf-8")
+    for token in tokens:
+        assert token in full_just, f"{token} was consumed by Jinja in the full project"
+    lean = generate(tmp_path / "lean", profile="lean")
+    lean_just = (lean / "justfile").read_text(encoding="utf-8")
+    for token in tokens:
+        assert token in lean_just, f"{token} was consumed by Jinja in the lean project"
+    assert "eval_harness.py" not in lean_just
 
 
 def test_eval_harness_tests_run_as_a_module_from_the_project_root(full):
@@ -476,7 +498,13 @@ def test_cutting_evals_removes_the_eval_harness_tests(tmp_path):
     r = py(p, "tools/remove_module.py", "evals", "--apply")
     assert r.returncode == 0, r.stdout + r.stderr
     assert not (p / EVAL_TESTS).exists(), "cutting evals must remove the eval-harness tests"
+    assert not (p / "tools/eval_harness.py").exists(), "cutting evals must remove the harness itself"
     assert not (p / "agents" / "evals").exists()
+    assert "eval_harness.py" not in (p / "justfile").read_text(encoding="utf-8"), "the eval recipe survived the cut"
+    assert "eval_harness.py" not in (p / "docs/dev/reference/commands.md").read_text(encoding="utf-8"), \
+        "the command reference survived the cut"
+    assert "eval_harness.py" not in (p / "tools/README.md").read_text(encoding="utf-8"), \
+        "the tools README survived the cut"
     assert py(p, "tools/check.py", "--strict").returncode == 0
     tools_text = (p / "tools/tests/test_tools.py").read_text(encoding="utf-8")
     assert "class EvalHarnessTests" not in tools_text, "cutting evals must not leave its tests in test_tools.py"
@@ -1060,7 +1088,7 @@ def test_shipped_issue_forms_and_release_notes_belong_to_the_github_module_and_s
 _ADR_CITATION = re.compile(r"\bADR[- ]?0\d{3}\b|decisions/\d{4}")
 _ADR_CITATION_ALLOWED = {
     "template/tools/new_adr.py",              # uses ADR-0003 as accepted input syntax
-    "template/docs/dev/reference/commands.md",
+    "template/docs/dev/reference/commands.md.jinja",
     "template/tools/tests/test_tools.py",
 }
 

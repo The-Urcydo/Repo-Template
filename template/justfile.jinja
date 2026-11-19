@@ -36,15 +36,15 @@ test:
 
 # New work item: just item my-slug   (add --light for a one-file item, --worktree for a sibling worktree)
 item *args:
-    python3 tools/new_item.py {{args}}
+    python3 tools/new_item.py {% raw %}{{args}}{% endraw %}
 
 # Move an item: just move <id> in-review --next "..." --evidence "..."
 move *args:
-    python3 tools/transition.py {{args}}
+    python3 tools/transition.py {% raw %}{{args}}{% endraw %}
 
 # Manage sibling worktrees: just wt create <id> / just wt remove <id> / just wt list
 wt *args:
-    python3 tools/worktree.py {{args}}
+    python3 tools/worktree.py {% raw %}{{args}}{% endraw %}
 
 # Archive done items and flag stale ones
 sweep:
@@ -52,11 +52,11 @@ sweep:
 
 # New ADR: just adr "Use X for Y"
 adr title:
-    python3 tools/new_adr.py "{{title}}"
+    python3 tools/new_adr.py "{% raw %}{{title}}{% endraw %}"
 
 # New doc: just doc how-to "Deploy to staging"
 doc type title:
-    python3 tools/new_doc.py {{type}} "{{title}}"
+    python3 tools/new_doc.py {% raw %}{{type}}{% endraw %} "{% raw %}{{title}}{% endraw %}"
 
 # Human decision queue
 questions:
@@ -64,8 +64,10 @@ questions:
 
 # List optional modules, or preview cutting one: just cut evals
 cut name="":
-    python3 tools/remove_module.py {{name}}
+    python3 tools/remove_module.py {% raw %}{{name}}{% endraw %}
 
+{% if 'evals' in enabled_modules %}
 # Verify or run harness evals
 evals *args="--verify-fixtures":
-    python3 tools/eval_harness.py {{args}}
+    python3 tools/eval_harness.py {% raw %}{{args}}{% endraw %}
+{% endif %}

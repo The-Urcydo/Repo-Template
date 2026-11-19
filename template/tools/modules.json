@@ -2,33 +2,80 @@
   "modules": {
     "product": {
       "summary": "Product vision, requirements and roadmap docs.",
-      "paths": ["docs/product"]
+      "paths": [
+        "docs/product"
+      ]
     },
     "operations": {
       "summary": "Runbooks and postmortems (with their doc templates).",
-      "paths": ["docs/operations"]
+      "paths": [
+        "docs/operations"
+      ]
     },
     "security": {
       "summary": "Threat model, security policy and the security reviewer role.",
-      "paths": ["docs/security", "SECURITY.md", "agents/roles/security", "work/_templates/security-review.md"],
+      "paths": [
+        "docs/security",
+        "SECURITY.md",
+        "agents/roles/security",
+        "work/_templates/security-review.md"
+      ],
       "removal_notes": "Delete any reviewer checklist items that mention security review. The brief template's Security review section and the reviewer's routing step stay: with the role gone, a brief that says `required` makes the reviewer ask the human. Remove that section from work/_templates/brief.md if you never want the question."
     },
     "release": {
       "summary": "Release process and checklist docs.",
-      "paths": ["docs/release"]
+      "paths": [
+        "docs/release"
+      ]
     },
     "infra": {
       "summary": "Infrastructure-as-code and environment definitions.",
-      "paths": ["infra"],
+      "paths": [
+        "infra"
+      ],
       "removal_notes": "Remove any CI steps or scripts that reference infra/."
     },
     "evals": {
       "summary": "Golden tasks that test the agent harness itself (roles, skills, AGENTS.md).",
-      "paths": ["agents/evals", "tools/tests/test_eval_harness.py"]
+      "paths": [
+        "agents/evals",
+        "tools/eval_harness.py",
+        "tools/tests/test_eval_harness.py"
+      ],
+      "removal_notes": "The eval recipe in `justfile`, the `eval_harness.py` row and `related_code` entry in `docs/dev/reference/commands.md`, and the row in `tools/README.md` are removed with the module.",
+      "text_edits": [
+        {
+          "path": "justfile",
+          "from_line": "# Verify or run harness evals",
+          "to_line": "    python3 tools/eval_harness.py "
+        },
+        {
+          "path": "docs/dev/reference/commands.md",
+          "old": ", tools/eval_harness.py"
+        },
+        {
+          "path": "docs/dev/reference/commands.md",
+          "old": "| `eval_harness.py [--list] [--verify-fixtures] [--task ID] [--cmd \"...\"]` | temp sandboxes | Seeds throwaway sandboxes for golden tasks in `agents/evals/tasks/`, runs reference or external agent commands, and grades post-conditions. A task whose front matter has `needs_role: <role>` is listed only while `agents/roles/<role>/` exists |\n"
+        },
+        {
+          "path": "tools/README.md",
+          "old": "| `eval_harness.py` | Seeds throwaway sandboxes for golden tasks in `agents/evals/tasks/`, runs reference or agent commands, and grades post-conditions |\n"
+        }
+      ]
     },
     "github": {
       "summary": "CI workflows, Dependabot config, pull-request template, issue forms, release-notes categories, CODEOWNERS and repository rulesets (with the how-to that applies them).",
-      "paths": [".github/CODEOWNERS", ".github/ISSUE_TEMPLATE", ".github/dependabot.yml", ".github/pull_request_template.md", ".github/release.yml", ".github/rulesets", ".github/workflows/check.yml", ".github/workflows/template-update.yml", "docs/dev/how-to/protect-the-repo.md"],
+      "paths": [
+        ".github/CODEOWNERS",
+        ".github/ISSUE_TEMPLATE",
+        ".github/dependabot.yml",
+        ".github/pull_request_template.md",
+        ".github/release.yml",
+        ".github/rulesets",
+        ".github/workflows/check.yml",
+        ".github/workflows/template-update.yml",
+        "docs/dev/how-to/protect-the-repo.md"
+      ],
       "removal_notes": "Without CI, run `python3 tools/check.py` and the unit tests yourself before merging. Dependabot updates stop too. The weekly template-update issue stops too. Rulesets already imported on GitHub stay there; delete or disable them yourself. The ruleset files, the issue forms, the release-notes config and this how-to are removed."
     }
   }
