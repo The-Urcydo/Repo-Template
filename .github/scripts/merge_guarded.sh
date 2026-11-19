@@ -179,7 +179,10 @@ parents=$(gh api "repos/$R/commits/$merge_sha" | jq -r '.parents | length') \
   || fail "cannot read the merge commit"
 [ "$parents" = 2 ] || { echo "ERROR: the merge commit has $parents parents, not 2" >&2; exit 3; }
 echo "merge commit parents: 2"
-if ref_err=$(gh api "repos/$R/git/ref/heads/$head_ref" 2>&1 >/dev/null); then
+# Branch names may contain `%` or `#`; encode them so the ref URL cannot be truncated at a fragment.
+head_ref_url=${head_ref//%/%25}
+head_ref_url=${head_ref_url//#/%23}
+if ref_err=$(gh api "repos/$R/git/ref/heads/$head_ref_url" 2>&1 >/dev/null); then
   echo "ERROR: the branch $head_ref still exists" >&2; exit 3
 fi
 if [ "$ref_err" = 'gh: Not Found (HTTP 404)' ]; then

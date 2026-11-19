@@ -550,6 +550,12 @@ def test_a_merge_response_that_is_not_an_object_exits_1(tmp_path):
     assert "cannot parse the merge response" in result.err
 
 
+def test_a_merge_response_without_a_sha_exits_3(tmp_path):
+    result = run_guard(tmp_path, build_scenario(merge={"merged": True}))
+    assert result.code == 3, (result.code, result.err)
+    assert "the merge response has no sha" in result.err
+
+
 def test_a_one_parent_merge_exits_3(tmp_path):
     result = run_guard(tmp_path, build_scenario(commit={"parents": [{"sha": HEAD}]}))
     assert result.code == 3, (result.code, result.err)
@@ -576,6 +582,21 @@ def test_a_branch_error_mentioning_404_is_not_treated_as_deleted(tmp_path):
     assert "cannot verify the branch was deleted" in result.err
 
 
+def test_a_404_line_with_trailing_space_is_not_treated_as_deleted(tmp_path):
+    result = run_guard(tmp_path, build_scenario(
+        branch_error="gh: Not Found (HTTP 404) "))
+    assert result.code == 3, (result.code, result.err)
+    assert "cannot verify the branch was deleted" in result.err
+
+
+def test_a_branch_name_with_a_hash_is_encoded_in_the_ref_url(tmp_path):
+    ref = "feature/#42"
+    pr = pull_request(head=head(ref=ref))
+    result = run_guard(tmp_path, build_scenario(prs=[pr]))
+    assert result.code == 0, result.err
+    assert f"repos/{REPO}/git/ref/heads/feature/%2342" in result.urls, result.urls
+
+
 def test_failed_main_ci_exits_3(tmp_path):
     result = run_guard(tmp_path, build_scenario(main_checks=[check_run(conclusion="failure")]))
     assert result.code == 3, (result.code, result.err)
@@ -586,6 +607,21 @@ def test_main_ci_from_another_app_does_not_mask_the_required_check(tmp_path):
     # The ruleset pins ci-gate to app 15368; a later green from another app is not that check.
     checks = [check_run(conclusion="failure", run_id=1, app=15368),
               check_run(conclusion="success", run_id=2, app=999)]
+    result = run_guard(tmp_path, build_scenario(main_checks=checks))
+    assert result.code == 3, (result.code, result.err)
+    assert "main ci-gate is completed failure" in result.err
+
+
+def test_main_ci_without_the_required_app_exits_3(tmp_path):
+    result = run_guard(tmp_path, build_scenario(main_checks=[check_run(app=999)]))
+    assert result.code == 3, (result.code, result.err)
+    assert "main ci-gate: none" in result.out
+    assert "did not finish green" in result.err
+
+
+def test_main_ci_uses_the_latest_run_from_the_required_app(tmp_path):
+    checks = [check_run(conclusion="success", run_id=1, app=15368),
+              check_run(conclusion="failure", run_id=2, app=15368)]
     result = run_guard(tmp_path, build_scenario(main_checks=checks))
     assert result.code == 3, (result.code, result.err)
     assert "main ci-gate is completed failure" in result.err
