@@ -93,6 +93,19 @@ exit 0
 """
 
 
+FAKE_DATE = r'''
+import json
+import os
+import sys
+from pathlib import Path
+
+scenario_dir = Path(os.environ["FAKE_DATE_DIR"])
+with (scenario_dir / "date-calls.log").open("a") as log:
+    log.write(" ".join(sys.argv[1:]) + "\n")
+scenario = json.loads((scenario_dir / "scenario.json").read_text())
+print(scenario.get("date", "2026-11-19"))
+'''
+
 WRITE_FLAGS = ("-X", "--method", "-f", "-F", "--field", "--raw-field", "--input")
 
 
@@ -202,7 +215,8 @@ def route(scenario: dict, match: str) -> dict:
 
 
 def run_guard(tmp_path: Path, scenario: dict | None = None, *, args=None,
-              files=("README.md",), head_sha: str = HEAD, env_overrides: dict | None = None) -> Result:
+              files=("README.md",), head_sha: str = HEAD, env_overrides: dict | None = None,
+              today: str = "2026-11-19") -> Result:
     scenario = scenario if scenario is not None else build_scenario()
     bin_dir = tmp_path / "bin"
     scenario_dir = tmp_path / "scenario"
@@ -215,9 +229,13 @@ def run_guard(tmp_path: Path, scenario: dict | None = None, *, args=None,
     git = bin_dir / "git"
     git.write_text(FAKE_GIT)
     git.chmod(0o755)
+    date_bin = bin_dir / "date"
+    date_bin.write_text(f"#!{sys.executable}\n{FAKE_DATE}")
+    date_bin.chmod(0o755)
 
     codeowners = scenario_dir / "codeowners"
     codeowners.write_text(scenario.pop("codeowners"))
+    scenario["date"] = today
     (scenario_dir / "scenario.json").write_text(json.dumps(scenario))
 
     if args is None:
@@ -237,7 +255,7 @@ def run_guard(tmp_path: Path, scenario: dict | None = None, *, args=None,
         "MAIN_CI_SLEEP": "0",
         "BRANCH_DELETE_POLLS": "2",
         "BRANCH_DELETE_SLEEP": "0",
-        "TODAY": "2026-11-19",
+        "FAKE_DATE_DIR": str(scenario_dir),
         **(env_overrides or {}),
     }
     proc = subprocess.run([str(GUARD), *args], cwd=tmp_path, env=env,
@@ -587,22 +605,31 @@ def test_paginated_checks_are_all_read(tmp_path):
 
 @pytest.mark.parametrize("day", ["2027-02-18", "2027-02-19", "2028-01-01"])
 def test_the_guard_refuses_after_the_end_date(tmp_path, day):
-    result = run_guard(tmp_path, build_scenario(), env_overrides={"TODAY": day})
+    result = run_guard(tmp_path, build_scenario(), today=day)
     assert_refused(result, "the delegation ended 2027-02-17")
 
 
 @pytest.mark.parametrize("day", ["2026-11-19", "2027-02-16", "2027-02-17"])
 def test_the_guard_merges_on_or_before_the_end_date(tmp_path, day):
-    result = run_guard(tmp_path, build_scenario(), env_overrides={"TODAY": day})
+    result = run_guard(tmp_path, build_scenario(), today=day)
     assert result.code == 0, result.err
     assert len(result.merge_calls) == 1
 
 
-def test_a_malformed_today_refuses(tmp_path):
-    result = run_guard(tmp_path, build_scenario(), env_overrides={"TODAY": "not-a-date"})
+def test_a_malformed_date_refuses(tmp_path):
+    result = run_guard(tmp_path, build_scenario(), today="not-a-date")
     assert result.code == 1, (result.code, result.err)
     assert "cannot read today's date" in result.err
     assert result.writes == []
+
+
+def test_an_exported_today_does_not_change_the_date(tmp_path):
+    # The clock is only what `date` on PATH says; TODAY is no longer read by the guard.
+    result = run_guard(tmp_path, build_scenario(), today="2027-02-18",
+                       env_overrides={"TODAY": "2020-01-01"})
+    assert_refused(result, "the delegation ended 2027-02-17")
+    date_calls = (tmp_path / "scenario" / "date-calls.log").read_text()
+    assert "-u +%F" in date_calls, date_calls
 
 
 # ---------------------------------------------------------------- the merge call and after it

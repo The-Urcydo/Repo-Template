@@ -45,8 +45,8 @@ MERGEABLE_POLLS="${MERGEABLE_POLLS:-12}"
 MERGEABLE_SLEEP="${MERGEABLE_SLEEP:-10}"
 MAIN_CI_POLLS="${MAIN_CI_POLLS:-60}"
 MAIN_CI_SLEEP="${MAIN_CI_SLEEP:-10}"
-BRANCH_DELETE_POLLS="${BRANCH_DELETE_POLLS:-5}"
-BRANCH_DELETE_SLEEP="${BRANCH_DELETE_SLEEP:-2}"
+BRANCH_DELETE_POLLS="${BRANCH_DELETE_POLLS:-10}"
+BRANCH_DELETE_SLEEP="${BRANCH_DELETE_SLEEP:-3}"
 
 die() { echo "REFUSE: $*" >&2; exit 2; }
 fail() { echo "ERROR: $*" >&2; exit 1; }
@@ -185,9 +185,8 @@ bad=$(jq -s -r '
 echo "checks not green: $bad"
 [ "$bad" = 0 ] || die "the latest run of a check is not completed green, neutral or skipped"
 
-# 6. The delegation has an absolute end date. TODAY is a test-only override for the clock.
+# 6. The delegation has an absolute end date. The clock comes from `date` on PATH; tests shim it.
 today=$(date -u +%F)
-[ -z "${TODAY:-}" ] || today="$TODAY"
 [[ "$today" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || fail "cannot read today's date"
 echo "delegation active on $today; ends $END_DATE"
 [ "$today" \> "$END_DATE" ] && die "the delegation ended $END_DATE; ask the owner to merge"
