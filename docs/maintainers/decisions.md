@@ -83,7 +83,6 @@ Policy and the end-of-life table: `CONTRIBUTING.md`, section "Supported Python v
   #22 (2026-11-08). Before approving one, read it and check `template (3.12)` and the package's `Requires-Python`.
 - **Migrations** (`migrations/*.py`) keep Python 3.9-compatible grammar: they run on the user's interpreter during
   `copier update`, which can be older than the floor.
-- `.github/assets/legacy/**` is an archive and is exempt from the floor (its images still say 3.9).
 
 ## Releases
 - Tags are annotated `vX.Y.Z`, made on the merge commit after the PRs to ship have merged. Steps: runbook.
