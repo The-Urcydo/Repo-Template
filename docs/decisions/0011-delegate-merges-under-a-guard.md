@@ -74,7 +74,8 @@ if any fails:
    truncates the list there, so a longer one cannot be verified);
 5. at least one `CODEOWNERS` login's latest decisive review (approval, change request or dismissal) is
    an APPROVED review of exactly that head, and no `CODEOWNERS` login's latest decisive review is a
-   change request on that head; a later comment does not cancel an approval, as on GitHub itself;
+   change request (whatever commit it names); a later comment does not cancel an approval, as on
+   GitHub itself;
 6. `mergeable_state` is `clean` (polled while it reads `unknown` or null);
 7. the latest run of every check is completed with `success`, `neutral` or `skipped`.
 

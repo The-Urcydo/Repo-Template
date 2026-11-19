@@ -16,7 +16,7 @@
 #      or carriage return is refused for the same reason;
 #   5. at least one CODEOWNERS login's latest decisive review (approval, change request or
 #      dismissal) is an APPROVED review of exactly that head, and no CODEOWNERS login's latest
-#      decisive review is a change request on that head;
+#      decisive review is a change request (whatever commit it names);
 #   6. mergeable_state is clean (polled while it reads unknown or null);
 #   7. the latest run of every check is completed with success, neutral or skipped.
 # Then it merges with a merge commit pinned to the head, with a message ending
@@ -25,13 +25,15 @@
 # Exit codes: 0 merged and verified; 2 refused before merging; 1 could not read or call;
 #             3 merged but a post-merge verification failed.
 #
-# Needs gh and jq. Run from a checkout whose origin/main is current: the guard reads the base
-# CODEOWNERS from it. The owner must have approved in person; this script never approves, never
-# creates a review, and never touches a secret.
+# Needs gh and jq, and network access for one `git fetch origin main`; the guard reads the base
+# CODEOWNERS from it, so a PR cannot add an owner and a stale checkout cannot hide a change on main.
+# The owner must have approved in person; this script never approves, never creates a review, and
+# never touches a secret.
 
 set -uo pipefail
+export LC_ALL=C
 
-R="${REPO:-The-Urcydo/Repo-Template}"
+R="The-Urcydo/Repo-Template"
 N="${1:-}"
 EXPECT="${2:-}"
 FILES_EXPECT="${3:-}"
@@ -111,7 +113,9 @@ awk 'END { exit !(NR < 3000) }' "$live" \
   || die "the PR changes 3000 or more files; GitHub truncates the file list there, so it cannot be reviewed this way"
 echo "files: $(wc -l < "$live" | tr -d ' ') reviewed"
 
-# 3. Owner approvals from the base CODEOWNERS.
+# 3. Owner approvals from the base CODEOWNERS. Fetching first keeps origin/main from going stale,
+# so an owner added or removed on main is seen as main has it now.
+git fetch --quiet origin main >/dev/null 2>&1 || fail "cannot fetch origin/main"
 owners=$(git show "origin/main:.github/CODEOWNERS" 2>/dev/null \
   | sed 's/#.*//' \
   | awk 'NF { for (i = 2; i <= NF; i++) { sub(/^@/, "", $i); print tolower($i) } }' \
@@ -122,13 +126,13 @@ echo "owners: $(echo "$owners" | tr '\n' ' ')"
 gh api --paginate "repos/$R/pulls/$N/reviews" > "$reviews_json" || fail "cannot read the reviews"
 verdict=$(jq -s -r --arg head "$head" --arg owners "$owners" '
   ($owners | split("\n") | map(select(length > 0))) as $o
-  | [ .[] | .[] | {login: ((.user.login // "") | ascii_downcase), state, sha: (.commit_id // ""), at: (.submitted_at // "")} ]
+  | [ .[] | .[] | {login: ((.user.login // "") | ascii_downcase), id: (.id // 0), state, sha: (.commit_id // ""), at: (.submitted_at // "")} ]
   | map(select(.state == "APPROVED" or .state == "CHANGES_REQUESTED" or .state == "DISMISSED"))
   | map(select(.login as $l | any($o[]; . == $l)))
   | group_by(.login)
-  | map(sort_by(.at) | last)
+  | map(sort_by(.at, .id) | last)
   | {
-      changes: [ .[] | select(.state == "CHANGES_REQUESTED" and .sha == $head) | .login ],
+      changes: [ .[] | select(.state == "CHANGES_REQUESTED") | .login ],
       approved: [ .[] | select(.state == "APPROVED" and .sha == $head) | .login ]
     }
   | "changes=\(.changes | join(",")) approved=\(.approved | join(","))"
@@ -136,7 +140,7 @@ verdict=$(jq -s -r --arg head "$head" --arg owners "$owners" '
 echo "reviews: $verdict"
 changes=${verdict#changes=}; changes=${changes%% approved=*}
 approved=${verdict##*approved=}
-[ -z "$changes" ] || die "a CODEOWNERS login has a change request on the head: $changes"
+[ -z "$changes" ] || die "a CODEOWNERS login has a current change request: $changes"
 [ -n "$approved" ] || die "no CODEOWNERS login has approved the latest commit"
 
 # 4. mergeable_state, from the final PR read.
@@ -162,6 +166,7 @@ head_label=${head_label/:/\/}
 msg=$(printf 'Merge pull request #%s from %s\n\n%s\n\nDelegated-under: %s' "$N" "$head_label" "$title" "$ADR")
 merge=$(gh api -X PUT "repos/$R/pulls/$N/merge" \
   -f merge_method=merge -f sha="$head" -f commit_message="$msg") || fail "the merge call failed"
+jq -e . <<<"$merge" >/dev/null 2>&1 || fail "cannot parse the merge response; read the PR before retrying"
 merged=$(jq -r '.merged // false' <<<"$merge")
 merge_sha=$(jq -r '.sha // ""' <<<"$merge")
 [ "$merged" = true ] || die "GitHub did not merge: $(jq -r '.message // "no message"' <<<"$merge")"
@@ -173,10 +178,13 @@ parents=$(gh api "repos/$R/commits/$merge_sha" | jq -r '.parents | length') \
   || fail "cannot read the merge commit"
 [ "$parents" = 2 ] || { echo "ERROR: the merge commit has $parents parents, not 2" >&2; exit 3; }
 echo "merge commit parents: 2"
-if gh api "repos/$R/git/ref/heads/$head_ref" >/dev/null 2>&1; then
+if ref_err=$(gh api "repos/$R/git/ref/heads/$head_ref" 2>&1 >/dev/null); then
   echo "ERROR: the branch $head_ref still exists" >&2; exit 3
 fi
-echo "branch deleted: $head_ref"
+case "$ref_err" in
+  *"HTTP 404"*) echo "branch deleted: $head_ref" ;;
+  *) echo "ERROR: cannot verify the branch was deleted: $ref_err" >&2; exit 3 ;;
+esac
 
 main_status=""
 for i in $(seq 1 "$MAIN_CI_POLLS"); do

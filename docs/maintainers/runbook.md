@@ -101,10 +101,10 @@ does not apply, the owner merges. Never approve for him. The guard reads the liv
 gh api --paginate repos/The-Urcydo/Repo-Template/pulls/<N>/files --jq '.[].filename' | sort > /tmp/reviewed-files.txt
 .github/scripts/merge_guarded.sh <N> <reviewed head sha> /tmp/reviewed-files.txt
 ```
-Run it from a checkout whose `origin/main` is current: it reads the owner handles from
-`origin/main:.github/CODEOWNERS`, so a PR cannot add an owner. The files file must list exactly the changed files
-the reviewer saw; the guard refuses a file name containing a newline or carriage return, which a line-per-file list
-cannot represent. Exit codes:
+Run it from a checkout of this repository: it fetches `origin/main` and reads the owner handles from
+`origin/main:.github/CODEOWNERS`, so a PR cannot add an owner and a stale checkout cannot hide a change on main. The
+files file must list exactly the changed files the reviewer saw; the guard refuses a file name containing a newline
+or carriage return, which a line-per-file list cannot represent. Exit codes:
 - **0:** merged and verified: two parents, branch deleted, `ci-gate` green on `main`.
 - **2:** refused; the `REFUSE:` line says why. Nothing was merged: the guard either refused before calling merge,
   or GitHub declined the merge. Fix the cause, get a new approval if the head moved, or leave it to the owner.
@@ -114,8 +114,8 @@ cannot represent. Exit codes:
 
 The guard checks, in order: the PR is open, not a draft and on a branch of this repository; base `main`; head equals
 the reviewed commit; the changed-file list equals the reviewed list; an owner's latest decisive review is APPROVED on
-that head and no owner has a current change request there; `mergeable_state` is clean; and the latest run of every
-check is completed success, neutral or skipped. Then it merges with `merge_method=merge`, pins `sha=<head>`, appends
+that head and no owner has a current change request; `mergeable_state` is clean; and the latest run of every check is
+completed success, neutral or skipped. Then it merges with `merge_method=merge`, pins `sha=<head>`, appends
 `Delegated-under: ADR-0011`, and verifies the result.
 
 Without the guard, the owner merges in the UI. For the manual API path, right before merging re-read the live PR:
@@ -126,9 +126,9 @@ gh api --paginate repos/The-Urcydo/Repo-Template/pulls/<N>/reviews \
 gh api repos/The-Urcydo/Repo-Template/commits/<head>/check-runs --jq '.check_runs[] | [.name,.conclusion] | @tsv'
 ```
 Merge only if all of this holds: the PR is open on `main`; its head is the one you reviewed and the file list is
-unchanged; an owner's latest decisive review is APPROVED on that head; `mergeable_state` is `clean`; the latest run
-of every check is green. Then merge with a merge commit pinned to the head, so the
-call fails if anything was pushed after the approval:
+unchanged; an owner's latest decisive review is APPROVED on that head and no owner has a current change request;
+`mergeable_state` is `clean`; the latest run of every check is completed green, neutral or skipped. Then merge with a
+merge commit pinned to the head, so the call fails if anything was pushed after the approval:
 ```
 gh api -X PUT repos/The-Urcydo/Repo-Template/pulls/<N>/merge -f merge_method=merge -f sha=<head>
 ```

@@ -59,6 +59,9 @@ if isinstance(item, dict) and "__fail__" in item:
 if isinstance(item, dict) and "__status__" in item:
     print(item.get("__body__", ""), file=sys.stderr)
     sys.exit(item["__status__"])
+if isinstance(item, dict) and "__raw__" in item:
+    print(item["__raw__"])
+    sys.exit(0)
 if "--paginate" in argv:
     for page in item:
         print(json.dumps(page))
@@ -67,11 +70,37 @@ else:
 '''
 
 FAKE_GIT = """#!/bin/sh
-[ "$1" = show ] && [ "$2" = "origin/main:.github/CODEOWNERS" ] \
-  || { echo "fake git: $*" >&2; exit 1; }
+case "$1" in
+  fetch)
+    [ "$2" = --quiet ] && [ "$3" = origin ] && [ "$4" = main ] \
+      || { echo "fake git: $*" >&2; exit 1; }
+    ;;
+  show)
+    [ "$2" = "origin/main:.github/CODEOWNERS" ] \
+      || { echo "fake git: $*" >&2; exit 1; }
+    ;;
+  *)
+    echo "fake git: $*" >&2; exit 1
+    ;;
+esac
 printf '%s\\n' "$*" >> "$FAKE_GIT_LOG"
-cat "$FAKE_CODEOWNERS"
+[ "$1" = show ] && cat "$FAKE_CODEOWNERS"
+exit 0
 """
+
+
+WRITE_FLAGS = ("-X", "--method", "-f", "-F", "--field", "--raw-field", "--input")
+
+
+def has_write_flag(call: list[str]) -> bool:
+    """True if a `gh` argv carries a mutating flag, in any spelling gh accepts."""
+    for token in call:
+        for flag in WRITE_FLAGS:
+            if token == flag or token.startswith(flag + "="):
+                return True
+        if token.startswith("-X") and token != "-X":
+            return True
+    return False
 
 
 @dataclass
@@ -83,8 +112,12 @@ class Result:
     git_calls: list[str]
 
     @property
+    def writes(self) -> list[list[str]]:
+        return [call for call in self.calls if has_write_flag(call)]
+
+    @property
     def merge_calls(self) -> list[list[str]]:
-        return [c for c in self.calls if "-X" in c and any(a.endswith("/merge") for a in c)]
+        return [c for c in self.writes if any(a.endswith("/merge") for a in c)]
 
     @property
     def urls(self) -> list[str]:
@@ -110,8 +143,9 @@ def pull_request(**over) -> dict:
 
 
 def review(login: str = "NguyenLoc231", state: str = "APPROVED", sha: str = HEAD,
-           at: str = "2026-11-18T10:00:00Z") -> dict:
-    return {"user": {"login": login}, "state": state, "commit_id": sha, "submitted_at": at}
+           at: str = "2026-11-18T10:00:00Z", review_id: int = 1) -> dict:
+    return {"id": review_id, "user": {"login": login}, "state": state,
+            "commit_id": sha, "submitted_at": at}
 
 
 def check_run(name: str = "ci-gate", status: str = "completed", conclusion: str | None = "success",
@@ -124,13 +158,20 @@ def check_page(checks) -> dict:
 
 
 def build_scenario(*, prs=None, files=("README.md",), reviews=None, checks=None, merge=None,
-                   commit=None, main_checks=None, branch_exists=False, codeowners=CODEOWNERS) -> dict:
+                   commit=None, main_checks=None, branch_exists=False,
+                   branch_error: str | None = None, codeowners=CODEOWNERS) -> dict:
     prs = list(prs) if prs is not None else [pull_request()]
     reviews = list(reviews) if reviews is not None else [review()]
     checks = list(checks) if checks is not None else [check_run()]
     main_checks = list(main_checks) if main_checks is not None else [check_run()]
     merge = merge if merge is not None else {"merged": True, "sha": MERGE}
     commit = commit if commit is not None else {"parents": [{"sha": HEAD}, {"sha": "1" * 40}]}
+    if branch_exists:
+        branch = [{}]
+    elif branch_error is not None:
+        branch = [{"__status__": 1, "__body__": branch_error}]
+    else:
+        branch = [{"__status__": 404, "__body__": "gh: Not Found (HTTP 404)"}]
     return {
         "codeowners": codeowners,
         "routes": [
@@ -141,7 +182,7 @@ def build_scenario(*, prs=None, files=("README.md",), reviews=None, checks=None,
             {"match": f"commits/{HEAD}/check-runs", "responses": [[check_page(checks)]]},
             {"match": f"commits/{MERGE}/check-runs", "responses": [[check_page(main_checks)]]},
             {"match": f"commits/{MERGE}", "responses": [commit]},
-            {"match": "git/ref/heads/", "responses": [{"__status__": 404} if not branch_exists else {}]},
+            {"match": "git/ref/heads/", "responses": branch},
             {"match": "pulls/7", "responses": prs},
         ],
     }
@@ -200,7 +241,7 @@ def assert_refused(result: Result, needle: str) -> None:
     assert result.code == 2, f"exit {result.code}\nstdout:\n{result.out}\nstderr:\n{result.err}"
     assert "REFUSE:" in result.err
     assert needle in result.err, result.err
-    assert result.merge_calls == [], result.merge_calls
+    assert result.writes == [], result.writes
 
 
 # ---------------------------------------------------------------- the happy path
@@ -229,7 +270,8 @@ def test_the_script_is_executable_and_parses(tmp_path):
 def test_the_base_codeowners_is_read_from_origin_main(tmp_path):
     result = run_guard(tmp_path, build_scenario())
     assert result.code == 0, result.err
-    assert result.git_calls == ["show origin/main:.github/CODEOWNERS"]
+    assert result.git_calls == ["fetch --quiet origin main",
+                                "show origin/main:.github/CODEOWNERS"]
 
 
 # ---------------------------------------------------------------- PR state
@@ -320,7 +362,7 @@ def test_a_comment_after_an_approval_does_not_cancel_it(tmp_path):
 def test_a_change_request_after_an_approval_cancels_it(tmp_path):
     later = review(state="CHANGES_REQUESTED", at="2026-11-18T11:00:00Z")
     assert_refused(run_guard(tmp_path, build_scenario(reviews=[review(), later])),
-                   "a CODEOWNERS login has a change request on the head")
+                   "a CODEOWNERS login has a current change request")
 
 
 def test_a_dismissal_after_an_approval_cancels_it(tmp_path):
@@ -332,14 +374,31 @@ def test_a_dismissal_after_an_approval_cancels_it(tmp_path):
 def test_one_owner_blocking_another_owners_approval_cancels_it(tmp_path):
     blocking = review(login="nguyenquocduyloc", state="CHANGES_REQUESTED", at="2026-11-18T11:00:00Z")
     assert_refused(run_guard(tmp_path, build_scenario(reviews=[review(), blocking])),
-                   "a CODEOWNERS login has a change request on the head")
+                   "a CODEOWNERS login has a current change request")
 
 
 def test_a_change_request_before_another_owners_approval_still_cancels_it(tmp_path):
     blocking = review(login="nguyenquocduyloc", state="CHANGES_REQUESTED", at="2026-11-18T10:00:00Z")
     approving = review(login="NguyenLoc231", state="APPROVED", at="2026-11-18T11:00:00Z")
     assert_refused(run_guard(tmp_path, build_scenario(reviews=[blocking, approving])),
-                   "a CODEOWNERS login has a change request on the head")
+                   "a CODEOWNERS login has a current change request")
+
+
+def test_a_change_request_on_an_older_commit_still_blocks(tmp_path):
+    # GitHub's merge box blocks a current change request whatever commit it names; so does the guard.
+    older = review(login="nguyenquocduyloc", state="CHANGES_REQUESTED", sha=OTHER,
+                   at="2026-11-18T11:00:00Z")
+    assert_refused(run_guard(tmp_path, build_scenario(reviews=[review(), older])),
+                   "a CODEOWNERS login has a current change request")
+
+
+def test_equal_review_timestamps_use_the_later_review_id(tmp_path):
+    at = "2026-11-18T10:00:00Z"
+    approved = review(state="APPROVED", at=at, review_id=1)
+    changes = review(state="CHANGES_REQUESTED", at=at, review_id=2)
+    # Input order says approved first; the higher review id says the change request is later.
+    assert_refused(run_guard(tmp_path, build_scenario(reviews=[changes, approved])),
+                   "a CODEOWNERS login has a current change request")
 
 
 def test_a_non_owner_change_request_does_not_cancel_an_owner_approval(tmp_path):
@@ -443,7 +502,7 @@ def test_paginated_reviews_are_all_read(tmp_path):
         [review()], [review(state="CHANGES_REQUESTED", at="2026-11-18T11:00:00Z")],
     ]]
     assert_refused(run_guard(tmp_path, scenario),
-                   "a CODEOWNERS login has a change request on the head")
+                   "a CODEOWNERS login has a current change request")
 
 
 def test_paginated_checks_are_all_read(tmp_path):
@@ -475,6 +534,13 @@ def test_a_merge_http_error_exits_1(tmp_path):
     assert "ERROR: the merge call failed" in result.err
 
 
+def test_an_unparseable_merge_response_exits_1(tmp_path):
+    # HTTP 200 with a body that is not JSON: the merge may have happened, so this must not be exit 2.
+    result = run_guard(tmp_path, build_scenario(merge={"__raw__": "<html>proxy error</html>"}))
+    assert result.code == 1, (result.code, result.err)
+    assert "cannot parse the merge response" in result.err
+
+
 def test_a_one_parent_merge_exits_3(tmp_path):
     result = run_guard(tmp_path, build_scenario(commit={"parents": [{"sha": HEAD}]}))
     assert result.code == 3, (result.code, result.err)
@@ -485,6 +551,13 @@ def test_a_branch_left_behind_exits_3(tmp_path):
     result = run_guard(tmp_path, build_scenario(branch_exists=True))
     assert result.code == 3, (result.code, result.err)
     assert "still exists" in result.err
+
+
+def test_an_unreadable_branch_ref_exits_3(tmp_path):
+    # Only an explicit 404 means deleted; a 500 or 403 is not verification.
+    result = run_guard(tmp_path, build_scenario(branch_error="gh: Server Error (HTTP 500)"))
+    assert result.code == 3, (result.code, result.err)
+    assert "cannot verify the branch was deleted" in result.err
 
 
 def test_failed_main_ci_exits_3(tmp_path):
@@ -569,10 +642,9 @@ def test_a_failed_check_read_exits_1(tmp_path):
 def test_the_guard_only_reads_and_merges(tmp_path):
     result = run_guard(tmp_path, build_scenario())
     assert result.code == 0, result.err
-    write_flags = ("-X", "--method", "-f", "-F", "--field", "--raw-field", "--input")
-    writes = [call for call in result.calls if any(flag in call for flag in write_flags)]
-    assert len(writes) == 1, writes
-    [merge] = writes
+    assert len(result.writes) == 1, result.writes
+    [merge] = result.writes
     assert merge[:4] == ["api", "-X", "PUT", f"repos/{REPO}/pulls/7/merge"], merge
     assert "merge_method=merge" in merge
-    assert result.git_calls == ["show origin/main:.github/CODEOWNERS"]
+    assert result.git_calls == ["fetch --quiet origin main",
+                                "show origin/main:.github/CODEOWNERS"]
