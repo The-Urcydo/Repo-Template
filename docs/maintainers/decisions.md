@@ -13,7 +13,8 @@ never ship; a generated project writes its own in its `docs/decisions/`.
 `AGENTS.md` (hard rules 1 to 6) is the authority. This section adds what is enforced in GitHub.
 
 - **Owners and agents.** Owner accounts are `nguyenquocduyloc` and `NguyenLoc231` (`.github/CODEOWNERS`).
-  `shiniroku` and `shinkir6u` are agent accounts. An agent never approves.
+  The organization context (`The-Urcydo/.github/AGENTS.md`) defines which accounts are agents. An agent never
+  approves.
 - **Ruleset `protect-main`** (id 26596185, active, no bypass actors, default branch). Read it with
   `gh api repos/The-Urcydo/Repo-Template/rulesets/26596185`. It blocks deletion and force pushes and requires a
   pull request with 1 approving review, Code Owner review, stale approvals dismissed on push, the most recent push
@@ -37,9 +38,8 @@ never ship; a generated project writes its own in its `docs/decisions/`.
 - **Merging.** The owner approves every PR's latest commit in person; agents never approve. An agent merges only
   through `.github/scripts/merge_guarded.sh` (ADR 0011), which checks the approval, the reviewed head and file
   list, `mergeable_state` and the checks, pins the merge commit to the reviewed head, and writes
-  `Delegated-under: ADR-0011`. When the guard refuses or is unavailable, the owner merges. The delegation lasts
-  90 days from ADR 0011's merge (2027-02-16 if merged on 2026-11-18) unless a PR renews it; the owner revokes it by
-  reverting or superseding the ADR.
+  `Delegated-under: ADR-0011`. When the guard refuses or is unavailable, the owner merges. The delegation ends
+  on 2027-02-17 unless a PR renews it; the owner revokes it by reverting or superseding the ADR.
 - **Reserved to the owner.** Rulesets and repository or organization settings, tags and releases, `.github/CODEOWNERS`,
   ADRs, secrets, tokens and GitHub Apps, billing, repository visibility, licence choices, deleting repositories, and
   anything irreversible.
@@ -126,7 +126,11 @@ Policy and the end-of-life table: `CONTRIBUTING.md`, section "Supported Python v
 | 2026-11-18 | ADR 0011: an agent merges through `.github/scripts/merge_guarded.sh` after the owner's in-person approval of the latest commit; every other irreversible action stays with the owner | The guard checks the approval, head, files, mergeability and checks that a per-PR chat go-ahead could not |
 
 ## Open items and dates
-- **Delegated merges (ADR 0011):** Phase 1 ends 2027-02-16 and falls back to the owner unless a PR renews it. A
+- **Step I status: waived in writing** by the owner on 2026-11-18. Routine branch and PR work uses the owner's
+  `nguyenquocduyloc` token; approval stays with `NguyenLoc231`, the other owner account. The waiver is recorded in
+  the private ops notes, not in this repository. Phase 1 does not start until Step I is done or waived; it is
+  waived, so Phase 1 starts only after ADR 0011 merges.
+- **Delegated merges (ADR 0011):** Phase 1 ends 2027-02-17 and falls back to the owner unless a PR renews it. A
   Phase 2 (an agent may approve) needs its own owner-approved PR and written evidence criteria first; ADR 0011
   proposes 10 clean Phase 1 merges and a 5-PR seeded-defect trial for the owner to edit.
 - **Lean shipped-suite execution (deferred 2026-11-17):** the root suite loads, but does not run, the

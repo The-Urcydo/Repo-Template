@@ -117,8 +117,8 @@ the reviewed commit; the changed-file list equals the reviewed list (fewer than 
 newline or carriage return); an owner's latest decisive review is APPROVED on that head and no owner has a current
 change request; `mergeable_state` is clean; and the latest run of every check is completed success, neutral or
 skipped. Then it merges with `merge_method=merge`, pins `sha=<head>`, appends `Delegated-under: ADR-0011`, and
-verifies the result. The guard does not read the calendar: the 90-day term is the orchestrator's duty, and the owner
-can audit it from the ADR's date.
+verifies the result. The guard does not read the calendar: the end date (2027-02-17) is the orchestrator's duty, and
+the owner can audit it from ADR 0011 and the merge history.
 
 Without the guard, the owner merges in the UI. For the manual API path, right before merging re-read the live PR:
 ```
