@@ -102,7 +102,9 @@ must state its evidence criteria first. Proposed criteria for the owner to edit:
 ### Term and revocation
 
 The delegation lasts 90 days from the merge date of this ADR; if merged on 2026-11-18, it ends
-2027-02-16. A new PR can renew it. After it expires, merging falls back to the owner alone.
+2027-02-16. A new PR can renew it. After it expires, merging falls back to the owner alone. The guard
+does not read the calendar: respecting the term is the orchestrator's duty, and the owner audits it
+from this ADR's date in `git log`.
 
 The owner revokes it by reverting or superseding this ADR. In an emergency he toggles the ruleset in
 the GitHub UI and revokes the credential the orchestrator uses; those actions take effect without a

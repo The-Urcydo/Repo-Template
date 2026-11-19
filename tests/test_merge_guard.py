@@ -93,12 +93,14 @@ WRITE_FLAGS = ("-X", "--method", "-f", "-F", "--field", "--raw-field", "--input"
 
 
 def has_write_flag(call: list[str]) -> bool:
-    """True if a `gh` argv carries a mutating flag, in any spelling gh accepts."""
+    """True if a `gh` argv could mutate, in any spelling gh accepts."""
+    if not call or call[0] != "api":
+        return True  # `gh pr merge`, `gh pr review`, and anything else outside `gh api`
     for token in call:
         for flag in WRITE_FLAGS:
             if token == flag or token.startswith(flag + "="):
                 return True
-        if token.startswith("-X") and token != "-X":
+        if token.startswith(("-X", "-f", "-F")) and token not in ("-X", "-f", "-F"):
             return True
     return False
 
@@ -396,7 +398,7 @@ def test_equal_review_timestamps_use_the_later_review_id(tmp_path):
     at = "2026-11-18T10:00:00Z"
     approved = review(state="APPROVED", at=at, review_id=1)
     changes = review(state="CHANGES_REQUESTED", at=at, review_id=2)
-    # Input order says approved first; the higher review id says the change request is later.
+    # Input order puts the change request first; its higher review id says it is later anyway.
     assert_refused(run_guard(tmp_path, build_scenario(reviews=[changes, approved])),
                    "a CODEOWNERS login has a current change request")
 
@@ -541,6 +543,13 @@ def test_an_unparseable_merge_response_exits_1(tmp_path):
     assert "cannot parse the merge response" in result.err
 
 
+def test_a_merge_response_that_is_not_an_object_exits_1(tmp_path):
+    # Valid JSON but not the documented merge object: its `merged` flag cannot be trusted.
+    result = run_guard(tmp_path, build_scenario(merge={"__raw__": "[]"}))
+    assert result.code == 1, (result.code, result.err)
+    assert "cannot parse the merge response" in result.err
+
+
 def test_a_one_parent_merge_exits_3(tmp_path):
     result = run_guard(tmp_path, build_scenario(commit={"parents": [{"sha": HEAD}]}))
     assert result.code == 3, (result.code, result.err)
@@ -560,8 +569,24 @@ def test_an_unreadable_branch_ref_exits_3(tmp_path):
     assert "cannot verify the branch was deleted" in result.err
 
 
+def test_a_branch_error_mentioning_404_is_not_treated_as_deleted(tmp_path):
+    result = run_guard(tmp_path, build_scenario(
+        branch_error="gh: Server Error (HTTP 500) while asking about HTTP 404"))
+    assert result.code == 3, (result.code, result.err)
+    assert "cannot verify the branch was deleted" in result.err
+
+
 def test_failed_main_ci_exits_3(tmp_path):
     result = run_guard(tmp_path, build_scenario(main_checks=[check_run(conclusion="failure")]))
+    assert result.code == 3, (result.code, result.err)
+    assert "main ci-gate is completed failure" in result.err
+
+
+def test_main_ci_from_another_app_does_not_mask_the_required_check(tmp_path):
+    # The ruleset pins ci-gate to app 15368; a later green from another app is not that check.
+    checks = [check_run(conclusion="failure", run_id=1, app=15368),
+              check_run(conclusion="success", run_id=2, app=999)]
+    result = run_guard(tmp_path, build_scenario(main_checks=checks))
     assert result.code == 3, (result.code, result.err)
     assert "main ci-gate is completed failure" in result.err
 
@@ -594,14 +619,14 @@ def test_usage_errors_exit_2(tmp_path):
         result = run_guard(tmp_path / f"case-{index}", build_scenario(), args=args)
         assert result.code == 2, (args, result.code, result.err)
         assert "REFUSE:" in result.err
-        assert result.merge_calls == []
+        assert result.writes == []
 
 
 def test_a_bad_poll_setting_is_refused(tmp_path):
     result = run_guard(tmp_path, build_scenario(), env_overrides={"MERGEABLE_POLLS": "0"})
     assert result.code == 2, (result.code, result.err)
     assert "MERGEABLE_POLLS must be a positive integer" in result.err
-    assert result.merge_calls == []
+    assert result.writes == []
 
 
 def test_a_failed_pr_read_exits_1(tmp_path):
@@ -609,7 +634,7 @@ def test_a_failed_pr_read_exits_1(tmp_path):
     result = run_guard(tmp_path, build_scenario(prs=prs))
     assert result.code == 1, (result.code, result.err)
     assert "ERROR: cannot read PR #7" in result.err
-    assert result.merge_calls == []
+    assert result.writes == []
 
 
 def test_a_failed_file_read_exits_1(tmp_path):
@@ -618,7 +643,7 @@ def test_a_failed_file_read_exits_1(tmp_path):
     result = run_guard(tmp_path, scenario)
     assert result.code == 1, (result.code, result.err)
     assert "ERROR: cannot read the PR files" in result.err
-    assert result.merge_calls == []
+    assert result.writes == []
 
 
 def test_a_failed_review_read_exits_1(tmp_path):
@@ -627,7 +652,7 @@ def test_a_failed_review_read_exits_1(tmp_path):
     result = run_guard(tmp_path, scenario)
     assert result.code == 1, (result.code, result.err)
     assert "ERROR: cannot read the reviews" in result.err
-    assert result.merge_calls == []
+    assert result.writes == []
 
 
 def test_a_failed_check_read_exits_1(tmp_path):
@@ -636,7 +661,7 @@ def test_a_failed_check_read_exits_1(tmp_path):
     result = run_guard(tmp_path, scenario)
     assert result.code == 1, (result.code, result.err)
     assert "ERROR: cannot read the check runs" in result.err
-    assert result.merge_calls == []
+    assert result.writes == []
 
 
 def test_the_guard_only_reads_and_merges(tmp_path):

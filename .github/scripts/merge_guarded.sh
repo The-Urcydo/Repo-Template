@@ -166,7 +166,8 @@ head_label=${head_label/:/\/}
 msg=$(printf 'Merge pull request #%s from %s\n\n%s\n\nDelegated-under: %s' "$N" "$head_label" "$title" "$ADR")
 merge=$(gh api -X PUT "repos/$R/pulls/$N/merge" \
   -f merge_method=merge -f sha="$head" -f commit_message="$msg") || fail "the merge call failed"
-jq -e . <<<"$merge" >/dev/null 2>&1 || fail "cannot parse the merge response; read the PR before retrying"
+jq -e 'type == "object" and (.merged | type == "boolean")' <<<"$merge" >/dev/null 2>&1 \
+  || fail "cannot parse the merge response; read the PR before retrying"
 merged=$(jq -r '.merged // false' <<<"$merge")
 merge_sha=$(jq -r '.sha // ""' <<<"$merge")
 [ "$merged" = true ] || die "GitHub did not merge: $(jq -r '.message // "no message"' <<<"$merge")"
@@ -181,15 +182,16 @@ echo "merge commit parents: 2"
 if ref_err=$(gh api "repos/$R/git/ref/heads/$head_ref" 2>&1 >/dev/null); then
   echo "ERROR: the branch $head_ref still exists" >&2; exit 3
 fi
-case "$ref_err" in
-  *"HTTP 404"*) echo "branch deleted: $head_ref" ;;
-  *) echo "ERROR: cannot verify the branch was deleted: $ref_err" >&2; exit 3 ;;
-esac
+if [ "$ref_err" = 'gh: Not Found (HTTP 404)' ]; then
+  echo "branch deleted: $head_ref"
+else
+  echo "ERROR: cannot verify the branch was deleted: $ref_err" >&2; exit 3
+fi
 
 main_status=""
 for i in $(seq 1 "$MAIN_CI_POLLS"); do
   main_status=$(gh api --paginate "repos/$R/commits/$merge_sha/check-runs" \
-    | jq -s -r '[ .[] | (.check_runs // [])[] | select(.name == "ci-gate") ]
+    | jq -s -r '[ .[] | (.check_runs // [])[] | select(.name == "ci-gate" and (.app.id // 0) == 15368) ]
                 | sort_by(.id) | last
                 | if . == null then "none" else "\(.status) \(.conclusion)" end') \
     || fail "cannot read main CI"
