@@ -46,7 +46,8 @@
       "text_edits": [
         {
           "path": "justfile",
-          "old": "\n# Verify or run harness evals\nevals *args=\"--verify-fixtures\":\n    python3 tools/eval_harness.py {{args}}\n"
+          "from_line": "# Verify or run harness evals",
+          "to_line": "    python3 tools/eval_harness.py "
         },
         {
           "path": "docs/dev/reference/commands.md",

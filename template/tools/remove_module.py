@@ -58,6 +58,27 @@ def _prune_empty_parents(root: Path, path: Path) -> None:
         parent = parent.parent
 
 
+def apply_text_edit(path: Path, edit: dict) -> bool:
+    """Apply one module text edit. `old` is exact; `from_line`/`to_line` remove an inclusive block."""
+    text = read_text(path)
+    if "old" in edit:
+        old = edit["old"]
+        if old not in text:
+            return False
+        write_text(path, text.replace(old, edit.get("new", ""), 1))
+        return True
+    lines = text.splitlines(keepends=True)
+    start = next((i for i, line in enumerate(lines) if line.rstrip("\n") == edit["from_line"]), None)
+    if start is None:
+        return False
+    end = next((i for i in range(start, len(lines))
+                if lines[i].rstrip("\n").startswith(edit["to_line"])), None)
+    if end is None:
+        return False
+    write_text(path, "".join(lines[:start] + lines[end + 1:]))
+    return True
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("name", nargs="?")
@@ -100,12 +121,8 @@ def main(argv: list[str] | None = None) -> int:
         _prune_empty_parents(root, full)
     for e in edits:
         full = root / e["path"]
-        text = read_text(full)
-        old = e["old"]
-        if old not in text:
+        if not apply_text_edit(full, e):
             print(f"  note: {e['path']} no longer contains the marker; skipped")
-            continue
-        write_text(full, text.replace(old, e.get("new", ""), 1))
     remaining = [n for n in installed if n != args.name]
     if update_answers(root, remaining):
         print("  updated .copier-answers.yml (profile: custom)")
