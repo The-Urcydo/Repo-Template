@@ -2,8 +2,7 @@
 
 Several files repeat the same facts: who the owners are, which paths are protected, and which CI
 checks the ruleset requires. If one is edited and the others are forgotten, nothing fails today.
-This file reads them and fails when they disagree. It reads three files and runs in well under a
-second:  python -m pytest tests/test_repo_governance.py -q
+This file reads them and fails when they disagree. It runs in well under a second:
 
 Lists compared (derived from the files, never hard-coded here):
   accounts        .github/CODEOWNERS only; AGENTS.md rule 1 must not copy a handle
@@ -254,8 +253,8 @@ def check_ci_job_names_match_the_ruleset(root: Path) -> list[str]:  # e
 
 @check
 def check_delegation_end_date(root: Path) -> list[str]:  # f
-    """The delegation has one absolute end date; renewing it means changing the ADR, the decisions file,
-    and END_DATE here in the same PR, so no stale '90 days' or 'if merged on' can survive."""
+    """The delegation has one absolute end date; the ADR, the decisions file, the runbook and the
+    guard's END_DATE constant must all state it, so no stale '90 days' or 'if merged on' can survive."""
     ends = re.compile(r"\bends\s+(?:on\s+)?(\d{4}-\d{2}-\d{2})|\bend date\s*\(?(\d{4}-\d{2}-\d{2})")
     problems = []
     for rel in (ADR_0011, DECISIONS, RUNBOOK):

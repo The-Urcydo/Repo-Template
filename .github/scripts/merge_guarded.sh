@@ -207,7 +207,7 @@ merge_sha=$(jq -r '.sha // ""' <<<"$merge")
 [ -n "$merge_sha" ] || { echo "ERROR: the merge response has no sha" >&2; exit 3; }
 echo "merged as $merge_sha"
 
-# 7. Post-merge: two parents, branch deleted, main CI green.
+# 8. Post-merge: two parents, branch deleted, main CI green.
 parents=$(gh api "repos/$R/commits/$merge_sha" | jq -r '.parents | length') \
   || fail "cannot read the merge commit"
 [ "$parents" = 2 ] || { echo "ERROR: the merge commit has $parents parents, not 2" >&2; exit 3; }
