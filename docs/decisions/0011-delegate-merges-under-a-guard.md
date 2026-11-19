@@ -75,7 +75,9 @@ if any fails:
 5. at least one `CODEOWNERS` login's latest decisive review (approval, change request or dismissal) is
    an APPROVED review of exactly that head, and no `CODEOWNERS` login's latest decisive review is a
    change request (whatever commit it names); a later comment does not cancel an approval, as on
-   GitHub itself;
+   GitHub itself; the guard also refuses if that approving login is the credential running it
+   (compared case-insensitively), except that a GitHub App token whose user lookup returns
+   `Resource not accessible by integration` is allowed through because it has no user login;
 6. `mergeable_state` is `clean` (polled while it reads `unknown` or null);
 7. the latest run of every check is completed with `success`, `neutral` or `skipped`.
 

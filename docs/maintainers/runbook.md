@@ -115,8 +115,10 @@ or carriage return, which a line-per-file list cannot represent. Exit codes:
 The guard checks, in order: the PR is open, not a draft and on a branch of this repository; base `main`; head equals
 the reviewed commit; the changed-file list equals the reviewed list (fewer than 3000 entries, no name containing a
 newline or carriage return); an owner's latest decisive review is APPROVED on that head and no owner has a current
-change request; `mergeable_state` is clean; and the latest run of every check is completed success, neutral or
-skipped. Then it merges with `merge_method=merge`, pins `sha=<head>`, appends `Delegated-under: ADR-0011`, and
+change request; it also refuses when the approving login is the credential running the guard
+(case-insensitively), while an App token whose user lookup returns `Resource not accessible by
+integration` is allowed because it has no user login; `mergeable_state` is clean; and the latest run of
+every check is completed success, neutral or skipped. Then it merges with `merge_method=merge`, pins `sha=<head>`, appends `Delegated-under: ADR-0011`, and
 verifies the result. The guard does not read the calendar: the end date (2027-02-17) is the orchestrator's duty, and
 the owner can audit it from ADR 0011 and the merge history.
 
