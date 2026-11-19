@@ -40,10 +40,13 @@ N="${1:-}"
 EXPECT="${2:-}"
 FILES_EXPECT="${3:-}"
 ADR="ADR-0011"
+END_DATE="2027-02-17"
 MERGEABLE_POLLS="${MERGEABLE_POLLS:-12}"
 MERGEABLE_SLEEP="${MERGEABLE_SLEEP:-10}"
 MAIN_CI_POLLS="${MAIN_CI_POLLS:-60}"
 MAIN_CI_SLEEP="${MAIN_CI_SLEEP:-10}"
+BRANCH_DELETE_POLLS="${BRANCH_DELETE_POLLS:-5}"
+BRANCH_DELETE_SLEEP="${BRANCH_DELETE_SLEEP:-2}"
 
 die() { echo "REFUSE: $*" >&2; exit 2; }
 fail() { echo "ERROR: $*" >&2; exit 1; }
@@ -56,6 +59,7 @@ command -v jq >/dev/null || fail "jq is not installed"
 [ -n "$FILES_EXPECT" ] && [ -f "$FILES_EXPECT" ] || die "the reviewed files file is missing: ${FILES_EXPECT:-<empty>}"
 [[ "$MERGEABLE_POLLS" =~ ^[1-9][0-9]*$ ]] || die "MERGEABLE_POLLS must be a positive integer"
 [[ "$MAIN_CI_POLLS" =~ ^[1-9][0-9]*$ ]] || die "MAIN_CI_POLLS must be a positive integer"
+[[ "$BRANCH_DELETE_POLLS" =~ ^[1-9][0-9]*$ ]] || die "BRANCH_DELETE_POLLS must be a positive integer"
 
 tmp=$(mktemp -d) || fail "cannot create a temporary directory"
 trap 'rm -rf "$tmp"' EXIT
@@ -181,12 +185,20 @@ bad=$(jq -s -r '
 echo "checks not green: $bad"
 [ "$bad" = 0 ] || die "the latest run of a check is not completed green, neutral or skipped"
 
-# 6. Merge, pinned to the head, with the audit trailer.
+# 6. The delegation has an absolute end date. TODAY is a test-only override for the clock.
+today=$(date -u +%F)
+[ -z "${TODAY:-}" ] || today="$TODAY"
+[[ "$today" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || fail "cannot read today's date"
+echo "delegation active on $today; ends $END_DATE"
+[ "$today" \> "$END_DATE" ] && die "the delegation ended $END_DATE; ask the owner to merge"
+
+# 7. Merge, pinned to the head, with the audit trailer.
 [ -n "$head_label" ] || head_label="${R%%/*}:$head_ref"
 head_label=${head_label/:/\/}
-msg=$(printf 'Merge pull request #%s from %s\n\n%s\n\nDelegated-under: %s' "$N" "$head_label" "$title" "$ADR")
+commit_title="Merge pull request #$N from $head_label"
+msg=$(printf '%s\n\nDelegated-under: %s' "$title" "$ADR")
 merge=$(gh api -X PUT "repos/$R/pulls/$N/merge" \
-  -f merge_method=merge -f sha="$head" -f commit_message="$msg") || fail "the merge call failed"
+  -f merge_method=merge -f sha="$head" -f commit_title="$commit_title" -f commit_message="$msg") || fail "the merge call failed"
 jq -e 'type == "object" and (.merged | type == "boolean")' <<<"$merge" >/dev/null 2>&1 \
   || fail "cannot parse the merge response; read the PR before retrying"
 merged=$(jq -r '.merged // false' <<<"$merge")
@@ -203,7 +215,19 @@ echo "merge commit parents: 2"
 # Branch names may contain `%` or `#`; encode them so the ref URL cannot be truncated at a fragment.
 head_ref_url=${head_ref//%/%25}
 head_ref_url=${head_ref_url//#/%23}
-if ref_err=$(gh api "repos/$R/git/ref/heads/$head_ref_url" 2>&1 >/dev/null); then
+# GitHub deletes merged branches asynchronously, so a 404 on the first probe can be a false failure.
+ref_err=""
+branch_exists=0
+for i in $(seq 1 "$BRANCH_DELETE_POLLS"); do
+  if ref_err=$(gh api "repos/$R/git/ref/heads/$head_ref_url" 2>&1 >/dev/null); then
+    branch_exists=1
+  else
+    branch_exists=0
+  fi
+  if [ "$branch_exists" -eq 0 ] && [ "$ref_err" = 'gh: Not Found (HTTP 404)' ]; then break; fi
+  [ "$i" -lt "$BRANCH_DELETE_POLLS" ] && sleep "$BRANCH_DELETE_SLEEP"
+done
+if [ "$branch_exists" -eq 1 ]; then
   echo "ERROR: the branch $head_ref still exists" >&2; exit 3
 fi
 if [ "$ref_err" = 'gh: Not Found (HTTP 404)' ]; then

@@ -119,8 +119,8 @@ change request; it also refuses when the approving login is the credential runni
 (case-insensitively), while an App token whose user lookup returns `Resource not accessible by
 integration` is allowed because it has no user login; `mergeable_state` is clean; and the latest run of
 every check is completed success, neutral or skipped. Then it merges with `merge_method=merge`, pins `sha=<head>`, appends `Delegated-under: ADR-0011`, and
-verifies the result. The guard does not read the calendar: the end date (2027-02-17) is the orchestrator's duty, and
-the owner can audit it from ADR 0011 and the merge history.
+verifies the result. The guard pins the end date (2027-02-17) and refuses a delegated merge after it; the owner can audit
+it from ADR 0011 and the merge history.
 
 Without the guard, the owner merges in the UI. For the manual API path, right before merging re-read the live PR:
 ```

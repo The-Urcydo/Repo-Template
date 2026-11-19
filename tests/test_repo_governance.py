@@ -34,8 +34,9 @@ CI = ".github/workflows/test.yml"
 RULES = "AGENTS.md"
 ADR_0011 = "docs/decisions/0011-delegate-merges-under-a-guard.md"
 DECISIONS = "docs/maintainers/decisions.md"
+RUNBOOK = "docs/maintainers/runbook.md"
 GUARD_SCRIPT = ".github/scripts/merge_guarded.sh"
-GOVERNANCE_FILES = [CODEOWNERS, CI, RULES, ADR_0011, DECISIONS]
+GOVERNANCE_FILES = [CODEOWNERS, CI, RULES, ADR_0011, DECISIONS, RUNBOOK, GUARD_SCRIPT]
 END_DATE = "2027-02-17"
 
 # The ruleset `protect-main` requires `ci-gate`; this set must track test.yml. If a check below fails
@@ -255,11 +256,11 @@ def check_ci_job_names_match_the_ruleset(root: Path) -> list[str]:  # e
 def check_delegation_end_date(root: Path) -> list[str]:  # f
     """The delegation has one absolute end date; renewing it means changing the ADR, the decisions file,
     and END_DATE here in the same PR, so no stale '90 days' or 'if merged on' can survive."""
-    ends = re.compile(r"\bends\s+(?:on\s+)?(\d{4}-\d{2}-\d{2})")
+    ends = re.compile(r"\bends\s+(?:on\s+)?(\d{4}-\d{2}-\d{2})|\bend date\s*\(?(\d{4}-\d{2}-\d{2})")
     problems = []
-    for rel in (ADR_0011, DECISIONS):
+    for rel in (ADR_0011, DECISIONS, RUNBOOK):
         text = read(root, rel)
-        dates = set(ends.findall(text))
+        dates = {m.group(1) or m.group(2) for m in ends.finditer(text)}
         if END_DATE not in dates:
             problems.append(f"{rel} does not state the delegation end date {END_DATE} "
                             f"(found {sorted(dates) or 'none'})")
@@ -269,6 +270,10 @@ def check_delegation_end_date(root: Path) -> list[str]:  # f
         for stale in ("if merged on", "90 days", "90-day"):
             if re.search(re.escape(stale), text, re.IGNORECASE):
                 problems.append(f"{rel} still contains {stale!r}; the end date is absolute ({END_DATE})")
+    script = read(root, GUARD_SCRIPT)
+    constants = set(re.findall(r'^END_DATE="(\d{4}-\d{2}-\d{2})"$', script, re.MULTILINE))
+    if constants != {END_DATE}:
+        problems.append(f"{GUARD_SCRIPT} must pin END_DATE=\"{END_DATE}\", found {sorted(constants) or 'none'}")
     return problems
 
 
@@ -380,6 +385,11 @@ MUTATIONS = {
         lambda r: drop_the_end_date(r, ADR_0011), "f_delegation_end_date"),
     "delegation_end_date_removed_from_decisions": (
         lambda r: drop_the_end_date(r, DECISIONS), "f_delegation_end_date"),
+    "delegation_end_date_moves_in_script": (
+        lambda r: replace_once(r, GUARD_SCRIPT, f'END_DATE="{END_DATE}"', 'END_DATE="2027-02-16"'),
+        "f_delegation_end_date"),
+    "delegation_end_date_moves_in_runbook": (
+        lambda r: replace_once(r, RUNBOOK, END_DATE, "2027-02-16"), "f_delegation_end_date"),
 }
 
 

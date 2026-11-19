@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -234,6 +235,9 @@ def run_guard(tmp_path: Path, scenario: dict | None = None, *, args=None,
         "MERGEABLE_SLEEP": "0",
         "MAIN_CI_POLLS": "2",
         "MAIN_CI_SLEEP": "0",
+        "BRANCH_DELETE_POLLS": "2",
+        "BRANCH_DELETE_SLEEP": "0",
+        "TODAY": "2026-11-19",
         **(env_overrides or {}),
     }
     proc = subprocess.run([str(GUARD), *args], cwd=tmp_path, env=env,
@@ -263,8 +267,10 @@ def test_a_clean_approved_pr_merges(tmp_path):
     assert "merge_method=merge" in call
     assert f"sha={HEAD}" in call
     message = next(a for a in call if a.startswith("commit_message=")).split("=", 1)[1]
-    assert message.startswith("Merge pull request #7 from The-Urcydo/chore/example")
-    assert message.endswith("Delegated-under: ADR-0011")
+    assert message == "chore: example\n\nDelegated-under: ADR-0011", message
+    assert not message.startswith("Merge pull request"), "GitHub would duplicate the title line"
+    title_line = next(a for a in call if a.startswith("commit_title=")).split("=", 1)[1]
+    assert title_line == "Merge pull request #7 from The-Urcydo/chore/example"
     assert f"repos/{REPO}/commits/{MERGE}/check-runs" in result.urls
     assert f"repos/{REPO}/git/ref/heads/{BRANCH}" in result.urls
 
@@ -577,6 +583,28 @@ def test_paginated_checks_are_all_read(tmp_path):
                    "the latest run of a check is not completed green")
 
 
+# ---------------------------------------------------------------- end date
+
+@pytest.mark.parametrize("day", ["2027-02-18", "2027-02-19", "2028-01-01"])
+def test_the_guard_refuses_after_the_end_date(tmp_path, day):
+    result = run_guard(tmp_path, build_scenario(), env_overrides={"TODAY": day})
+    assert_refused(result, "the delegation ended 2027-02-17")
+
+
+@pytest.mark.parametrize("day", ["2026-11-19", "2027-02-16", "2027-02-17"])
+def test_the_guard_merges_on_or_before_the_end_date(tmp_path, day):
+    result = run_guard(tmp_path, build_scenario(), env_overrides={"TODAY": day})
+    assert result.code == 0, result.err
+    assert len(result.merge_calls) == 1
+
+
+def test_a_malformed_today_refuses(tmp_path):
+    result = run_guard(tmp_path, build_scenario(), env_overrides={"TODAY": "not-a-date"})
+    assert result.code == 1, (result.code, result.err)
+    assert "cannot read today's date" in result.err
+    assert result.writes == []
+
+
 # ---------------------------------------------------------------- the merge call and after it
 
 def test_a_merge_refused_by_github_exits_2(tmp_path):
@@ -628,10 +656,32 @@ def test_a_branch_left_behind_exits_3(tmp_path):
 
 
 def test_an_unreadable_branch_ref_exits_3(tmp_path):
-    # Only an explicit 404 means deleted; a 500 or 403 is not verification.
+    # Only an explicit 404 means deleted; a 500 or 403 is not verification, even after polling.
     result = run_guard(tmp_path, build_scenario(branch_error="gh: Server Error (HTTP 500)"))
     assert result.code == 3, (result.code, result.err)
     assert "cannot verify the branch was deleted" in result.err
+    probes = [u for u in result.urls if "git/ref/heads/" in u]
+    assert len(probes) == 2, probes
+
+
+def test_the_default_branch_poll_allows_for_async_deletion(tmp_path):
+    # The harness sets BRANCH_DELETE_POLLS=2; the shipped default must also allow a retry.
+    script = GUARD.read_text(encoding="utf-8")
+    match = re.search(r'^BRANCH_DELETE_POLLS="\$\{BRANCH_DELETE_POLLS:-(\d+)\}"$', script, re.MULTILINE)
+    assert match, "the default branch-delete poll count is missing"
+    assert int(match.group(1)) >= 2, "one probe cannot tolerate GitHub's async branch deletion"
+
+
+def test_a_slow_branch_deletion_is_polled(tmp_path):
+    # GitHub deletes merged branches asynchronously: a first 200 then a 404 must not be a false failure.
+    scenario = build_scenario()
+    route(scenario, "git/ref/heads/")["responses"] = [
+        {}, {"__status__": 404, "__body__": "gh: Not Found (HTTP 404)"}]
+    result = run_guard(tmp_path, scenario)
+    assert result.code == 0, result.err
+    assert "branch deleted: chore/example" in result.out
+    probes = [u for u in result.urls if "git/ref/heads/" in u]
+    assert len(probes) == 2, probes
 
 
 def test_a_branch_error_mentioning_404_is_not_treated_as_deleted(tmp_path):
