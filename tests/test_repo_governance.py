@@ -338,6 +338,14 @@ def unbacktick_a_path_in_rule_3(root: Path) -> None:
     replace_once(root, RULES, first, first.replace(f"`{victim}`", victim, 1))
 
 
+def drop_the_end_date(root: Path, rel: str) -> None:
+    """Remove every end date in `rel`, so the presence branch (not the another-date branch) must fire."""
+    text = (root / rel).read_text(encoding="utf-8")
+    if END_DATE not in text:
+        pytest.fail(f"mutation target {END_DATE!r} not found in {rel}: the file changed, update this mutation")
+    (root / rel).write_text(text.replace(END_DATE, "soon"), encoding="utf-8")
+
+
 def add_a_path_to_rule_3(root: Path) -> None:
     first = rule_list_line(root, 3)
     replace_once(root, RULES, first, first.replace("`template/agents/`", "`template/agents/`, `docs/maintainers/runbook.md`", 1))
@@ -368,6 +376,10 @@ MUTATIONS = {
         lambda r: replace_once(r, ADR_0011, END_DATE, "2027-02-16"), "f_delegation_end_date"),
     "delegation_end_date_moves_in_decisions": (
         lambda r: replace_once(r, DECISIONS, END_DATE, "2027-02-16"), "f_delegation_end_date"),
+    "delegation_end_date_removed_from_adr": (
+        lambda r: drop_the_end_date(r, ADR_0011), "f_delegation_end_date"),
+    "delegation_end_date_removed_from_decisions": (
+        lambda r: drop_the_end_date(r, DECISIONS), "f_delegation_end_date"),
 }
 
 
