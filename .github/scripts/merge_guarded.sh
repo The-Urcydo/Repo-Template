@@ -17,6 +17,8 @@
 #   5. at least one CODEOWNERS login's latest decisive review (approval, change request or
 #      dismissal) is an APPROVED review of exactly that head, and no CODEOWNERS login's latest
 #      decisive review is a change request (whatever commit it names);
+#   5b. the approving CODEOWNERS login is not the login running the guard (case-insensitively);
+#      a GitHub App token, whose user call says "Resource not accessible by integration", is allowed;
 #   6. mergeable_state is clean (polled while it reads unknown or null);
 #   7. the latest run of every check is completed with success, neutral or skipped.
 # Then it merges with a merge commit pinned to the head, with a message ending
@@ -142,6 +144,25 @@ changes=${verdict#changes=}; changes=${changes%% approved=*}
 approved=${verdict##*approved=}
 [ -z "$changes" ] || die "a CODEOWNERS login has a current change request: $changes"
 [ -n "$approved" ] || die "no CODEOWNERS login has approved the latest commit"
+
+# 3b. The owner's approval must not come from the credential running the guard. `gh api user` fails
+# with "Resource not accessible by integration" for an App token, which has no user login to compare;
+# any other failure is not proof of a distinct approver, so it refuses before the merge.
+user_err="$tmp/user.err"
+running_login=$(gh api user --jq .login 2>"$user_err")
+user_rc=$?
+if [ "$user_rc" -eq 0 ]; then
+  running_login=$(printf '%s' "$running_login" | tr 'A-Z' 'a-z')
+  [ -n "$running_login" ] || die "the running credential has no login, so self-approval cannot be ruled out"
+  case ",$approved," in
+    *",$running_login,"*) die "the running credential $running_login approved this PR; self-approval is not allowed" ;;
+  esac
+  echo "running login: $running_login (not an approver)"
+elif grep -qiF 'Resource not accessible by integration' "$user_err"; then
+  echo "running credential: app token (user identity unavailable)"
+else
+  fail "cannot read the running login: $(tr '\n' ' ' < "$user_err")"
+fi
 
 # 4. mergeable_state, from the final PR read.
 [ "$ms" = clean ] || die "mergeable_state is $ms, not clean"

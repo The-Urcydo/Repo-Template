@@ -38,7 +38,7 @@ argv = sys.argv[1:]
 with (scenario_dir / "calls.jsonl").open("a") as log:
     log.write(json.dumps(argv) + "\n")
 
-url = next((a for a in argv if a.startswith("repos/")), "")
+url = next((a for a in argv if a.startswith("repos/") or a == "user"), "")
 scenario = json.loads((scenario_dir / "scenario.json").read_text())
 route = next((r for r in scenario["routes"] if r["match"] in url), None)
 if route is None:
@@ -61,6 +61,9 @@ if isinstance(item, dict) and "__status__" in item:
     sys.exit(item["__status__"])
 if isinstance(item, dict) and "__raw__" in item:
     print(item["__raw__"])
+    sys.exit(0)
+if "--jq" in argv and argv[argv.index("--jq") + 1] == ".login" and isinstance(item, dict):
+    print(item.get("login", ""))
     sys.exit(0)
 if "--paginate" in argv:
     for page in item:
@@ -161,7 +164,8 @@ def check_page(checks) -> dict:
 
 def build_scenario(*, prs=None, files=("README.md",), reviews=None, checks=None, merge=None,
                    commit=None, main_checks=None, branch_exists=False,
-                   branch_error: str | None = None, codeowners=CODEOWNERS) -> dict:
+                   branch_error: str | None = None, codeowners=CODEOWNERS,
+                   user_login: str = "nguyenquocduyloc", user_error: str | None = None) -> dict:
     prs = list(prs) if prs is not None else [pull_request()]
     reviews = list(reviews) if reviews is not None else [review()]
     checks = list(checks) if checks is not None else [check_run()]
@@ -177,6 +181,8 @@ def build_scenario(*, prs=None, files=("README.md",), reviews=None, checks=None,
     return {
         "codeowners": codeowners,
         "routes": [
+            {"match": "user", "responses": [{"__fail__": user_error}] if user_error
+                                          else [{"login": user_login}]},
             {"match": "pulls/7/files",
              "responses": [[[{"filename": name} for name in files]]]},
             {"match": "pulls/7/reviews", "responses": [[reviews]]},
@@ -419,13 +425,66 @@ def test_logins_match_without_case(tmp_path):
 def test_codeowners_comments_blanks_duplicates_and_case_are_handled(tmp_path):
     text = "# owners\n\n* @NguyenQuocDuyLoc @nguyenquocduyloc @NguyenLoc231\n/AGENTS.md @NguyenLoc231\n"
     result = run_guard(tmp_path, build_scenario(codeowners=text,
-                                               reviews=[review(login="nguyenquocduyloc")]))
+                                               reviews=[review(login="nguyenloc231")]))
     assert result.code == 0, result.err
 
 
 def test_codeowners_without_an_owner_is_refused(tmp_path):
     assert_refused(run_guard(tmp_path, build_scenario(codeowners="# nobody\n*")),
                    "CODEOWNERS names no owners")
+
+
+# ---------------------------------------------------------------- self-approval
+
+@pytest.mark.parametrize("runner", ["NguyenLoc231", "nguyenloc231", "NGUYENLOC231"])
+def test_an_approval_by_the_running_credential_is_refused(tmp_path, runner):
+    # The approver is NguyenLoc231; any case spelling of that login as the runner is self-approval.
+    result = run_guard(tmp_path, build_scenario(user_login=runner))
+    assert_refused(result, "self-approval is not allowed")
+    assert f"running credential {runner.lower()} approved" in result.err
+
+
+def test_the_other_owner_may_run_the_guard(tmp_path):
+    result = run_guard(tmp_path, build_scenario(user_login="NguyenLoc231",
+                                                reviews=[review(login="nguyenquocduyloc")]))
+    assert result.code == 0, result.err
+    assert "running login: nguyenloc231 (not an approver)" in result.out
+
+
+@pytest.mark.parametrize("error", ["gh: Resource not accessible by integration (HTTP 403)",
+                                   "gh: resource not accessible by integration"])
+def test_an_app_token_is_allowed(tmp_path, error):
+    result = run_guard(tmp_path, build_scenario(user_error=error))
+    assert result.code == 0, result.err
+    assert "running credential: app token" in result.out
+    assert len(result.merge_calls) == 1
+
+
+def test_any_other_user_read_error_refuses(tmp_path):
+    result = run_guard(tmp_path, build_scenario(user_error="gh: Server Error (HTTP 500)"))
+    assert result.code == 1, (result.code, result.err)
+    assert "cannot read the running login" in result.err
+    assert "HTTP 500" in result.err
+    assert result.writes == []
+
+
+def test_an_empty_running_login_refuses(tmp_path):
+    result = run_guard(tmp_path, build_scenario(user_login=""))
+    assert_refused(result, "the running credential has no login")
+
+
+def test_a_dismissed_self_approval_does_not_count(tmp_path):
+    # Only decisive reviews count: a self-approval that was dismissed cannot authorize the merge.
+    reviews = [review(login="NguyenLoc231", state="APPROVED", review_id=1),
+               review(login="NguyenLoc231", state="DISMISSED", at="2026-11-18T11:00:00Z", review_id=2),
+               review(login="nguyenquocduyloc", state="APPROVED", at="2026-11-18T12:00:00Z", review_id=3)]
+    result = run_guard(tmp_path, build_scenario(user_login="NguyenLoc231", reviews=reviews))
+    assert result.code == 0, result.err
+
+
+def test_the_running_login_is_read_before_merging(tmp_path):
+    result = run_guard(tmp_path, build_scenario())
+    assert ["api", "user", "--jq", ".login"] in result.calls, result.calls
 
 
 # ---------------------------------------------------------------- mergeability
