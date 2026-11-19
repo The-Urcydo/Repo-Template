@@ -589,12 +589,16 @@ def test_a_404_line_with_trailing_space_is_not_treated_as_deleted(tmp_path):
     assert "cannot verify the branch was deleted" in result.err
 
 
-def test_a_branch_name_with_a_hash_is_encoded_in_the_ref_url(tmp_path):
-    ref = "feature/#42"
+@pytest.mark.parametrize("ref, encoded", [
+    ("feature/#42", "feature/%2342"),
+    ("feature/100%", "feature/100%25"),
+    ("feature/%23", "feature/%2523"),
+])
+def test_a_branch_name_is_encoded_in_the_ref_url(tmp_path, ref, encoded):
     pr = pull_request(head=head(ref=ref))
     result = run_guard(tmp_path, build_scenario(prs=[pr]))
     assert result.code == 0, result.err
-    assert f"repos/{REPO}/git/ref/heads/feature/%2342" in result.urls, result.urls
+    assert f"repos/{REPO}/git/ref/heads/{encoded}" in result.urls, result.urls
 
 
 def test_failed_main_ci_exits_3(tmp_path):
