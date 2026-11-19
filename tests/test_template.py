@@ -470,6 +470,20 @@ def test_full_project_keeps_the_same_eval_harness_tests(full):
     assert suite_size(full) == tools + evals, "discovery must find the tools tests and the evals tests, and nothing else"
 
 
+def test_just_interpolations_survive_jinja_rendering(full, tmp_path):
+    # justfile.jinja must escape just's own {{...}} tokens with {% raw %}; otherwise Copier
+    # silently drops every recipe argument. Check both a full and a lean project.
+    tokens = ("{{args}}", "{{name}}", "{{title}}", "{{type}}")
+    full_just = (full / "justfile").read_text(encoding="utf-8")
+    for token in tokens:
+        assert token in full_just, f"{token} was consumed by Jinja in the full project"
+    lean = generate(tmp_path / "lean", profile="lean")
+    lean_just = (lean / "justfile").read_text(encoding="utf-8")
+    for token in tokens:
+        assert token in lean_just, f"{token} was consumed by Jinja in the lean project"
+    assert "eval_harness.py" not in lean_just
+
+
 def test_eval_harness_tests_run_as_a_module_from_the_project_root(full):
     # One case is enough to prove the module entrypoint still imports; the suite itself runs once above.
     r = py(full, "-m", "unittest", "tools.tests.test_eval_harness",
