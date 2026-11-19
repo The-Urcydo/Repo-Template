@@ -83,9 +83,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: module(s) {', '.join(dependants)} require '{args.name}'; remove those first", file=sys.stderr)
         return 2
     targets = [p for p in mod["paths"] if (root / p).exists()]
+    edits = [e for e in mod.get("text_edits", []) if (root / e["path"]).exists()]
     print(f"module '{args.name}': {mod.get('summary', '')}")
     for p in targets:
         print(f"  {'remove' if args.apply else 'would remove'}: {p}")
+    for e in edits:
+        print(f"  {'edit' if args.apply else 'would edit'}: {e['path']}")
     if mod.get("removal_notes"):
         print(f"  note: {mod['removal_notes']}")
     if not args.apply:
@@ -95,6 +98,14 @@ def main(argv: list[str] | None = None) -> int:
         full = root / p
         shutil.rmtree(full) if full.is_dir() else full.unlink()
         _prune_empty_parents(root, full)
+    for e in edits:
+        full = root / e["path"]
+        text = read_text(full)
+        old = e["old"]
+        if old not in text:
+            print(f"  note: {e['path']} no longer contains the marker; skipped")
+            continue
+        write_text(full, text.replace(old, e.get("new", ""), 1))
     remaining = [n for n in installed if n != args.name]
     if update_answers(root, remaining):
         print("  updated .copier-answers.yml (profile: custom)")

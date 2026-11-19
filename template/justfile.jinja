@@ -66,6 +66,8 @@ questions:
 cut name="":
     python3 tools/remove_module.py {{name}}
 
+{% if 'evals' in enabled_modules %}
 # Verify or run harness evals
 evals *args="--verify-fixtures":
-    python3 tools/eval_harness.py {{args}}
+    python3 tools/eval_harness.py {% raw %}{{args}}{% endraw %}
+{% endif %}
