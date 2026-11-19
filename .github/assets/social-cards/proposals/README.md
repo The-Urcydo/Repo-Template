@@ -1,6 +1,6 @@
 # Social card sources (1280x640)
 
-The live card is `.github/assets/social-preview.png`, rendered from `b-paper-headline.html` (direction B, chosen by the owner). A and C are kept as alternates. The card from PR #28 is in `../../legacy/`.
+The live card is `.github/assets/social-preview.png`, rendered from `b-paper-headline.html` (direction B, chosen by the owner). A and C are kept as alternates.
 
 Nothing here ships to generated projects: Copier copies only `template/`.
 
