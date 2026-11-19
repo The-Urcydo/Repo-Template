@@ -152,7 +152,7 @@ python -m pytest tests -q            # about two minutes; parallel by default
 
 To try your branch by hand, always pass `--vcs-ref HEAD` (`copier copy --trust --vcs-ref HEAD . <dir>`). Without it Copier builds from the newest release tag, so you would test the tag, not your branch.
 
-Changes arrive as pull requests, one topic each, branched from `main`. The owner approves every pull request; agents propose and never merge on their own. The rules are in [AGENTS.md](AGENTS.md).
+Changes arrive as pull requests, one topic each, branched from `main`. The owner approves every pull request; agents propose and never approve. Under ADR 0011 the orchestrator may press merge through an owner-protected guard, but only after the owner's approval of the exact head; every other merge is made by the owner. The rules are in [AGENTS.md](AGENTS.md).
 
 Layout of this repo: `copier.yml` (questions, exclusions, tasks) · `template/` (everything that is generated) · `tests/` (template-level tests) · `.github/` (this repo's CI; not copied into projects).
 
