@@ -1,9 +1,9 @@
 # The owner approves every pull request (AGENTS.md rule 1). The harness paths are listed on their own
 # below because they change how every agent behaves.
 # Owner accounts (the person reviews by hand with these): nguyenquocduyloc, NguyenLoc231.
-# shiniroku and shinkir6u are agent-operated accounts. They are not owners.
+# The organization context (The-Urcydo/.github/AGENTS.md) defines which accounts are agents. They are not owners.
 # The ruleset `protect-main` requires review from Code Owners, so GitHub enforces this file on every pull
-# request to the default branch. Keep the owner handles here in step with AGENTS.md rule 1.
+# request to the default branch. Keep the harness paths here in step with AGENTS.md rule 3.
 # The last matching pattern wins, so the catch-all comes first.
 *                                       @nguyenquocduyloc @NguyenLoc231
 /AGENTS.md                              @nguyenquocduyloc @NguyenLoc231
@@ -11,5 +11,6 @@
 /template/AGENTS.md.jinja               @nguyenquocduyloc @NguyenLoc231
 /template/agents/                       @nguyenquocduyloc @NguyenLoc231
 /.github/CODEOWNERS                     @nguyenquocduyloc @NguyenLoc231
+/.github/scripts/merge_guarded.sh       @nguyenquocduyloc @NguyenLoc231
 /.github/workflows/                     @nguyenquocduyloc @NguyenLoc231
 /.github/dependabot.yml                 @nguyenquocduyloc @NguyenLoc231

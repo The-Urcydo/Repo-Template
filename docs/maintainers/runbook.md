@@ -73,7 +73,7 @@ Use a separate worktree, not your working folder.
 2. Check the head out in a worktree, run the governance test and the full suite there, and, if `template/`
    changed, the probe checks above.
 3. Confirm no protected path changed outside the plan, and that the description's numbers match (recount them).
-4. Report what passed, what is missing and the decisions only the owner can make. Do not merge.
+4. Report what passed, what is missing and the decisions only the owner can make. Do not approve or merge.
 
 ## Review habits
 Each of these found a real defect in an earlier PR.
@@ -95,18 +95,42 @@ Each of these found a real defect in an earlier PR.
 - **Charter text has exceptions:** re-read `never`, `done_when` and `escalate_when` against the steps.
 
 ## Merge
-Only after the owner has approved on GitHub and said the PR may be merged (see decisions.md). Right before merging,
-re-read the live PR; do not rely on an earlier announcement:
+The owner approves on GitHub. An agent then merges only through the guard (ADR 0011); when the guard refuses or
+does not apply, the owner merges. Never approve for him. The guard reads the live PR, reviews and checks itself:
+```
+gh api --paginate repos/The-Urcydo/Repo-Template/pulls/<N>/files --jq '.[].filename' | sort > /tmp/reviewed-files.txt
+.github/scripts/merge_guarded.sh <N> <reviewed head sha> /tmp/reviewed-files.txt
+```
+Run it from a checkout of this repository: it fetches `origin/main` and reads the owner handles from
+`origin/main:.github/CODEOWNERS`, so a PR cannot add an owner and a stale checkout cannot hide a change on main. The
+files file must list exactly the changed files the reviewer saw; the guard refuses a file name containing a newline
+or carriage return, which a line-per-file list cannot represent. Exit codes:
+- **0:** merged and verified: two parents, branch deleted, `ci-gate` green on `main`.
+- **2:** refused; the `REFUSE:` line says why. Nothing was merged: the guard either refused before calling merge,
+  or GitHub declined the merge. Fix the cause, get a new approval if the head moved, or leave it to the owner.
+- **1:** a GitHub read or call failed. Read the PR before retrying; a failed merge call may or may not have merged.
+- **3:** merged, but a post-merge check failed. Do not retry or force anything: check the branch and `main` CI by
+  hand and tell the owner.
+
+The guard checks, in order: the PR is open, not a draft and on a branch of this repository; base `main`; head equals
+the reviewed commit; the changed-file list equals the reviewed list (fewer than 3000 entries, no name containing a
+newline or carriage return); an owner's latest decisive review is APPROVED on that head and no owner has a current
+change request; `mergeable_state` is clean; and the latest run of every check is completed success, neutral or
+skipped. Then it merges with `merge_method=merge`, pins `sha=<head>`, appends `Delegated-under: ADR-0011`, and
+verifies the result. The guard does not read the calendar: the end date (2027-02-17) is the orchestrator's duty, and
+the owner can audit it from ADR 0011 and the merge history.
+
+Without the guard, the owner merges in the UI. For the manual API path, right before merging re-read the live PR:
 ```
 gh api repos/The-Urcydo/Repo-Template/pulls/<N> --jq '{state,base:.base.ref,head:.head.sha,mergeable_state}'
 gh api --paginate repos/The-Urcydo/Repo-Template/pulls/<N>/reviews \
   --jq '.[] | {login:.user.login,state,sha:.commit_id,at:.submitted_at}'
-gh api repos/The-Urcydo/Repo-Template/commits/<head>/check-runs --jq '.check_runs[] | [.name,.conclusion] | @tsv'
+gh api --paginate repos/The-Urcydo/Repo-Template/commits/<head>/check-runs --jq '.check_runs[] | [.name,.conclusion] | @tsv'
 ```
 Merge only if all of this holds: the PR is open on `main`; its head is the one you reviewed and the file list is
-unchanged; an owner's latest review is APPROVED on that head; `mergeable_state` is `clean`; every check run is
-green. Then merge with a merge commit pinned to the head, so the
-call fails if anything was pushed after the approval:
+unchanged; an owner's latest decisive review is APPROVED on that head and no owner has a current change request;
+`mergeable_state` is `clean`; the latest run of every check is completed green, neutral or skipped. Then merge with a
+merge commit pinned to the head, so the call fails if anything was pushed after the approval:
 ```
 gh api -X PUT repos/The-Urcydo/Repo-Template/pulls/<N>/merge -f merge_method=merge -f sha=<head>
 ```

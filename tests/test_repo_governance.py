@@ -6,7 +6,7 @@ This file reads them and fails when they disagree. It reads three files and runs
 second:  python -m pytest tests/test_repo_governance.py -q
 
 Lists compared (derived from the files, never hard-coded here):
-  owners          .github/CODEOWNERS, AGENTS.md rule 1
+  accounts        .github/CODEOWNERS only; AGENTS.md rule 1 must not copy a handle
   protected paths the path lines of CODEOWNERS, AGENTS.md rule 3
   path kinds      a CODEOWNERS line ending in / must name a directory, and one without must name a file
   CI check names  .github/workflows/test.yml and the constants below
@@ -32,7 +32,11 @@ ROOT = Path(__file__).resolve().parents[1]
 CODEOWNERS = ".github/CODEOWNERS"
 CI = ".github/workflows/test.yml"
 RULES = "AGENTS.md"
-GOVERNANCE_FILES = [CODEOWNERS, CI, RULES]
+ADR_0011 = "docs/decisions/0011-delegate-merges-under-a-guard.md"
+DECISIONS = "docs/maintainers/decisions.md"
+GUARD_SCRIPT = ".github/scripts/merge_guarded.sh"
+GOVERNANCE_FILES = [CODEOWNERS, CI, RULES, ADR_0011, DECISIONS]
+END_DATE = "2027-02-17"
 
 # The ruleset `protect-main` requires `ci-gate`; this set must track test.yml. If a check below fails
 # because the job names changed, change the ruleset (GitHub settings) first or together with the workflow.
@@ -228,12 +232,14 @@ def check_codeowners_path_kinds(root: Path) -> list[str]:  # c
 
 
 @check
-def check_rule_1_names_every_owner(root: Path) -> list[str]:  # d
-    named = {t.lstrip("@").lower() for t in backticked(rule_block(root, 1))}
-    missing = sorted(codeowners_owners(root) - named)
-    if not missing:
+def check_rule_1_does_not_name_accounts(root: Path) -> list[str]:  # d
+    text = rule_block(root, 1)
+    leaked = sorted(owner for owner in codeowners_owners(root)
+                    if re.search(rf"(?<![\w-])@?{re.escape(owner)}(?![\w-])", text, re.IGNORECASE))
+    if not leaked:
         return []
-    return [f"{RULES} rule 1 does not name the owners {missing} (as backticked handles), but {CODEOWNERS} lists them"]
+    return [f"{RULES} rule 1 names the account(s) {leaked}; the rules must not pin an account, because "
+            f"who the owner is lives in the organization context. {CODEOWNERS} is the list of record."]
 
 
 @check
@@ -245,12 +251,34 @@ def check_ci_job_names_match_the_ruleset(root: Path) -> list[str]:  # e
             "(EXPECTED_CI_CHECKS in tests/test_repo_governance.py): change the ruleset in GitHub, then this constant"]
 
 
+@check
+def check_delegation_end_date(root: Path) -> list[str]:  # f
+    """The delegation has one absolute end date; renewing it means changing the ADR, the decisions file,
+    and END_DATE here in the same PR, so no stale '90 days' or 'if merged on' can survive."""
+    ends = re.compile(r"\bends\s+(?:on\s+)?(\d{4}-\d{2}-\d{2})")
+    problems = []
+    for rel in (ADR_0011, DECISIONS):
+        text = read(root, rel)
+        dates = set(ends.findall(text))
+        if END_DATE not in dates:
+            problems.append(f"{rel} does not state the delegation end date {END_DATE} "
+                            f"(found {sorted(dates) or 'none'})")
+        others = sorted(dates - {END_DATE})
+        if others:
+            problems.append(f"{rel} states another end date {others}; the delegation ends on {END_DATE}")
+        for stale in ("if merged on", "90 days", "90-day"):
+            if re.search(re.escape(stale), text, re.IGNORECASE):
+                problems.append(f"{rel} still contains {stale!r}; the end date is absolute ({END_DATE})")
+    return problems
+
+
 CHECKS = {
     "a_codeowners_lines": check_codeowners_lines_share_one_owner_set,
     "b_rule_3_paths": check_rule_3_lists_the_protected_paths,
     "c_codeowners_path_kinds": check_codeowners_path_kinds,
-    "d_rule_1_owners": check_rule_1_names_every_owner,
+    "d_rule_1_accounts": check_rule_1_does_not_name_accounts,
     "e_ci_job_names": check_ci_job_names_match_the_ruleset,
+    "f_delegation_end_date": check_delegation_end_date,
 }
 
 
@@ -310,6 +338,14 @@ def unbacktick_a_path_in_rule_3(root: Path) -> None:
     replace_once(root, RULES, first, first.replace(f"`{victim}`", victim, 1))
 
 
+def drop_the_end_date(root: Path, rel: str) -> None:
+    """Remove every end date in `rel`, so the presence branch (not the another-date branch) must fire."""
+    text = (root / rel).read_text(encoding="utf-8")
+    if END_DATE not in text:
+        pytest.fail(f"mutation target {END_DATE!r} not found in {rel}: the file changed, update this mutation")
+    (root / rel).write_text(text.replace(END_DATE, "soon"), encoding="utf-8")
+
+
 def add_a_path_to_rule_3(root: Path) -> None:
     first = rule_list_line(root, 3)
     replace_once(root, RULES, first, first.replace("`template/agents/`", "`template/agents/`, `docs/maintainers/runbook.md`", 1))
@@ -319,11 +355,12 @@ def write_a_file_as_a_directory_in_codeowners(root: Path) -> None:
     replace_once(root, CODEOWNERS, "/AGENTS.md ", "/AGENTS.md/ ")
 
 
-def unbacktick_an_owner_in_rule_1(root: Path) -> None:
+def name_an_account_in_rule_1(root: Path) -> None:
     block = rule_block(root, 1)
     handle = sorted(codeowners_owners(root))[0]
-    new_block = re.sub(f"`{re.escape(handle)}`", handle, block, count=1, flags=re.IGNORECASE)
-    replace_once(root, RULES, block, new_block)
+    replace_once(root, RULES, block,
+                 block.replace("An unattended session never approves.",
+                               f"An unattended session never approves; {handle} is exempt.", 1))
 
 
 MUTATIONS = {
@@ -332,9 +369,17 @@ MUTATIONS = {
     "rule_3_loses_a_path": (unbacktick_a_path_in_rule_3, "b_rule_3_paths"),
     "rule_3_gains_a_path": (add_a_path_to_rule_3, "b_rule_3_paths"),
     "codeowners_writes_a_file_as_a_directory": (write_a_file_as_a_directory_in_codeowners, "c_codeowners_path_kinds"),
-    "rule_1_loses_an_owner": (unbacktick_an_owner_in_rule_1, "d_rule_1_owners"),
+    "rule_1_names_an_account": (name_an_account_in_rule_1, "d_rule_1_accounts"),
     "ci_matrix_version_changes": (
         lambda r: replace_once(r, CI, 'python-version: "3.14"', 'python-version: "3.13"'), "e_ci_job_names"),
+    "delegation_end_date_moves": (
+        lambda r: replace_once(r, ADR_0011, END_DATE, "2027-02-16"), "f_delegation_end_date"),
+    "delegation_end_date_moves_in_decisions": (
+        lambda r: replace_once(r, DECISIONS, END_DATE, "2027-02-16"), "f_delegation_end_date"),
+    "delegation_end_date_removed_from_adr": (
+        lambda r: drop_the_end_date(r, ADR_0011), "f_delegation_end_date"),
+    "delegation_end_date_removed_from_decisions": (
+        lambda r: drop_the_end_date(r, DECISIONS), "f_delegation_end_date"),
 }
 
 
@@ -410,10 +455,24 @@ def test_a_trailing_comment_on_a_codeowners_line_is_not_an_owner(tmp_path):
     assert check_rule_3_lists_the_protected_paths(root) == []
 
 
-def test_rule_1_may_write_a_handle_with_an_at_sign(tmp_path):
+def test_rule_1_must_not_name_an_account(tmp_path):
     root = copy_governance_files(tmp_path)
-    replace_once(root, RULES, "`nguyenquocduyloc`", "`@nguyenquocduyloc`")
-    assert check_rule_1_names_every_owner(root) == []
+    name_an_account_in_rule_1(root)
+    assert any("names the account(s)" in p for p in check_rule_1_does_not_name_accounts(root))
+
+
+@pytest.mark.parametrize("rel", [ADR_0011, DECISIONS])
+@pytest.mark.parametrize("stale", ["if merged on", "90 days", "90-day"])
+def test_the_end_date_check_refuses_stale_relative_wording(tmp_path, rel, stale):
+    root = copy_governance_files(tmp_path)
+    with (root / rel).open("a", encoding="utf-8") as fh:
+        fh.write(f"\nThe delegation lasts {stale}.\n")
+    assert any(stale in p for p in check_delegation_end_date(root))
+
+
+def test_the_merge_guard_is_a_protected_path():
+    assert GUARD_SCRIPT in protected_paths(ROOT)
+    assert GUARD_SCRIPT in names_in_rule(rule_list_line(ROOT, 3))
 
 
 def test_a_codeowners_line_must_match_the_file_or_directory_on_disk(tmp_path):
