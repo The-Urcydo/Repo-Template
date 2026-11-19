@@ -128,7 +128,7 @@ make". No other repository is edited by this decision.
 
 - `tests/test_merge_guard.py` exercises every refusal against a stubbed `gh`; no test merges anything.
 - `tests/test_repo_governance.py` keeps the guard path protected and fails if `AGENTS.md` rule 1 names
-  an account again.
+  an owner account again.
 - The first Phase 1 merge carries `Delegated-under: ADR-0011`, and the owner can audit it from
   `git log`.
 - Branch deletion is a repository setting (on today). A post-merge check that fails (two parents,

@@ -253,13 +253,19 @@ def check_ci_job_names_match_the_ruleset(root: Path) -> list[str]:  # e
 
 @check
 def check_delegation_end_date(root: Path) -> list[str]:  # f
-    """The delegation has an absolute end date; renewing it means changing the ADR, the decisions file,
+    """The delegation has one absolute end date; renewing it means changing the ADR, the decisions file,
     and END_DATE here in the same PR, so no stale '90 days' or 'if merged on' can survive."""
+    ends = re.compile(r"\bends\s+(?:on\s+)?(\d{4}-\d{2}-\d{2})")
     problems = []
     for rel in (ADR_0011, DECISIONS):
         text = read(root, rel)
-        if END_DATE not in text:
-            problems.append(f"{rel} does not state the delegation end date {END_DATE}")
+        dates = set(ends.findall(text))
+        if END_DATE not in dates:
+            problems.append(f"{rel} does not state the delegation end date {END_DATE} "
+                            f"(found {sorted(dates) or 'none'})")
+        others = sorted(dates - {END_DATE})
+        if others:
+            problems.append(f"{rel} states another end date {others}; the delegation ends on {END_DATE}")
         for stale in ("if merged on", "90 days", "90-day"):
             if re.search(re.escape(stale), text, re.IGNORECASE):
                 problems.append(f"{rel} still contains {stale!r}; the end date is absolute ({END_DATE})")
@@ -360,6 +366,8 @@ MUTATIONS = {
         lambda r: replace_once(r, CI, 'python-version: "3.14"', 'python-version: "3.13"'), "e_ci_job_names"),
     "delegation_end_date_moves": (
         lambda r: replace_once(r, ADR_0011, END_DATE, "2027-02-16"), "f_delegation_end_date"),
+    "delegation_end_date_moves_in_decisions": (
+        lambda r: replace_once(r, DECISIONS, END_DATE, "2027-02-16"), "f_delegation_end_date"),
 }
 
 
@@ -441,11 +449,13 @@ def test_rule_1_must_not_name_an_account(tmp_path):
     assert any("names the account(s)" in p for p in check_rule_1_does_not_name_accounts(root))
 
 
-def test_the_end_date_check_refuses_stale_relative_wording(tmp_path):
+@pytest.mark.parametrize("rel", [ADR_0011, DECISIONS])
+@pytest.mark.parametrize("stale", ["if merged on", "90 days", "90-day"])
+def test_the_end_date_check_refuses_stale_relative_wording(tmp_path, rel, stale):
     root = copy_governance_files(tmp_path)
-    replace_once(root, ADR_0011, "The delegation ends on 2027-02-17.",
-                 "The delegation lasts 90 days; it ends on 2027-02-17.")
-    assert any("90 days" in p for p in check_delegation_end_date(root))
+    with (root / rel).open("a", encoding="utf-8") as fh:
+        fh.write(f"\nThe delegation lasts {stale}.\n")
+    assert any(stale in p for p in check_delegation_end_date(root))
 
 
 def test_the_merge_guard_is_a_protected_path():
