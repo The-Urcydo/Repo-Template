@@ -32,8 +32,11 @@ ROOT = Path(__file__).resolve().parents[1]
 CODEOWNERS = ".github/CODEOWNERS"
 CI = ".github/workflows/test.yml"
 RULES = "AGENTS.md"
+ADR_0011 = "docs/decisions/0011-delegate-merges-under-a-guard.md"
+DECISIONS = "docs/maintainers/decisions.md"
 GUARD_SCRIPT = ".github/scripts/merge_guarded.sh"
-GOVERNANCE_FILES = [CODEOWNERS, CI, RULES]
+GOVERNANCE_FILES = [CODEOWNERS, CI, RULES, ADR_0011, DECISIONS]
+END_DATE = "2027-02-17"
 
 # The ruleset `protect-main` requires `ci-gate`; this set must track test.yml. If a check below fails
 # because the job names changed, change the ruleset (GitHub settings) first or together with the workflow.
@@ -248,12 +251,28 @@ def check_ci_job_names_match_the_ruleset(root: Path) -> list[str]:  # e
             "(EXPECTED_CI_CHECKS in tests/test_repo_governance.py): change the ruleset in GitHub, then this constant"]
 
 
+@check
+def check_delegation_end_date(root: Path) -> list[str]:  # f
+    """The delegation has an absolute end date; renewing it means changing the ADR, the decisions file,
+    and END_DATE here in the same PR, so no stale '90 days' or 'if merged on' can survive."""
+    problems = []
+    for rel in (ADR_0011, DECISIONS):
+        text = read(root, rel)
+        if END_DATE not in text:
+            problems.append(f"{rel} does not state the delegation end date {END_DATE}")
+        for stale in ("if merged on", "90 days", "90-day"):
+            if re.search(re.escape(stale), text, re.IGNORECASE):
+                problems.append(f"{rel} still contains {stale!r}; the end date is absolute ({END_DATE})")
+    return problems
+
+
 CHECKS = {
     "a_codeowners_lines": check_codeowners_lines_share_one_owner_set,
     "b_rule_3_paths": check_rule_3_lists_the_protected_paths,
     "c_codeowners_path_kinds": check_codeowners_path_kinds,
     "d_rule_1_accounts": check_rule_1_does_not_name_accounts,
     "e_ci_job_names": check_ci_job_names_match_the_ruleset,
+    "f_delegation_end_date": check_delegation_end_date,
 }
 
 
@@ -339,6 +358,8 @@ MUTATIONS = {
     "rule_1_names_an_account": (name_an_account_in_rule_1, "d_rule_1_accounts"),
     "ci_matrix_version_changes": (
         lambda r: replace_once(r, CI, 'python-version: "3.14"', 'python-version: "3.13"'), "e_ci_job_names"),
+    "delegation_end_date_moves": (
+        lambda r: replace_once(r, ADR_0011, END_DATE, "2027-02-16"), "f_delegation_end_date"),
 }
 
 
@@ -418,6 +439,13 @@ def test_rule_1_must_not_name_an_account(tmp_path):
     root = copy_governance_files(tmp_path)
     name_an_account_in_rule_1(root)
     assert any("names the account(s)" in p for p in check_rule_1_does_not_name_accounts(root))
+
+
+def test_the_end_date_check_refuses_stale_relative_wording(tmp_path):
+    root = copy_governance_files(tmp_path)
+    replace_once(root, ADR_0011, "The delegation ends on 2027-02-17.",
+                 "The delegation lasts 90 days; it ends on 2027-02-17.")
+    assert any("90 days" in p for p in check_delegation_end_date(root))
 
 
 def test_the_merge_guard_is_a_protected_path():

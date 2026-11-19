@@ -351,7 +351,7 @@ def test_an_approval_of_an_older_commit_is_refused(tmp_path):
 
 
 def test_a_non_owner_approval_is_refused(tmp_path):
-    assert_refused(run_guard(tmp_path, build_scenario(reviews=[review(login="shiniroku")])),
+    assert_refused(run_guard(tmp_path, build_scenario(reviews=[review(login="visitor")])),
                    "no CODEOWNERS login has approved the latest commit")
 
 
@@ -406,7 +406,7 @@ def test_equal_review_timestamps_use_the_later_review_id(tmp_path):
 def test_a_non_owner_change_request_does_not_cancel_an_owner_approval(tmp_path):
     # GitHub's own mergeability blocks a change request from anyone; the guard only judges owners and
     # leaves that part to mergeable_state (which a real blocked PR reports as "blocked").
-    other = review(login="shiniroku", state="CHANGES_REQUESTED", at="2026-11-18T11:00:00Z")
+    other = review(login="visitor", state="CHANGES_REQUESTED", at="2026-11-18T11:00:00Z")
     result = run_guard(tmp_path, build_scenario(reviews=[review(), other]))
     assert result.code == 0, result.err
 
