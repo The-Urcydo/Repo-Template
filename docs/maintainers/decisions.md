@@ -60,8 +60,9 @@ Policy and the end-of-life table: `CONTRIBUTING.md`, section "Supported Python v
   keep `ubuntu-latest`.
 - **`ci-gate`** is a job in `test.yml` (`needs: [template]`, `if: always()`) that fails unless the whole matrix
   succeeded. The ruleset requires it instead of version-named checks, so the matrix can change without a ruleset
-  edit. `EXPECTED_CI_CHECKS` in the governance test lists every job name `test.yml` produces
-  (`template (3.12)`, `template (3.14)`, `template (3.15)`, `ci-gate`); the ruleset requires only `ci-gate`.
+  edit. `EXPECTED_CI_CHECKS` in the governance test lists the unique job names `test.yml` produces
+  (`template (3.12)`, `template (3.14)`, `template (3.15)`, `ci-gate`); GitHub reports **two** `template (3.12)`
+  runs (newest Copier and the 9.6.0 floor), both covered by `ci-gate`. The ruleset requires only `ci-gate`.
 - **Run control** (#71). `test.yml` cancels an older run when a pull request gets a newer push; runs on `main`
   always finish. The matrix job times out after 30 minutes and `ci-gate` after 5, so a hung test cannot hold a
   runner for the six-hour default. `.github/workflows/test.yml` is the source.
@@ -74,7 +75,8 @@ Policy and the end-of-life table: `CONTRIBUTING.md`, section "Supported Python v
   `pyyaml>=6.0.3`) and a floor is the minimum that provably works, not the latest. `pytest-xdist` is a root-only
   dependency so the root suite runs in parallel; generated projects stay standard-library only. `copier.yml` sets
   `_min_copier_version: "9.6.0"` because 9.4.0 and 9.5.0 ignore templated `_exclude` entries, so every profile
-  receives every module. CI installs the newest Copier, so the floor is not tested yet.
+  receives every module. CI now tests both: a second 3.12 matrix leg parses `copier>=9.6` from
+  `requirements-dev.txt` and installs `copier==9.6.0`, alongside the newest-Copier leg (#86 item 1).
 - **Dependabot.** The `github-actions` entry stays first, weekly and grouped, with a 7-day cooldown; a test checks
   this. The `pip` entry is weekly with `versioning-strategy: increase-if-necessary`, so a floor is raised only when
   the new version needs it. Before approving one, read it and check `template (3.12)` and the package's
