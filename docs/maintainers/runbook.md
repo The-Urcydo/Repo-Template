@@ -72,8 +72,13 @@ Use a separate worktree, not your working folder.
    `gh api repos/The-Urcydo/Repo-Template/pulls/<N>/files --jq '.[].filename'`; they must match the description.
 2. Check the head out in a worktree, run the governance test and the full suite there, and, if `template/`
    changed, the probe checks above.
-3. Confirm no protected path changed outside the plan, and that the description's numbers match (recount them).
-4. Report what passed, what is missing and the decisions only the owner can make. Do not approve or merge.
+3. For **any** change under `template/`, generate one project from `main` and one from the PR head with identical
+   answers and `diff -ru` the two generated trees. Read the diff as a new project would: nothing that belongs to the
+   template repository (maintainer changelog entries, release headings, internal notes) may land in a fresh project.
+   A root test now pins the generated `CHANGELOG.md` to its pristine single entry; the diff still catches everything
+   else. This check was added after PR #95 would have stamped a `[0.6.0] - 2026-11-20` heading into every new project.
+4. Confirm no protected path changed outside the plan, and that the description's numbers match (recount them).
+5. Report what passed, what is missing and the decisions only the owner can make. Do not approve or merge.
 
 ## Review habits
 Each of these found a real defect in an earlier PR.
