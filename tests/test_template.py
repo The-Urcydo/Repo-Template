@@ -512,11 +512,8 @@ def test_eval_harness_tests_run_as_a_module_from_the_project_root(full):
 
 def test_cutting_evals_removes_the_eval_harness_tests(tmp_path):
     p = generate(tmp_path / "p", profile="full")
-    install_tool_tests(p)
-    assert (p / EVAL_TESTS).is_file(), "the moved tests must be installed before cutting evals"
     r = py(p, "tools/remove_module.py", "evals", "--apply")
     assert r.returncode == 0, r.stdout + r.stderr
-    assert not (p / EVAL_TESTS).exists(), "cutting evals must remove the eval-harness tests"
     assert not (p / "tools/eval_harness.py").exists(), "cutting evals must remove the harness itself"
     assert not (p / "agents" / "evals").exists()
     assert "eval_harness.py" not in (p / "justfile").read_text(encoding="utf-8"), "the eval recipe survived the cut"
@@ -525,6 +522,8 @@ def test_cutting_evals_removes_the_eval_harness_tests(tmp_path):
     assert "eval_harness.py" not in (p / "tools/README.md").read_text(encoding="utf-8"), \
         "the tools README survived the cut"
     assert py(p, "tools/check.py", "--strict").returncode == 0
+    install_tool_tests(p)  # after the cut, only the tools tests are copied in
+    assert not (p / EVAL_TESTS).exists(), "a project without evals must not copy the eval tests"
     tools_text = (p / "tools/tests/test_tools.py").read_text(encoding="utf-8")
     assert "class EvalHarnessTests" not in tools_text, "cutting evals must not leave its tests in test_tools.py"
     tools = suite_size(p, "test_tools.py")
@@ -535,7 +534,8 @@ def test_cutting_evals_removes_the_eval_harness_tests(tmp_path):
 def test_evals_module_paths_and_excludes_agree():
     modules = json.loads((TEMPLATE / "template" / "tools" / "modules.json").read_text(encoding="utf-8"))["modules"]
     paths = set(modules["evals"]["paths"])
-    assert str(EVAL_TESTS).replace("\\", "/") in paths, "the split test file must be an evals module path"
+    assert "tools/eval_harness.py" in paths, "the harness must be an evals module path"
+    assert str(EVAL_TESTS).replace("\\", "/") not in paths, "tool tests no longer ship as a module path"
     excludes = [line for line in (TEMPLATE / "copier.yml").read_text(encoding="utf-8").splitlines()
                 if "enabled_modules" in line and "evals" in line]
     assert len(excludes) == len(paths), (excludes, paths)
@@ -914,7 +914,8 @@ def test_update_across_the_docs_layout_move_keeps_the_projects_own_docs(tmp_path
     assert "migrate: docs/how-to/deploy-to-staging.md -> docs/dev/how-to/deploy-to-staging.md" in r.stdout, r.stdout
 
     # the current template ships no tool tests; the root suite copies them in before running them
-    assert not (proj / "tools/tests").exists(), "the update left shipped tool tests behind"
+    shipped_tests = list((proj / "tools/tests").glob("*.py")) if (proj / "tools/tests").exists() else []
+    assert not shipped_tests, f"the update left shipped tool tests behind: {shipped_tests}"
     assert (proj / "tests/README.md").is_file(), "the update deleted the shipped tests folder"
 
     # the project's own docs moved with the layout, and nothing is left behind in the old folders
@@ -1210,7 +1211,6 @@ def test_update_from_v0_5_0_stops_shipping_tool_tests(tmp_path):
     for profile in ("full", "lean"):
         proj = generate(tmp_path / profile, tpl, "--vcs-ref", SPLIT_TAG, profile=profile)
         assert (proj / "tools/tests/test_tools.py").is_file(), f"{profile}: old release shipped the tools tests"
-        assert (proj / EVAL_TESTS).exists() == (profile == "full"), f"{profile}: wrong eval split before update"
         git(proj, "init", "-q")
         git(proj, "add", "-A")
         git(proj, "commit", "-qm", "init")
