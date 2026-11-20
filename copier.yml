@@ -70,6 +70,10 @@ _migrations:
   # paths after the merge; a project's own test under tools/tests/ survives.
   - version: "v0.6.0"
     command: '"{{ _copier_python }}" "{{ _copier_conf.src_path }}/migrations/remove_tool_tests.py" .'
+  - version: "v0.6.0"
+    command: '"{{ _copier_python }}" tools/sync_indexes.py'
+  - version: "v0.6.0"
+    command: '"{{ _copier_python }}" tools/sync_agents.py'
 
 _message_after_copy: |
   Created {{ project_name }} (profile: {{ profile }}, layout: {{ layout }}).
