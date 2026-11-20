@@ -5,12 +5,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: de
 
 ## [Unreleased]
 
-### Removed
-- Generated projects no longer ship `tools/tests` in any profile. The tool tests now live in the template repository's
-  root-level `tool-tests/` and the root suite runs them against a generated project. **If your project has its own
-  tests under `tools/tests/`, they will no longer run in shipped CI**: move them under your project's `tests/` or add
-  your own CI step. `copier update` removes the two shipped test files while keeping project-owned files in that folder.
-
 ### Added
-- Generated projects can choose a licence at creation: `none` (default), MIT, Apache-2.0, or `other` with a custom name. MIT and Apache-2.0 generate a `LICENSE` with the copyright holder and a year locked at creation; `none` and `other` ship no `LICENSE` file, and `other` records the chosen name in the README. `copier update` does not change the recorded year.
 - Project created from Repo-Template.
+
+## [0.6.0] - 2026-11-20
+
+### Removed
+- maintainer note that must not ship

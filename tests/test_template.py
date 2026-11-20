@@ -1298,3 +1298,34 @@ def test_other_license_records_the_name_without_shipping_a_file(tmp_path):
     assert "license_other: BSD-3-Clause" in answers
     assert "copyright_holder" not in answers
     assert py(p, "tools/check.py", "--strict").returncode == 0
+
+
+# A generated project's changelog belongs to that project. Maintainer changelog entries and release
+# headings live in this repository's release notes, not in every new project (PR #95 regression).
+PRISTINE_CHANGELOG = """# Changelog
+
+All notable changes to this project are recorded here, newest first. The scribe role owns this file.
+Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: decide in an ADR when you first release.
+
+## [Unreleased]
+
+### Added
+- Project created from Repo-Template.
+"""
+
+
+@pytest.mark.parametrize("profile,layout", [
+    ("full", "single"), ("full", "workspace"), ("full", "data-ml"), ("full", "minimal"),
+    ("lean", "single"), ("standard", "single"),
+])
+@pytest.mark.parametrize("license_choice", ["none", "mit", "apache-2.0", "other"])
+def test_generated_changelog_is_pristine_in_every_profile_layout_and_license(
+    tmp_path, profile, layout, license_choice,
+):
+    answers = {"profile": profile, "layout": layout, "license": license_choice}
+    if license_choice == "other":
+        answers["license_other"] = "BSD-3-Clause"
+    p = generate(tmp_path / "p", **answers)
+    changelog = (p / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert changelog == PRISTINE_CHANGELOG, f"{profile}/{layout}/{license_choice}: {changelog!r}"
+    assert not re.search(r"^## \[[0-9]+\.[0-9]+", changelog, re.M), "a release heading leaked into a new project"
