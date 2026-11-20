@@ -65,6 +65,12 @@ _migrations:
   - version: "v0.5.0"
     command: '"{{ _copier_python }}" tools/sync_agents.py'
 
+  # v0.6.0 stops shipping tools/tests (the files moved to the template repo's root-level tool-tests/).
+  # Copier's merge keeps files the new template no longer lists, so remove exactly the two shipped
+  # paths after the merge; a project's own test under tools/tests/ survives.
+  - version: "v0.6.0"
+    command: '"{{ _copier_python }}" "{{ _copier_conf.src_path }}/migrations/remove_tool_tests.py" .'
+
 _message_after_copy: |
   Created {{ project_name }} (profile: {{ profile }}, layout: {{ layout }}).
 
