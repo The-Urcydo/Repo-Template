@@ -103,9 +103,9 @@ must state its evidence criteria first. Proposed criteria for the owner to edit:
 
 ### Term and revocation
 
-The delegation ends on 2027-02-17. A new PR can renew it. After that date, merging falls back to the
-owner alone. The guard does not read the calendar: respecting the end date is the orchestrator's
-duty, and the owner audits it from this ADR and the merge history.
+The delegation ends on 2027-02-17. A new PR can renew it. After that date, the guard refuses a
+delegated merge and the owner merges. The owner can audit the end date from this ADR and the merge
+history.
 
 The owner revokes it by reverting or superseding this ADR. In an emergency he toggles the ruleset in
 the GitHub UI and revokes the credential the orchestrator uses; those actions take effect without a
