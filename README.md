@@ -160,12 +160,18 @@ Layout of this repo: `copier.yml` (questions, exclusions, tasks) · `template/` 
 
 ```
 git tag -a vX.Y.Z -m "vX.Y.Z: short summary" \
-  -m "What changed for generated projects; mention file renames."
+  -m "One short paragraph: what changed for generated projects."
 git push origin vX.Y.Z
-gh release create vX.Y.Z --verify-tag --notes-from-tag
+gh release create vX.Y.Z --verify-tag --generate-notes   # then edit the body
 ```
 
-Tag on the merge commit, after the pull requests you want to ship have merged. The tag message (the summary and the detail paragraph) becomes the [release notes](https://github.com/The-Urcydo/Repo-Template/releases): list what changed for generated projects and say when an update renames files. `--notes-from-tag` reads that message, so write it for the people updating their projects.
+Tag on the merge commit, after the pull requests you want to ship have merged. Keep the tag annotation short — a
+summary line and one paragraph — because a pushed tag cannot be changed or deleted (ruleset `protect-release-tags`).
+**The full notes go in the [GitHub release body](https://github.com/The-Urcydo/Repo-Template/releases), not in the tag
+message and never with `--notes-from-tag`.** Put breaking changes first, name renamed files, say when an update needs a
+migration, and keep the body editable; `--generate-notes` only drafts it from pull request labels. The template's
+`template/CHANGELOG.md` ships into every generated project as that project's own changelog, so release notices belong
+in the GitHub release, not there.
 
 Before you tag, compare the pins in `template/.github/workflows/` with `.github/workflows/`. Dependabot here watches only this repo's own workflows, so the action commit SHAs and the `actionlint` and `zizmor` versions that ship to projects are bumped by hand. `workflow-lint` lints both sets.
 

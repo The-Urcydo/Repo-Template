@@ -21,6 +21,9 @@ Thanks for your interest. This repository is the Copier template; the projects i
 
    The suite generates real projects and takes about two minutes: `pytest.ini` runs it in parallel with
    `pytest-xdist` and limits a bare `pytest` to `tests/`. Use `-n0` when debugging one test in order.
+   CI runs the suite twice on Python 3.12: once with the newest Copier and once with the floor parsed from
+   `requirements-dev.txt` (9.6.0). Both legs report as `template (3.12)`; `ci-gate` aggregates them, so no new
+   required check or ruleset edit was needed. See the CI section of `docs/maintainers/decisions.md`.
 3. To try your branch by hand, always pass `--vcs-ref HEAD`:
 
    ```
