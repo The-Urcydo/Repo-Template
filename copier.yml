@@ -17,6 +17,7 @@ _exclude:
   - __pycache__
   - "*.pyc"
   - .DS_Store
+  - /tools/tests
   - "{% if 'product' not in enabled_modules %}/docs/product{% endif %}"
   - "{% if 'operations' not in enabled_modules %}/docs/operations{% endif %}"
   - "{% if 'security' not in enabled_modules %}/docs/security{% endif %}"

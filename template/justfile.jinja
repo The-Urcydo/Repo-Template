@@ -30,9 +30,8 @@ template-status:
 hooks:
     git config core.hooksPath .githooks
 
-# Unit tests for the tooling
-test:
-    python3 -m unittest discover -s tools/tests
+# The tools in tools/ are template-owned: their tests live in the template repository, not here.
+# Project-specific tools get their tests under the project's own tests/ folder.
 
 # New work item: just item my-slug   (add --light for a one-file item, --worktree for a sibling worktree)
 item *args:

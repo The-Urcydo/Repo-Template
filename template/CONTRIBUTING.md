@@ -28,8 +28,10 @@ Every status change goes through `python3 tools/transition.py`, which enforces t
 ```
 python3 tools/sync_indexes.py && python3 tools/sync_agents.py
 python3 tools/check.py
-python3 -m unittest discover -s tools/tests    # when you changed tools/
 ```
+
+The tools in `tools/` are template-owned: their tests live in the template repository, not in this project.
+Put tests for your project's own tools under this project's `tests/`.
 
 Optional: `just hooks` (or `git config core.hooksPath .githooks`) runs the health check before every commit, in every worktree of the clone. It is never on by default, and `git commit --no-verify` skips it once; with the `github` module, CI is the gate.
 

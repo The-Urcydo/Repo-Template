@@ -47,6 +47,18 @@ def py(project: Path, *args: str) -> subprocess.CompletedProcess:
                           env={**os.environ, "REPO_ROOT": str(project)})
 
 
+ROOT_TOOL_TESTS = Path(__file__).resolve().parents[1] / "tool-tests"
+
+
+def install_tool_tests(project: Path) -> None:
+    """Copy the template-owned tests into a generated project before running or counting them."""
+    target = project / "tools" / "tests"
+    target.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(ROOT_TOOL_TESTS / "test_tools.py", target / "test_tools.py")
+    if (project / "agents" / "evals").is_dir():
+        shutil.copyfile(ROOT_TOOL_TESTS / "test_eval_harness.py", target / "test_eval_harness.py")
+
+
 def suite_size(project: Path, pattern: str = "test_*.py") -> int:
     """How many test cases `unittest discover` would run, without running them.
 
@@ -112,8 +124,9 @@ def test_profile_generates_a_healthy_repo(tmp_path, profile, layout):
         ignore = (p / ".gitignore").read_text(encoding="utf-8")
         for pattern in ("data/raw/", ".ipynb_checkpoints/", "*.parquet"):
             assert pattern in ignore, pattern
-    # a layout's folder excludes must never reach into tools/ (the unit tests live in tools/tests)
-    assert (p / "tools" / "tests" / "test_tools.py").exists(), layout
+    # a layout's folder excludes must never reach into tools/, and no layout ships the tool tests
+    assert not (p / "tools" / "tests").exists(), f"{layout}: generated projects must not ship tool tests"
+    assert (p / "tools" / "check.py").is_file(), layout
     # core is always present
     for core in ["AGENTS.md", "README.md", "docs/INDEX.md", "work/ACTIVE.md", "work/HUMAN.md", "agents/ROSTER.md",
                  "tools/check.py", "docs/decisions/README.md", "agents/roles/builder/ROLE.md",
@@ -426,16 +439,16 @@ def test_eval_harness_verifies_all_golden_tasks(full):
     assert r.stdout.count("PASS") == expected, r.stdout
 
 
-def test_shipped_unit_tests_pass_in_a_project_with_its_own_data(tmp_path):
-    """The one test that executes the shipped suite. A project in use has work items, open questions
-    and code; none of that may break the tool tests. Every other test in this file loads the suite
-    instead of running it, so the suite's runtime does not multiply with the number of tests here."""
+def test_tool_tests_pass_in_a_project_with_its_own_data(tmp_path):
+    """The one test that executes the moved tool tests. A project in use has work items, open questions
+    and code; none of that may break them. Every other test loads them with TestLoader instead."""
     p = generate(tmp_path / "p", profile="full")
     q = ["tools/question.py", "ask", "Real question?", "--asked-by", "builder", "--recommended", "yes",
          "--if-no-answer", "nothing changes", "--cost", "high: data"]
     assert py(p, *q).returncode == 0
     assert py(p, "tools/new_item.py", "real-work", "--title", "Real work").returncode == 0
     (p / "src" / "big.txt").write_text("x" * 1_000_000)
+    install_tool_tests(p)
     r = py(p, "-m", "unittest", "discover", "-s", "tools/tests")
     assert r.returncode == 0, r.stderr[-3000:]
 
@@ -444,9 +457,11 @@ EVAL_TESTS = Path("tools") / "tests" / "test_eval_harness.py"
 
 
 def test_lean_project_carries_no_eval_harness_tests(tmp_path):
-    assert (TEMPLATE / "template" / EVAL_TESTS).is_file(), "the split file must exist in the template"
+    assert (ROOT_TOOL_TESTS / "test_eval_harness.py").is_file(), "the moved split file must exist"
     lean = generate(tmp_path / "lean", profile="lean")
-    assert not (lean / EVAL_TESTS).exists(), "a lean project must not carry the eval-harness tests"
+    assert not (lean / "tools" / "tests").exists(), "a generated project must not ship tool tests"
+    install_tool_tests(lean)
+    assert not (lean / EVAL_TESTS).exists(), "a lean project must not copy the eval-harness tests"
     assert not (lean / "tools/eval_harness.py").exists(), "a lean project must not carry the eval harness"
     assert "eval_harness.py" not in (lean / "justfile").read_text(encoding="utf-8"), "the eval recipe leaked"
     assert "eval_harness.py" not in (lean / "docs/dev/reference/commands.md").read_text(encoding="utf-8"), \
@@ -461,6 +476,8 @@ def test_lean_project_carries_no_eval_harness_tests(tmp_path):
 
 
 def test_full_project_keeps_the_same_eval_harness_tests(full):
+    assert not (full / "tools" / "tests").exists(), "a generated project must not ship tool tests"
+    install_tool_tests(full)
     assert (full / EVAL_TESTS).is_file(), "a full project keeps the eval-harness tests"
     assert (full / "tools/eval_harness.py").is_file(), "a full project keeps the harness itself"
     assert "eval_harness.py" in (full / "justfile").read_text(encoding="utf-8"), "the full project keeps the recipe"
@@ -486,6 +503,7 @@ def test_just_interpolations_survive_jinja_rendering(full, tmp_path):
 
 def test_eval_harness_tests_run_as_a_module_from_the_project_root(full):
     # One case is enough to prove the module entrypoint still imports; the suite itself runs once above.
+    install_tool_tests(full)
     r = py(full, "-m", "unittest", "tools.tests.test_eval_harness",
            "-k", "test_eval_harness_fails_closed_on_unknown_task", "-q")
     assert r.returncode == 0, r.stderr[-3000:]
@@ -494,7 +512,8 @@ def test_eval_harness_tests_run_as_a_module_from_the_project_root(full):
 
 def test_cutting_evals_removes_the_eval_harness_tests(tmp_path):
     p = generate(tmp_path / "p", profile="full")
-    assert (p / EVAL_TESTS).is_file(), "the full project must start with the eval-harness tests"
+    install_tool_tests(p)
+    assert (p / EVAL_TESTS).is_file(), "the moved tests must be installed before cutting evals"
     r = py(p, "tools/remove_module.py", "evals", "--apply")
     assert r.returncode == 0, r.stdout + r.stderr
     assert not (p / EVAL_TESTS).exists(), "cutting evals must remove the eval-harness tests"
@@ -840,8 +859,8 @@ _COPY_IGNORE = shutil.ignore_patterns(
 
 
 def _template_copy_ignore(directory: str, names: list[str]) -> set[str]:
-    """Copy the template repo, but not its own root tests/ and plans/: nested template/tests and
-    template/tools/tests are shipped to projects and must stay in the fixture."""
+    """Copy the template repo, but not its own root tests/ and plans/. The tool tests live in
+    root-level tool-tests/ and are never copied into generated projects, so they stay here."""
     skip = set(_COPY_IGNORE(directory, names))
     if Path(directory).resolve() == TEMPLATE:
         skip |= {"tests", "plans"} & set(names)
@@ -894,8 +913,8 @@ def test_update_across_the_docs_layout_move_keeps_the_projects_own_docs(tmp_path
     assert "_commit: v99.0.0" in (proj / ".copier-answers.yml").read_text()
     assert "migrate: docs/how-to/deploy-to-staging.md -> docs/dev/how-to/deploy-to-staging.md" in r.stdout, r.stdout
 
-    # the current template ships these; a fixture that drops a nested tests/ folder would hide their loss
-    assert (proj / "tools/tests/test_tools.py").is_file(), "the update deleted the shipped test suite"
+    # the current template ships no tool tests; the root suite copies them in before running them
+    assert not (proj / "tools/tests").exists(), "the update left shipped tool tests behind"
     assert (proj / "tests/README.md").is_file(), "the update deleted the shipped tests folder"
 
     # the project's own docs moved with the layout, and nothing is left behind in the old folders
@@ -1089,7 +1108,7 @@ _ADR_CITATION = re.compile(r"\bADR[- ]?0\d{3}\b|decisions/\d{4}")
 _ADR_CITATION_ALLOWED = {
     "template/tools/new_adr.py",              # uses ADR-0003 as accepted input syntax
     "template/docs/dev/reference/commands.md.jinja",
-    "template/tools/tests/test_tools.py",
+    "tool-tests/test_tools.py",               # root-level tool tests are not shipped
 }
 
 
@@ -1183,29 +1202,48 @@ def test_update_from_v0_4_0_stops_shipping_decision_records(tmp_path):
 SPLIT_TAG = "v0.5.0"
 
 
-def test_update_from_v0_5_0_splits_the_eval_harness_tests(tmp_path):
+def test_update_from_v0_5_0_stops_shipping_tool_tests(tmp_path):
+    """Copier's merge removes the two shipped test files, keeps a project-owned test under the same
+    folder, and leaves no conflict; the moved tests still behave correctly in full and lean projects."""
     _require_tag(SPLIT_TAG)
     tpl = _release_repo(tmp_path, SPLIT_TAG)
     for profile in ("full", "lean"):
         proj = generate(tmp_path / profile, tpl, "--vcs-ref", SPLIT_TAG, profile=profile)
+        assert (proj / "tools/tests/test_tools.py").is_file(), f"{profile}: old release shipped the tools tests"
+        assert (proj / EVAL_TESTS).exists() == (profile == "full"), f"{profile}: wrong eval split before update"
         git(proj, "init", "-q")
         git(proj, "add", "-A")
         git(proj, "commit", "-qm", "init")
+
+        own = proj / "tools/tests/test_project_own.py"
+        own.write_text(
+            "import unittest\n\n"
+            "class OwnTests(unittest.TestCase):\n"
+            "    def test_own(self):\n"
+            "        self.assertTrue(True)\n",
+            encoding="utf-8",
+        )
+        git(proj, "add", "-A")
+        git(proj, "commit", "-qm", "project-owned test")
 
         r = copier("update", "--defaults", "--trust", "-q", cwd=proj)
         assert r.returncode == 0, f"{profile}: {r.stdout}\n{r.stderr}"
         assert "_commit: v99.0.0" in (proj / ".copier-answers.yml").read_text()
         git(proj, "add", "-A")
 
-        tools = (proj / "tools" / "tests" / "test_tools.py").read_text(encoding="utf-8")
-        assert "class EvalHarnessTests" not in tools, f"{profile}: the class stayed in test_tools.py"
-        assert (proj / EVAL_TESTS).exists() == (profile == "full"), f"{profile}: wrong split file presence"
+        assert not (proj / "tools/tests/test_tools.py").exists(), f"{profile}: shipped tools test survived"
+        assert not (proj / EVAL_TESTS).exists(), f"{profile}: shipped eval test survived"
+        assert own.is_file(), f"{profile}: the project's own test was deleted"
         conflicts = [p for p in proj.rglob("*") if p.is_file() and ".git" not in p.parts
                      and re.search(r"^(<{7} |>{7} |={7}$)", p.read_text(encoding="utf-8", errors="ignore"), re.M)]
         assert not conflicts, conflicts
+        assert py(proj, "tools/check.py", "--strict").returncode == 0
+
+        install_tool_tests(proj)  # the root suite's test files, not shipped ones
         tools = suite_size(proj, "test_tools.py")
         evals = suite_size(proj, "test_eval_harness.py") if profile == "full" else 0
-        assert tools > 0
+        own_count = suite_size(proj, "test_project_own.py")
+        assert tools > 0 and own_count == 1
         if profile == "full":
             assert evals > 0
-        assert suite_size(proj) == tools + evals, f"{profile}: discovery does not match the files the update left"
+        assert suite_size(proj) == tools + evals + own_count, f"{profile}: discovery is not additive"

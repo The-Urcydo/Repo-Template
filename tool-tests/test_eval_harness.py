@@ -15,10 +15,12 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-# This module runs under discovery and as `python -m unittest tools.tests.test_eval_harness`, so it puts its
-# own directories on sys.path instead of relying on test_tools having been imported first.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # tools/
-sys.path.insert(0, str(Path(__file__).resolve().parent))  # tools/tests/
+# In a generated project these tests are copied to tools/tests/; in this repo they live in tool-tests/.
+# Put the tools/ directory on sys.path in both layouts before importing the tools.
+_HERE = Path(__file__).resolve().parent
+_TOOLS = _HERE.parent if _HERE.parent.name == "tools" else _HERE.parent / "tools"
+sys.path.insert(0, str(_TOOLS))
+sys.path.insert(0, str(_HERE))
 import _lib  # noqa: E402
 import eval_harness  # noqa: E402
 from test_tools import RepoTestCase, run  # noqa: E402

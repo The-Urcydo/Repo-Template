@@ -70,6 +70,11 @@ python -m pytest tests -q -k update               # one area
 python -m pytest tests -q --lf -n0                # last failure
 ```
 
-The shipped suite must run in a generated project, not in `template/`: `pytest template/tools/tests`
-imports the test files into the template tree and leaves `__pycache__` there. Use a probe:
+The tool tests must run in a generated project, not in `template/`: they live at the repo root in
+`tool-tests/`, and `tests/test_template.py` copies them into a probe as `tools/tests/` before the
+canonical run. To run them by hand, follow `tool-tests/README.md`; a quick probe is
 `copier copy --defaults --trust --vcs-ref HEAD --data project_name=Probe --data profile=full . <dir>`.
+
+Since the 2026-11-20 change, generated projects ship no `tools/tests` in any profile. The root suite
+still executes the same tests against a generated project and counts cases with `unittest.TestLoader`
+for the lean/cut/update checks; the measurements above remain the comparison point.

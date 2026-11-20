@@ -11,7 +11,7 @@
 - Move an item: `python3 tools/transition.py <id> <status> --by <role> --next "..." [--evidence "..."]`
 - New ADR / doc: `python3 tools/new_adr.py "Title"` / `python3 tools/new_doc.py <type> "Title"`
 - Ask the human (when to ask: `agents/protocols/escalation.md`): `python3 tools/question.py ask --help`
-- Test the tools themselves (only after changing `tools/`): `python3 -m unittest discover -s tools/tests`
+- The tools in `tools/` come from the template: change them upstream, not here. Project-specific tools get their tests under the project's own `tests/`.
 - Build / test / run the product: TODO fill in when the project has code
 
 ## Where things are

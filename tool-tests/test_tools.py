@@ -1,7 +1,8 @@
 """Tests for the repo tooling. Standard library only.
 
-Run:  python3 -m unittest discover -s tools/tests
-Each test works on a throwaway copy of this repo, so nothing here touches your real files.
+In this repository the files live in root-level `tool-tests/` and the root suite copies them into
+a generated project as `tools/tests/` before running them. Each test works on a throwaway copy of
+that project, so nothing touches your real files.
 """
 from __future__ import annotations
 
@@ -16,7 +17,9 @@ import unittest
 from datetime import timedelta
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+HERE = Path(__file__).resolve().parent
+# In a generated project this file is copied to tools/tests/; in this repo it lives in tool-tests/.
+ROOT = HERE.parents[1] if HERE.parent.name == "tools" else HERE.parent
 sys.path.insert(0, str(ROOT / "tools"))
 
 import _lib  # noqa: E402
