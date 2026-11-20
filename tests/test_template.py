@@ -1237,7 +1237,8 @@ def test_update_from_v0_5_0_stops_shipping_tool_tests(tmp_path):
         conflicts = [p for p in proj.rglob("*") if p.is_file() and ".git" not in p.parts
                      and re.search(r"^(<{7} |>{7} |={7}$)", p.read_text(encoding="utf-8", errors="ignore"), re.M)]
         assert not conflicts, conflicts
-        assert py(proj, "tools/check.py", "--strict").returncode == 0
+        check = py(proj, "tools/check.py", "--strict")
+        assert check.returncode == 0, f"{profile}: {check.stdout}\n{check.stderr}"
 
         install_tool_tests(proj)  # the root suite's test files, not shipped ones
         tools = suite_size(proj, "test_tools.py")
