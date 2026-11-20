@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: de
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-20
+
+### Migration
+- `copier update` from a release older than v0.6.0 removes the two shipped `tools/tests` test files; the migration is gated at v0.6.0 in `copier.yml`.
+
 ### Removed
 - Generated projects no longer ship `tools/tests` in any profile. The tool tests now live in the template repository's
   root-level `tool-tests/` and the root suite runs them against a generated project. **If your project has its own
