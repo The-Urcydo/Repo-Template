@@ -475,7 +475,8 @@ def test_lean_project_carries_no_eval_harness_tests(tmp_path):
     assert suite_size(lean) == tools, "a lean project must discover exactly the tools tests"
 
 
-def test_full_project_keeps_the_same_eval_harness_tests(full):
+def test_full_project_keeps_the_same_eval_harness_tests(tmp_path):
+    full = generate(tmp_path / "full", profile="full")
     assert not (full / "tools" / "tests").exists(), "a generated project must not ship tool tests"
     install_tool_tests(full)
     assert (full / EVAL_TESTS).is_file(), "a full project keeps the eval-harness tests"
@@ -501,10 +502,12 @@ def test_just_interpolations_survive_jinja_rendering(full, tmp_path):
     assert "eval_harness.py" not in lean_just
 
 
-def test_eval_harness_tests_run_as_a_module_from_the_project_root(full):
-    # One case is enough to prove the module entrypoint still imports; the suite itself runs once above.
-    install_tool_tests(full)
-    r = py(full, "-m", "unittest", "tools.tests.test_eval_harness",
+def test_eval_harness_tests_run_as_a_module_from_the_project_root(tmp_path):
+    # One case is enough to prove the module entrypoint still imports; use a private project so
+    # the shared `full` fixture stays unmodified for other tests.
+    p = generate(tmp_path / "p", profile="full")
+    install_tool_tests(p)
+    r = py(p, "-m", "unittest", "tools.tests.test_eval_harness",
            "-k", "test_eval_harness_fails_closed_on_unknown_task", "-q")
     assert r.returncode == 0, r.stderr[-3000:]
     assert "Ran 1 test" in r.stderr, r.stderr[-1000:]
