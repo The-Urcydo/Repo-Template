@@ -12,6 +12,7 @@ import re
 import shutil
 import subprocess
 import sys
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -1251,3 +1252,49 @@ def test_update_from_v0_5_0_stops_shipping_tool_tests(tmp_path):
         if profile == "full":
             assert evals > 0
         assert suite_size(proj) == tools + evals + own_count, f"{profile}: discovery is not additive"
+
+
+def _answers(project: Path) -> str:
+    return (project / ".copier-answers.yml").read_text(encoding="utf-8")
+
+
+def test_license_defaults_to_no_file_and_locks_the_year(tmp_path):
+    p = generate(tmp_path / "p")
+    assert not (p / "LICENSE").exists()
+    assert "## License" not in (p / "README.md").read_text()
+    answers = _answers(p)
+    assert "license: none" in answers
+    assert "copyright_holder" not in answers
+    assert f"copyright_year: {date.today().year}" in answers
+    assert py(p, "tools/check.py", "--strict").returncode == 0
+
+
+@pytest.mark.parametrize("choice,marker", [("mit", "MIT License"), ("apache-2.0", "Apache License")])
+def test_spdx_license_is_generated_with_holder_and_year(tmp_path, choice, marker):
+    p = generate(tmp_path / "p", license=choice, copyright_holder="Ada Lovelace")
+    lic = (p / "LICENSE").read_text()
+    assert marker in lic
+    assert f"{date.today().year} Ada Lovelace" in lic
+    assert "## License" in (p / "README.md").read_text()
+    assert "](LICENSE)." in (p / "README.md").read_text()
+    assert py(p, "tools/check.py", "--strict").returncode == 0
+
+
+def test_apache_license_keeps_the_full_text_and_a_filled_appendix(tmp_path):
+    p = generate(tmp_path / "p", license="apache-2.0", copyright_holder="Ada Lovelace")
+    lic = (p / "LICENSE").read_text()
+    assert "END OF TERMS AND CONDITIONS" in lic
+    assert f"Copyright {date.today().year} Ada Lovelace" in lic
+    assert "Copyright [yyyy] [name of copyright owner]" not in lic
+
+
+def test_other_license_records_the_name_without_shipping_a_file(tmp_path):
+    p = generate(tmp_path / "p", license="other", license_other="BSD-3-Clause")
+    assert not (p / "LICENSE").exists()
+    readme = (p / "README.md").read_text()
+    assert "Licensed under BSD-3-Clause." in readme
+    assert "Add your own `LICENSE`" in readme
+    answers = _answers(p)
+    assert "license_other: BSD-3-Clause" in answers
+    assert "copyright_holder" not in answers
+    assert py(p, "tools/check.py", "--strict").returncode == 0

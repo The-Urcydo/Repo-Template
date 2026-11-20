@@ -12,4 +12,5 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: de
   your own CI step. `copier update` removes the two shipped test files while keeping project-owned files in that folder.
 
 ### Added
+- Generated projects can choose a licence at creation: `none` (default), MIT, Apache-2.0, or `other` with a custom name. MIT and Apache-2.0 generate a `LICENSE` with the copyright holder and a year locked at creation; `none` and `other` ship no `LICENSE` file, and `other` records the chosen name in the README. `copier update` does not change the recorded year.
 - Project created from Repo-Template.

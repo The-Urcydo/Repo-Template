@@ -18,6 +18,7 @@ _exclude:
   - "*.pyc"
   - .DS_Store
   - /tools/tests
+  - "{% if license in ['none', 'other'] %}/LICENSE{% endif %}"
   - "{% if 'product' not in enabled_modules %}/docs/product{% endif %}"
   - "{% if 'operations' not in enabled_modules %}/docs/operations{% endif %}"
   - "{% if 'security' not in enabled_modules %}/docs/security{% endif %}"
@@ -137,6 +138,35 @@ enable_claude_adapter:
   type: bool
   help: Generate Claude Code adapters (.claude/agents, .claude/skills, CLAUDE.md shims) from agents/?
   default: true
+
+license:
+  type: str
+  help: License for the generated project (no LICENSE file for none or other)
+  choices:
+    "none: no LICENSE file (default)": none
+    "MIT: MIT License": mit
+    "Apache-2.0: Apache License 2.0": apache-2.0
+    "other: name a custom license and add your own LICENSE later": other
+  default: none
+
+license_other:
+  type: str
+  help: Name of the custom license (add your own LICENSE file with the full text)
+  when: "{{ license == 'other' }}"
+  validator: "{% if not license_other.strip() %}Give the license a name{% endif %}"
+
+copyright_holder:
+  type: str
+  help: Who holds the copyright in the generated LICENSE
+  when: "{{ license in ['mit', 'apache-2.0'] }}"
+  default: "{{ project_name }}"
+  validator: "{% if not copyright_holder.strip() %}Copyright holder is required{% endif %}"
+
+# Computed once at creation and locked in .copier-answers.yml, so an update never changes the year.
+copyright_year:
+  type: int
+  default: "{{ '%Y' | strftime }}"
+  ask: false
 
 # Computed, never asked: the list of modules to materialize for the chosen profile.
 enabled_modules:
