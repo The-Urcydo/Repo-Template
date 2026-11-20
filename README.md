@@ -101,12 +101,12 @@ Modules are folders that nothing in the core links to, so they can be removed at
 
 ## Works with your agent
 
-`agents/` is tool-neutral. Claude Code reads `.claude/` and `CLAUDE.md`, which are *generated* from `agents/` by `python3 tools/sync_agents.py` (the sync refuses to overwrite files it did not generate). Codex, OpenCode, and other `AGENTS.md`-aware tools read `AGENTS.md` and `agents/` directly. Cursor, GitHub Copilot, and Gemini CLI use optional adapters generated from the same source; enable them in `agents/adapters/targets.json`.
+`agents/` is tool-neutral. Claude Code reads `.claude/` and `CLAUDE.md`, which are *generated* from `agents/` by `python3 tools/sync_agents.py` (the sync refuses to overwrite files it did not generate). Codex, OpenCode, and other `AGENTS.md`-aware tools discover `AGENTS.md` files automatically (global, root and nested) and combine them as instructions; they do **not** load the `agents/` tree on their own — the root `AGENTS.md` points to it, and the agent opens the role, protocol or skill files a task needs. Cursor, GitHub Copilot, and Gemini CLI use optional adapters generated from the same source; enable them in `agents/adapters/targets.json`.
 
 | Tool | How it reads the harness | Setup |
 |---|---|---|
 | Claude Code | `.claude/` + `CLAUDE.md`, generated | on by default |
-| Codex, OpenCode, other `AGENTS.md` tools | `AGENTS.md` + `agents/` directly | none |
+| Codex, OpenCode, other `AGENTS.md` tools | `AGENTS.md` files (global, root, nested); `agents/` is reached through their pointers | none (root `AGENTS.md` points to `agents/`) |
 | Cursor | `.cursor/rules/`, generated | set `enabled` to `true` under `cursor` in `targets.json` |
 | GitHub Copilot | `.github/copilot-instructions.md`, generated | set `enabled` to `true` under `copilot` |
 | Gemini CLI | `.gemini/settings.json`, generated | set `enabled` to `true` under `gemini` |
@@ -132,7 +132,7 @@ Local edits are merged, and modules you cut stay cut. See `docs/dev/how-to/updat
 
 **Is this a GitHub template?** No. A GitHub template creates a copy with no built-in way to receive later fixes. Repo-Template uses Copier, which records your answers and merges template updates into the generated project while keeping your edits and cut modules.
 
-**Do I have to use Claude Code?** No. The harness in `agents/` is tool-neutral. Claude Code, Cursor, GitHub Copilot, and Gemini CLI can use generated adapters; Codex, OpenCode, and other `AGENTS.md`-aware tools read it directly.
+**Do I have to use Claude Code?** No. The harness in `agents/` is tool-neutral. Claude Code, Cursor, GitHub Copilot, and Gemini CLI can use generated adapters; Codex, OpenCode, and other `AGENTS.md`-aware tools read the repository's `AGENTS.md` files directly and follow their pointers into `agents/`.
 
 **Can I use it for a non-Python project?** Yes. The generated tools are standard-library Python, but the code layout can be `minimal` (bring your own folders) or any of the shipped layouts. The template does not impose a language or framework.
 

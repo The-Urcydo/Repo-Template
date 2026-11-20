@@ -10,7 +10,7 @@ Goal: any agent, from any vendor, follows the same roles and protocols.
 
 ## The universal way (works with every tool)
 
-1. Point the agent at `AGENTS.md`. Most coding tools read it automatically (Gemini CLI needs a setting, see below); for the rest, put "read AGENTS.md first" in the system prompt.
+1. Point the agent at `AGENTS.md`. Codex, OpenCode and most other coding tools discover `AGENTS.md` files automatically (global, root and nested) and combine them as instructions; they do **not** load the `agents/` tree on their own, so the root `AGENTS.md` points to it and the agent opens the role, protocol or skill files a task needs. Gemini CLI needs a setting (see below); for tools that do not discover it, put "read AGENTS.md first" in the system prompt.
 2. Tell it its role: "You are the builder. Read `agents/roles/builder/ROLE.md`."
 3. Give it the work item: "Your item is `<id>`; start from its `handoff.md`."
 4. Make sure it can run shell commands, because every action goes through `python3 tools/...`.
