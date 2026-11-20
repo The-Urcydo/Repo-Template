@@ -27,7 +27,6 @@ _exclude:
   - "{% if 'release' not in enabled_modules %}/docs/release{% endif %}"
   - "{% if 'infra' not in enabled_modules %}/infra{% endif %}"
   - "{% if 'evals' not in enabled_modules %}/agents/evals{% endif %}"
-  - "{% if 'evals' not in enabled_modules %}/tools/tests/test_eval_harness.py{% endif %}"
   - "{% if 'evals' not in enabled_modules %}/tools/eval_harness.py{% endif %}"
   - "{% if 'github' not in enabled_modules %}/.github{% endif %}"
   - "{% if 'github' not in enabled_modules %}/docs/dev/how-to/protect-the-repo.md{% endif %}"

@@ -39,8 +39,7 @@
       "summary": "Golden tasks that test the agent harness itself (roles, skills, AGENTS.md).",
       "paths": [
         "agents/evals",
-        "tools/eval_harness.py",
-        "tools/tests/test_eval_harness.py"
+        "tools/eval_harness.py"
       ],
       "removal_notes": "The eval recipe in `justfile`, the `eval_harness.py` row and `related_code` entry in `docs/dev/reference/commands.md`, and the row in `tools/README.md` are removed with the module.",
       "text_edits": [
