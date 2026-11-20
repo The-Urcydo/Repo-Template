@@ -27,6 +27,7 @@ Plain `python3 tools/<name>.py`, no installs. Run any tool with `--help`. Comman
 {% if 'evals' in enabled_modules %}| `eval_harness.py` | Seeds throwaway sandboxes for golden tasks in `agents/evals/tasks/`, runs reference or agent commands, and grades post-conditions |{% endif %}
 | `modules.json` | Registry of optional modules and their paths |
 | `_lib.py` | Shared helpers (front matter, locks, ownership, state machine) |
-| `tests/` | Unit tests: `python3 -m unittest discover -s tools/tests` |
+
+Tools here are template-owned; their tests do not ship with a project. Project-specific tools get tests under the project's own `tests/`.
 
 Rules for changing tools: `tools/AGENTS.md`.

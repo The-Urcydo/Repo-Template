@@ -16,7 +16,7 @@ Item id: `<!-- e.g. 2026-11-01-add-login -->`
 
 <!-- Paste exact commands and results from the current head commit. -->
 - [ ] `python3 tools/check.py --strict` passes
-- [ ] Project tests pass (and `python3 -m unittest discover -s tools/tests` if `tools/` changed)
+- [ ] Project tests pass (tool tests are template-owned and do not ship here)
 - [ ] Generated files in sync (`python3 tools/sync_indexes.py --check && python3 tools/sync_agents.py --check`)
 - [ ] Docs and `CHANGELOG.md` updated where behavior changed
 

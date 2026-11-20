@@ -17,6 +17,7 @@ _exclude:
   - __pycache__
   - "*.pyc"
   - .DS_Store
+  - /tools/tests
   - "{% if 'product' not in enabled_modules %}/docs/product{% endif %}"
   - "{% if 'operations' not in enabled_modules %}/docs/operations{% endif %}"
   - "{% if 'security' not in enabled_modules %}/docs/security{% endif %}"
@@ -26,7 +27,6 @@ _exclude:
   - "{% if 'release' not in enabled_modules %}/docs/release{% endif %}"
   - "{% if 'infra' not in enabled_modules %}/infra{% endif %}"
   - "{% if 'evals' not in enabled_modules %}/agents/evals{% endif %}"
-  - "{% if 'evals' not in enabled_modules %}/tools/tests/test_eval_harness.py{% endif %}"
   - "{% if 'evals' not in enabled_modules %}/tools/eval_harness.py{% endif %}"
   - "{% if 'github' not in enabled_modules %}/.github{% endif %}"
   - "{% if 'github' not in enabled_modules %}/docs/dev/how-to/protect-the-repo.md{% endif %}"
@@ -63,6 +63,16 @@ _migrations:
   - version: "v0.5.0"
     command: '"{{ _copier_python }}" tools/sync_indexes.py'
   - version: "v0.5.0"
+    command: '"{{ _copier_python }}" tools/sync_agents.py'
+
+  # v0.6.0 stops shipping tools/tests (the files moved to the template repo's root-level tool-tests/).
+  # Copier's merge keeps files the new template no longer lists, so remove exactly the two shipped
+  # paths after the merge; a project's own test under tools/tests/ survives.
+  - version: "v0.6.0"
+    command: '"{{ _copier_python }}" "{{ _copier_conf.src_path }}/migrations/remove_tool_tests.py" .'
+  - version: "v0.6.0"
+    command: '"{{ _copier_python }}" tools/sync_indexes.py'
+  - version: "v0.6.0"
     command: '"{{ _copier_python }}" tools/sync_agents.py'
 
 _message_after_copy: |
