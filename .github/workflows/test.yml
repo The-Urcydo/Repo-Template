@@ -26,11 +26,19 @@ jobs:
       matrix:
         include:
           - python-version: "3.12"
+            copier-version: latest
+            experimental: false
+          # The lowest directly supported Copier comes from requirements-dev.txt, not a hard-coded pin here.
+          # It shares the job name with the latest leg so ci-gate and the ruleset need no change.
+          - python-version: "3.12"
+            copier-version: floor
             experimental: false
           - python-version: "3.14"
+            copier-version: latest
             experimental: false
           # Informational until it has been green for two weeks; continue-on-error keeps a failure out of ci-gate.
           - python-version: "3.15"
+            copier-version: latest
             experimental: true
     steps:
       # Actions are pinned to full commit SHAs (a tag can be moved). Dependabot keeps them current.
@@ -46,7 +54,17 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: requirements-dev.txt
-      - run: pip install -r requirements-dev.txt
+      - name: Install dev requirements
+        env:
+          COPIER_VERSION: ${{ matrix.copier-version }}
+        run: |
+          if [ "$COPIER_VERSION" = "floor" ]; then
+            floor=$(python -c 'import re; print(re.search(r"^copier>=([0-9.]+)", open("requirements-dev.txt").read(), re.M).group(1))')
+            grep -v '^copier' requirements-dev.txt > "$RUNNER_TEMP/requirements-floor.txt"
+            python -m pip install -r "$RUNNER_TEMP/requirements-floor.txt" "copier==$floor"
+          else
+            python -m pip install -r requirements-dev.txt
+          fi
       # --durations makes the slowest tests visible in the log, so a regression is easy to spot.
       - run: python -m pytest tests -q --durations=20
 
